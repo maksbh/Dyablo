@@ -78,6 +78,7 @@ target_link_libraries( dyablo_core PUBLIC
 
 if (DYABLO_USE_MPI)
     target_compile_definitions(dyablo_core PUBLIC BITPIT_ENABLE_MPI)
+    target_link_libraries( dyablo_core PUBLIC mpiUtils)
     target_sources( dyablo_core PRIVATE ${mpi_src} )
 endif (DYABLO_USE_MPI)
 
@@ -85,7 +86,6 @@ if (DYABLO_USE_HDF5)
     #target_link_libraries( dyablo_core PUBLIC HDF5::HDF5 )
     #TODO : properly use all flags with target HDF5::HDF5 (including -D_FORTIFY_SOURCE=2)
     target_link_libraries( dyablo_core PUBLIC ${HDF5_LIBRARIES} )
-    target_link_libraries( dyablo_core PUBLIC io )
     target_sources( dyablo_core PRIVATE ${hdf5_src} )
 endif (DYABLO_USE_HDF5)
 
