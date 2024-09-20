@@ -102,7 +102,7 @@ public:
     real_t z01 = (z-zmin)/(zmax-zmin);
     assert( x01 > 0 && x01 < 1.0 );
     assert( y01 > 0 && y01 < 1.0 );
-    assert( z01 >= 0 && x01 < 1.0 );
+    assert( z01 >= 0 && z01 < 1.0 );
 
     LightOctree::OctantIndex iOct = lmesh.getiOctFromPos( {x01,y01,z01} );
     auto oct_size = lmesh.getSize( iOct );
@@ -331,6 +331,35 @@ public:
       f( iCell );
     });
   }
+
+  /**
+   * Calls the user defined function f for each MPI-ghost in the current domain
+   **/
+  template <typename Function>
+  void foreach_ghost_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f) const
+  {
+    uint32_t bx = iter_space.bx;
+    uint32_t by = iter_space.by;
+    uint32_t bz = iter_space.bz;
+    uint32_t nbCellsPerBlock = bx*by*bz;
+    uint32_t nbGhosts = pmesh.getNumGhosts();
+
+    Kokkos::parallel_for( kernel_name, 
+      Kokkos::RangePolicy<>(0,nbCellsPerBlock*nbGhosts), 
+      KOKKOS_LAMBDA( uint32_t index )
+    {
+      uint32_t iOct_ghost = index/nbCellsPerBlock;
+      index = index%nbCellsPerBlock;
+
+      uint32_t k = index/(bx*by);
+      uint32_t j = (index - k*bx*by)/bx;
+      uint32_t i = index - j*bx - k*bx*by;
+
+      CellIndex iCell = {{iOct_ghost,true}, i, j, k, bx, by, bz};
+      f( iCell );
+    });
+  }
+
 
   /**
    * Call the user-defined function f for each cell and perform a reduction with the provided reducer
