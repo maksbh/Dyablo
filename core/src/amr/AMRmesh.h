@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include "AMRmesh_pablo.h"
 #include "AMRmesh_hashmap.h"
 #include "AMRmesh_hashmap_new.h"
