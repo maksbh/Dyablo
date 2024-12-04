@@ -2,13 +2,15 @@
 # validate this script with:
 # https://gitlab.maisondelasimulation.fr/pkestene/dyablo/-/ci/lint
 #
-image: "arnodurocher/dyablo-ci:cuda-11.2-visu"
+image: "arnodurocher/dyablo-ci:cuda-12.6.2-ubuntu-24.04"
 
 stages:
   - build
-  - run_all
-  - run
   - test
+  - run_all
+  - verify
+  - run
+  
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -50,6 +52,7 @@ after_script:
   artifacts:
     paths:
       - build/dyablo/bin/dyablo
+      - build/dyablo/bin/*.py
       - build/dyablo/bin/*.ini
       - build/dyablo/bin/*.pvsm
       - build/dyablo/unit_test/utest_*
@@ -79,16 +82,6 @@ build::openmp:
 
 build::cuda:
   extends: .build_cuda_template
-
-build::cuda-10.2:
-  extends: .build_cuda_template
-  image: "arnodurocher/dyablo-ci:cuda-10.2"
-  when: manual
-
-build::cuda-9.2:
-  extends: .build_cuda_template
-  image: "arnodurocher/dyablo-ci:cuda-9.2"
-  when: manual
 
 # Run unit tests
 .test_template:
@@ -134,12 +127,14 @@ test::cuda:
 # ===============================
 .run_template:
   stage: run
-  image: "arnodurocher/dyablo-ci:cuda-11.2-visu"
   artifacts:
     when: always
     paths:
-      - "*.png"
       - "run_*.txt"
+      - "**/run.txt"
+      - "**/verification.txt"
+      - "*.png"
+      - "*/*.png"
       - "report.xml"
     reports:
       junit: 
@@ -165,6 +160,26 @@ run_all::cuda_4mpi:
   stage: run_all
   script: 
     - .gitlab-ci/run_and_render_all.sh
+
+# Run verification testcases
+# -------------------------
+verify_all::openmp_1mpi:
+  extends:  
+    - .rules_mr_always_branch_always
+    - .run_template
+    - .openmp_template
+  stage: verify
+  script: 
+    - .gitlab-ci/run_and_verify_all.sh
+
+verify_all::cuda_1mpi:
+  extends:  
+    - .rules_mr_always_branch_always
+    - .run_template
+    - .cuda_template
+  stage: verify
+  script: 
+    - .gitlab-ci/run_and_verify_all.sh
 
 # Run separate testcases
 # -------------------------

@@ -48,7 +48,12 @@ configure_file(visu_riemann_2D_cell.pvsm visu_riemann_2D_cell.pvsm COPYONLY)
 # Riemann 2D block based 
 configure_file(test_riemann_2D_block.ini test_riemann_2D_block.ini COPYONLY)
 configure_file(visu_riemann_2D_block.pvsm visu_riemann_2D_block.pvsm COPYONLY)
+# Sod test
+configure_file(test_sod_3D.ini  test_sod_3D.ini )
+configure_file(visu_sod_3D.pvsm  visu_sod_3D.pvsm )
 
+configure_file(test_sod_2D.ini  test_sod_2D.ini )
+configure_file(validate_sod.py validate_sod.py )
 
 # Gravity 3D test
 configure_file(test_gravity_spheres_3D.ini test_gravity_spheres_3D.ini COPYONLY)
