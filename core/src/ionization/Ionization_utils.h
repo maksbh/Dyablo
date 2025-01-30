@@ -228,7 +228,7 @@ namespace{
 
 
     void spectrum_BBody(real_t* energy, real_t* spec, real_t temp, size_t size){
-        real_t Estar = temp * Units::KBOLTZ / Units::EV;
+        real_t Estar = (temp * Units::Kelvin * Units::KBOLTZ / Units::eV).convert_to(Units::one);
         real_t x = 0.0;
         for(size_t i=0; i<size; i++){
             x = energy[i] / Estar;
