@@ -1,105 +1,149 @@
 #pragma once
 
-#include <cmath>
-#include <memory>
-
 namespace dyablo {
 
-// Conversion factors from unit to SI / code units
-// Do not use in GPU kernels
 namespace Units{
 
 /**
- * Contains values in a specific unit 
+ * Represents a unit with it's dimensionnality as template parameters and 
+ * it's value in arbitrary common units. 
+ * 
+ * @tparams Dims... dimensions for dimensionnal analysis (the names are probably explicit enough)
+ * 
+ * Notes:
+ * - 'Units' represent physical units as well as quantities and may be used in 
+ *   simple formulas for compile-time dimensional analysis 
+ * - (Using SI as arbitrary common unit is only internal implementation details, 
+ *    besides SI really is the only true real unit system)
  */
-template<int T=0, int L=0, int M=0, int A=0, int K=0, int mol=0, int cd=0>
+template<int Time=0, int Length=0, int Mass=0, int Current=0, int Temperature=0, int mol=0, int LuminousIntensity=0>
 class Unit
 {
 public:
     real_t value_SI; // Value expressed in SI unit
 
 public:
+    /**
+     * Construct a unit from it's value in SI units
+     * /!\ please only create new units from multiplying/dividing existing units
+     * This constructor is explicit to force correct dimensionnal analysis when using floats
+     **/
     constexpr explicit Unit(real_t value_SI)
     : value_SI(value_SI)
     {}
 
-    constexpr real_t convert_to( const Unit& unit ) const
+    /**
+     * Get the value of current 'Unit' (actually a quantity) expressed in unit `unit`
+     * @tparam Dims... must be the same as current unit dims, this is only here for the error message
+     * Note : this is the only way to convert from `Unit` to 
+     *        `real_t` that ensures correct dimensional analysis
+     **/
+    template<int... Dims>
+    constexpr real_t convert_to( const Unit<Dims...>& unit ) const
     {
+        static_assert( std::is_same_v<Unit, Unit<Dims...>>, "Unit conversion error : dimension mismatch" );
         return value_SI / unit.value_SI;
     }
 
-    constexpr Unit operator+( const Unit& u2 ) const
+    /// Quantities of same dimensionnality can be added/substracted to help with dimensionnal analysis
+    template<int... Dims>
+    constexpr Unit operator+( const Unit<Dims...>& u2 ) const
     {
+        static_assert( std::is_same_v<Unit, Unit<Dims...>>, "Unit addition error : dimension mismatch" );
         return Unit(value_SI + u2.value_SI);
     }
 
-    constexpr Unit operator-( const Unit& u2 ) const
+    template<int... Dims>
+    constexpr Unit operator-( const Unit<Dims...> u2 ) const
     {
+        static_assert( std::is_same_v<Unit, Unit<Dims...>>, "Unit substraction error : dimension mismatch" );
         return Unit(value_SI - u2.value_SI);
     }
 };
 
+/// Multiply Units to create derived units
 template< int... Dims1, int... Dims2 >
 constexpr Unit<Dims1+Dims2...> operator*(const Unit<Dims1...>& u1, const Unit<Dims2...>& u2 )
 {
     return Unit<Dims1+Dims2...>( u1.value_SI * u2.value_SI );
 }
 
+/// Divide Units to create derived units
 template< int... Dims1, int... Dims2 >
 constexpr Unit<Dims1-Dims2...> operator/(const Unit<Dims1...>& u1, const Unit<Dims2...>& u2 )
 {
     return Unit<Dims1-Dims2...>( u1.value_SI / u2.value_SI );
 }
 
+/**
+ * Helper template function to perform controlled conversions from other types to units
+ * Version for Units : Units are already units
+ **/ 
 template< int... Dims > 
 constexpr Unit<Dims...> to_unit( const Unit<Dims...>& u )
 {
     return u;
 }
-
+/**
+ * Helper template function to perform controlled conversions from other types to units
+ * Version for floats : Automatically convert floats to dimensionless Units (in operators only)
+ **/ 
 constexpr Unit<> to_unit( real_t val )
 {
     return Unit<>(val);
 }
 
-template< typename T1, typename T2 >
-constexpr auto operator*(const T1& u1, const T2& u2 )
-{
-    return to_unit( u1 ) * to_unit( u2 );
-}
-
-template< typename T1, typename T2 >
-constexpr auto operator/(const T1& u1, const T2& u2 )
-{
-    return to_unit( u1 ) / to_unit( u2 );
-}
-
-template< typename T1, typename T2 >
-constexpr auto operator+(const T1& u1, const T2& u2 )
-{
-    return to_unit( u1 ) + to_unit( u2 );
-}
-
-template< typename T1, typename T2 >
-constexpr auto operator-(const T1& u1, const T2& u2 )
-{
-    return to_unit( u1 ) - to_unit( u2 );
-}
-
 template<typename T>
 struct Unit_traits
 {
-    bool is_unit = false;
+    constexpr static bool is_unit = false;
 };
 
 template< int... Dims >
 struct Unit_traits<Unit<Dims...>>
 {
-    bool is_unit = true;
+    constexpr static bool is_unit = true;
 };
 
+/// Is type a unit or not?
 template<typename T>
-bool is_unit = Unit_traits<T>::is_unit;
+constexpr bool is_unit = Unit_traits<T>::is_unit;
+
+//----------------------------
+// Operators for units with automatic type conversion using to_unit()
+//----------------------------
+
+// Don't overload operators when units are not involved
+template<typename... Ts>
+using enable_if_has_unit = std::enable_if_t<((is_unit<Ts> || ...)), int>;
+
+/// Units can be multiplied with types compatible with to_unit() on both sides
+template< typename T1, typename T2, enable_if_has_unit<T1, T2> = 0 >
+constexpr auto operator*(const T1& u1, const T2& u2 )
+{
+    return to_unit( u1 ) * to_unit( u2 );
+}
+
+/// Units can be divided with types compatible with to_unit() on both sides
+template< typename T1, typename T2, enable_if_has_unit<T1, T2> = 0  >
+constexpr auto operator/(const T1& u1, const T2& u2 )
+{
+    return to_unit( u1 ) / to_unit( u2 );
+}
+
+/// Units can be added with types compatible with to_unit() on both sides
+template< typename T1, typename T2, enable_if_has_unit<T1, T2> = 0  >
+constexpr auto operator+(const T1& u1, const T2& u2 )
+{
+    return to_unit( u1 ) + to_unit( u2 );
+}
+
+/// Units can be substracted with types compatible with to_unit() on both sides
+template< typename T1, typename T2, enable_if_has_unit<T1, T2> = 0  >
+constexpr auto operator-(const T1& u1, const T2& u2 )
+{
+    return to_unit( u1 ) - to_unit( u2 );
+}
 
 
 // SI units = 1
