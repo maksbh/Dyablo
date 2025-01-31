@@ -28,6 +28,7 @@ public:
      * /!\ please only create new units from multiplying/dividing existing units
      * This constructor is explicit to force correct dimensionnal analysis when using floats
      **/
+    KOKKOS_INLINE_FUNCTION
     constexpr explicit Unit(real_t value_SI)
     : value_SI(value_SI)
     {}
@@ -39,6 +40,7 @@ public:
      *        `real_t` that ensures correct dimensional analysis
      **/
     template<int... Dims>
+    KOKKOS_INLINE_FUNCTION
     constexpr real_t convert_to( const Unit<Dims...>& unit ) const
     {
         static_assert( std::is_same_v<Unit, Unit<Dims...>>, "Unit conversion error : dimension mismatch" );
@@ -47,6 +49,7 @@ public:
 
     /// Quantities of same dimensionnality can be added/substracted to help with dimensionnal analysis
     template<int... Dims>
+    KOKKOS_INLINE_FUNCTION
     constexpr Unit operator+( const Unit<Dims...>& u2 ) const
     {
         static_assert( std::is_same_v<Unit, Unit<Dims...>>, "Unit addition error : dimension mismatch" );
@@ -54,6 +57,7 @@ public:
     }
 
     template<int... Dims>
+    KOKKOS_INLINE_FUNCTION
     constexpr Unit operator-( const Unit<Dims...> u2 ) const
     {
         static_assert( std::is_same_v<Unit, Unit<Dims...>>, "Unit substraction error : dimension mismatch" );
@@ -63,6 +67,7 @@ public:
 
 /// Multiply Units to create derived units
 template< int... Dims1, int... Dims2 >
+KOKKOS_INLINE_FUNCTION
 constexpr Unit<Dims1+Dims2...> operator*(const Unit<Dims1...>& u1, const Unit<Dims2...>& u2 )
 {
     return Unit<Dims1+Dims2...>( u1.value_SI * u2.value_SI );
@@ -70,6 +75,7 @@ constexpr Unit<Dims1+Dims2...> operator*(const Unit<Dims1...>& u1, const Unit<Di
 
 /// Divide Units to create derived units
 template< int... Dims1, int... Dims2 >
+KOKKOS_INLINE_FUNCTION
 constexpr Unit<Dims1-Dims2...> operator/(const Unit<Dims1...>& u1, const Unit<Dims2...>& u2 )
 {
     return Unit<Dims1-Dims2...>( u1.value_SI / u2.value_SI );
@@ -79,7 +85,8 @@ constexpr Unit<Dims1-Dims2...> operator/(const Unit<Dims1...>& u1, const Unit<Di
  * Helper template function to perform controlled conversions from other types to units
  * Version for Units : Units are already units
  **/ 
-template< int... Dims > 
+template< int... Dims >
+KOKKOS_INLINE_FUNCTION 
 constexpr Unit<Dims...> to_unit( const Unit<Dims...>& u )
 {
     return u;
@@ -88,6 +95,7 @@ constexpr Unit<Dims...> to_unit( const Unit<Dims...>& u )
  * Helper template function to perform controlled conversions from other types to units
  * Version for floats : Automatically convert floats to dimensionless Units (in operators only)
  **/ 
+KOKKOS_INLINE_FUNCTION
 constexpr Unit<> to_unit( real_t val )
 {
     return Unit<>(val);
@@ -119,6 +127,7 @@ using enable_if_has_unit = std::enable_if_t<((is_unit<Ts> || ...)), int>;
 
 /// Units can be multiplied with types compatible with to_unit() on both sides
 template< typename T1, typename T2, enable_if_has_unit<T1, T2> = 0 >
+KOKKOS_INLINE_FUNCTION
 constexpr auto operator*(const T1& u1, const T2& u2 )
 {
     return to_unit( u1 ) * to_unit( u2 );
@@ -126,6 +135,7 @@ constexpr auto operator*(const T1& u1, const T2& u2 )
 
 /// Units can be divided with types compatible with to_unit() on both sides
 template< typename T1, typename T2, enable_if_has_unit<T1, T2> = 0  >
+KOKKOS_INLINE_FUNCTION
 constexpr auto operator/(const T1& u1, const T2& u2 )
 {
     return to_unit( u1 ) / to_unit( u2 );
@@ -133,6 +143,7 @@ constexpr auto operator/(const T1& u1, const T2& u2 )
 
 /// Units can be added with types compatible with to_unit() on both sides
 template< typename T1, typename T2, enable_if_has_unit<T1, T2> = 0  >
+KOKKOS_INLINE_FUNCTION
 constexpr auto operator+(const T1& u1, const T2& u2 )
 {
     return to_unit( u1 ).operator+(to_unit( u2 ));
@@ -140,91 +151,93 @@ constexpr auto operator+(const T1& u1, const T2& u2 )
 
 /// Units can be substracted with types compatible with to_unit() on both sides
 template< typename T1, typename T2, enable_if_has_unit<T1, T2> = 0  >
+KOKKOS_INLINE_FUNCTION
 constexpr auto operator-(const T1& u1, const T2& u2 )
 {
     return to_unit( u1 ).operator-(to_unit( u2 ));
 }
 
+#define DEFINE_UNIT(name, ...) constexpr auto name = __VA_ARGS__
 
 // SI units = 1
-constexpr Unit<1>              second   (1);
-constexpr Unit<0,1>            meter    (1);
-constexpr Unit<0,0,1>          kilogram (1);
-constexpr Unit<0,0,0,1>        Ampere   (1);
-constexpr Unit<0,0,0,0,1>      Kelvin   (1);
-constexpr Unit<0,0,0,0,0,1>    mol      (1);
-constexpr Unit<0,0,0,0,0,0,1>  candela  (1);
+DEFINE_UNIT( second     , Unit<1>              (1) );
+DEFINE_UNIT( meter      , Unit<0,1>            (1) );
+DEFINE_UNIT( kilogram   , Unit<0,0,1>          (1) );
+DEFINE_UNIT( Ampere     , Unit<0,0,0,1>        (1) );
+DEFINE_UNIT( Kelvin     , Unit<0,0,0,0,1>      (1) );
+DEFINE_UNIT( mol        , Unit<0,0,0,0,0,1>    (1) );
+DEFINE_UNIT( candela    , Unit<0,0,0,0,0,0,1>  (1) );
 
 // Unit multiplicators
-constexpr Unit<> one(1);
-constexpr Unit<> Giga = 1e9 * one;
-constexpr Unit<> Mega = 1e6 * one;
-constexpr Unit<> Kilo = 1e3 * one;
-constexpr Unit<> centi = 1e-2 * one;
-constexpr Unit<> milli = 1e-3 * one;
+DEFINE_UNIT( one        , Unit<>(1) );
+DEFINE_UNIT( Giga       , 1e9 * one);
+DEFINE_UNIT( Mega       , 1e6 * one);
+DEFINE_UNIT( Kilo       , 1e3 * one);
+DEFINE_UNIT( centi      , 1e-2 * one);
+DEFINE_UNIT( milli      , 1e-3 * one);
 
 // MKS units
-constexpr auto kg = kilogram;
-constexpr auto m = meter;
-constexpr auto s = second;
-constexpr auto km = Kilo*meter;
-constexpr auto K = Kelvin;
-constexpr auto Pa = kg / m / s / s;
-constexpr auto cd = candela;
-constexpr auto Joule = kg * m*m /s/s;
-constexpr auto Newton = kg * m /s/s;
-constexpr auto J = Joule;
-constexpr auto N = Newton;
+DEFINE_UNIT( kg         , kilogram );
+DEFINE_UNIT( m          , meter );
+DEFINE_UNIT( s          , second );
+DEFINE_UNIT( km         , Kilo*meter );
+DEFINE_UNIT( K          , Kelvin );
+DEFINE_UNIT( Pa         , kg / m / s / s );
+DEFINE_UNIT( cd         , candela );
+DEFINE_UNIT( Joule      , kg * m*m /s/s );
+DEFINE_UNIT( Newton     , kg * m /s/s );
+DEFINE_UNIT( J          , Joule );
+DEFINE_UNIT( N          , Newton );
 
 // CGS units
-constexpr auto gram = milli * kilogram;
-constexpr auto g = gram;
-constexpr auto centimeter = centi * meter;
-constexpr auto cm = centimeter;
-constexpr auto cm_per_s = cm / s;
-constexpr auto erg = g * cm*cm /s/s;
+DEFINE_UNIT( gram       , milli * kilogram );
+DEFINE_UNIT( g          , gram );
+DEFINE_UNIT( centimeter , centi * meter );
+DEFINE_UNIT( cm         , centimeter );
+DEFINE_UNIT( cm_per_s   , cm / s );
+DEFINE_UNIT( erg        , g * cm*cm /s/s );
 
 // Common astro units
-constexpr auto parsec = 3.085677580962325e+16 * meter;
-constexpr auto pc = parsec; 
-constexpr auto kpc = Kilo * parsec;
-constexpr auto Mpc = Mega * parsec;
-constexpr auto Gpc = Giga * parsec;
+DEFINE_UNIT( parsec     , 3.085677580962325e+16 * meter );
+DEFINE_UNIT( pc         , parsec; ) 
+DEFINE_UNIT( kpc        , Kilo * parsec );
+DEFINE_UNIT( Mpc        , Mega * parsec );
+DEFINE_UNIT( Gpc        , Giga * parsec );
 
-constexpr auto astronomical_unit = 149597870750.76672 * meter;
-constexpr auto au = astronomical_unit;
-constexpr auto solar_mass = 1.98841586e+30 * kilogram;
-constexpr auto Msun = solar_mass;
+DEFINE_UNIT( astronomical_unit, 149597870750.76672 * meter );
+DEFINE_UNIT( au         , astronomical_unit );
+DEFINE_UNIT( solar_mass , 1.98841586e+30 * kilogram );
+DEFINE_UNIT( Msun       , solar_mass );
 
-constexpr auto year = 31557600 * second;
-constexpr auto yr = year;
-constexpr auto kyr = Kilo * year;
-constexpr auto Myr = Mega * year;
-constexpr auto Gyr = Giga * year;
+DEFINE_UNIT( year       , 31557600 * second );
+DEFINE_UNIT( yr         , year );
+DEFINE_UNIT( kyr        , Kilo * year );
+DEFINE_UNIT( Myr        , Mega * year );
+DEFINE_UNIT( Gyr        , Giga * year );
 
-constexpr auto atomic_mass_unit = 1.660538921e-27 * kilogram;
-constexpr auto amu = atomic_mass_unit;
-constexpr auto electronvolt = 1.60217656e-19 * Joule;
-constexpr auto eV = electronvolt;
+DEFINE_UNIT( atomic_mass_unit, 1.660538921e-27 * kilogram );
+DEFINE_UNIT( amu        , atomic_mass_unit );
+DEFINE_UNIT( electronvolt, 1.60217656e-19 * Joule );
+DEFINE_UNIT( eV         , electronvolt );
 
 // Convenient multiples
-constexpr Unit m2 = m * m;
-constexpr Unit m3 = m * m * m;
-constexpr Unit cm2 = cm * cm;
-constexpr Unit cm3 = cm * cm * cm;
-constexpr Unit s2 = s * s;
+DEFINE_UNIT( m2         , m * m );
+DEFINE_UNIT( m3         , m * m * m );
+DEFINE_UNIT( cm2        , cm * cm );
+DEFINE_UNIT( cm3        , cm * cm * cm );
+DEFINE_UNIT( s2         , s * s );
 
 // Constants
-constexpr auto KBOLTZ = 1.3806e-23 * Joule / Kelvin;
-constexpr auto PROTON_MASS = 1.67262158e-27 * kilogram;
-constexpr auto MHE_OVER_MH = 4.002 * one;
-constexpr auto HELIUM_MASS = MHE_OVER_MH * PROTON_MASS;
-constexpr auto NEWTON_G = 6.67408e-11 * Newton * (meter*meter) / (kilogram*kilogram);
-constexpr auto SOLAR_MASS = solar_mass;
-constexpr auto SPEEDOFLIGHT = 299792458 * meter / second;
-constexpr auto H0 = 70.3 * km / s / Mpc;
-constexpr auto YHE = 0.24 * one; // Helium Mass fraction
-constexpr auto yHE = (YHE/(1.-YHE)/MHE_OVER_MH); // Helium number fraction
+DEFINE_UNIT( KBOLTZ     , 1.3806e-23 * Joule / Kelvin );
+DEFINE_UNIT( PROTON_MASS, 1.67262158e-27 * kilogram );
+DEFINE_UNIT( MHE_OVER_MH, 4.002 * one );
+DEFINE_UNIT( HELIUM_MASS, MHE_OVER_MH * PROTON_MASS );
+DEFINE_UNIT( NEWTON_G   , 6.67408e-11 * Newton * (meter*meter) / (kilogram*kilogram) );
+DEFINE_UNIT( SOLAR_MASS , solar_mass );
+DEFINE_UNIT( SPEEDOFLIGHT, 299792458 * meter / second );
+DEFINE_UNIT( H0         , 70.3 * km / s / Mpc );
+DEFINE_UNIT( YHE        , 0.24 * one ); // Helium Mass fraction
+DEFINE_UNIT( yHE        , (YHE/(1.-YHE)/MHE_OVER_MH) ); // Helium number fraction
 
 }
 
