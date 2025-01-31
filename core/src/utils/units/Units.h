@@ -135,14 +135,14 @@ constexpr auto operator/(const T1& u1, const T2& u2 )
 template< typename T1, typename T2, enable_if_has_unit<T1, T2> = 0  >
 constexpr auto operator+(const T1& u1, const T2& u2 )
 {
-    return to_unit( u1 ) + to_unit( u2 );
+    return to_unit( u1 ).operator+(to_unit( u2 ));
 }
 
 /// Units can be substracted with types compatible with to_unit() on both sides
 template< typename T1, typename T2, enable_if_has_unit<T1, T2> = 0  >
 constexpr auto operator-(const T1& u1, const T2& u2 )
 {
-    return to_unit( u1 ) - to_unit( u2 );
+    return to_unit( u1 ).operator-(to_unit( u2 ));
 }
 
 
