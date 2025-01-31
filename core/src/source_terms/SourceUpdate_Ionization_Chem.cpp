@@ -17,8 +17,8 @@ void apply_rad_chem( const ForeachCell::CellIndex& iCell_Uin,
                     bool apply_cooling, bool dynamic, real_t sigma_n_c, real_t sigma_e_c, real_t typical_energy)
 {
   
-  constexpr real_t PROTON_MASS_SI = Units::PROTON_MASS.convert_to( Units::kg );
-  constexpr real_t KBOLTZ_SI = Units::KBOLTZ.convert_to(Units::J / Units::K);
+  constexpr real_t PROTON_MASS_SI = Units::PROTON_MASS().convert_to( Units::kg() );
+  constexpr real_t KBOLTZ_SI = Units::KBOLTZ().convert_to(Units::J() / Units::K());
 
   real_t dtSI = dt*tstar*(aexp*aexp); // Timestep in s
   real_t dxSI = dx*aexp; // dx in m

@@ -157,7 +157,8 @@ constexpr auto operator-(const T1& u1, const T2& u2 )
     return to_unit( u1 ).operator-(to_unit( u2 ));
 }
 
-#define DEFINE_UNIT(name, ...) constexpr auto name = __VA_ARGS__
+#define DEFINE_UNIT(name, ...) constexpr auto name() {return __VA_ARGS__;}
+
 
 // SI units = 1
 DEFINE_UNIT( second     , Unit<1>              (1) );
@@ -170,74 +171,74 @@ DEFINE_UNIT( candela    , Unit<0,0,0,0,0,0,1>  (1) );
 
 // Unit multiplicators
 DEFINE_UNIT( one        , Unit<>(1) );
-DEFINE_UNIT( Giga       , 1e9 * one);
-DEFINE_UNIT( Mega       , 1e6 * one);
-DEFINE_UNIT( Kilo       , 1e3 * one);
-DEFINE_UNIT( centi      , 1e-2 * one);
-DEFINE_UNIT( milli      , 1e-3 * one);
+DEFINE_UNIT( Giga       , 1e9 * one());
+DEFINE_UNIT( Mega       , 1e6 * one());
+DEFINE_UNIT( Kilo       , 1e3 * one());
+DEFINE_UNIT( centi      , 1e-2 * one());
+DEFINE_UNIT( milli      , 1e-3 * one());
 
 // MKS units
-DEFINE_UNIT( kg         , kilogram );
-DEFINE_UNIT( m          , meter );
-DEFINE_UNIT( s          , second );
-DEFINE_UNIT( km         , Kilo*meter );
-DEFINE_UNIT( K          , Kelvin );
-DEFINE_UNIT( Pa         , kg / m / s / s );
-DEFINE_UNIT( cd         , candela );
-DEFINE_UNIT( Joule      , kg * m*m /s/s );
-DEFINE_UNIT( Newton     , kg * m /s/s );
-DEFINE_UNIT( J          , Joule );
-DEFINE_UNIT( N          , Newton );
+DEFINE_UNIT( kg         , kilogram() );
+DEFINE_UNIT( m          , meter() );
+DEFINE_UNIT( s          , second() );
+DEFINE_UNIT( km         , Kilo()*meter() );
+DEFINE_UNIT( K          , Kelvin() );
+DEFINE_UNIT( Pa         , kg() / m() / s() / s() );
+DEFINE_UNIT( cd         , candela() );
+DEFINE_UNIT( Joule      , kg() * m()*m() /s()/s() );
+DEFINE_UNIT( Newton     , kg() * m() /s()/s() );
+DEFINE_UNIT( J          , Joule() );
+DEFINE_UNIT( N          , Newton() );
 
 // CGS units
-DEFINE_UNIT( gram       , milli * kilogram );
-DEFINE_UNIT( g          , gram );
-DEFINE_UNIT( centimeter , centi * meter );
-DEFINE_UNIT( cm         , centimeter );
-DEFINE_UNIT( cm_per_s   , cm / s );
-DEFINE_UNIT( erg        , g * cm*cm /s/s );
+DEFINE_UNIT( gram       , milli() * kilogram() );
+DEFINE_UNIT( g          , gram() );
+DEFINE_UNIT( centimeter , centi() * meter() );
+DEFINE_UNIT( cm         , centimeter() );
+DEFINE_UNIT( cm_per_s   , cm() / s() );
+DEFINE_UNIT( erg        , g() * cm()*cm() /s()/s() );
 
 // Common astro units
-DEFINE_UNIT( parsec     , 3.085677580962325e+16 * meter );
-DEFINE_UNIT( pc         , parsec; ) 
-DEFINE_UNIT( kpc        , Kilo * parsec );
-DEFINE_UNIT( Mpc        , Mega * parsec );
-DEFINE_UNIT( Gpc        , Giga * parsec );
+DEFINE_UNIT( parsec     , 3.085677580962325e+16 * meter() );
+DEFINE_UNIT( pc         , parsec()  );
+DEFINE_UNIT( kpc        , Kilo() * parsec() );
+DEFINE_UNIT( Mpc        , Mega() * parsec() );
+DEFINE_UNIT( Gpc        , Giga() * parsec() );
 
-DEFINE_UNIT( astronomical_unit, 149597870750.76672 * meter );
-DEFINE_UNIT( au         , astronomical_unit );
-DEFINE_UNIT( solar_mass , 1.98841586e+30 * kilogram );
-DEFINE_UNIT( Msun       , solar_mass );
+DEFINE_UNIT( astronomical_unit, 149597870750.76672 * meter() );
+DEFINE_UNIT( au         , astronomical_unit() );
+DEFINE_UNIT( solar_mass , 1.98841586e+30 * kilogram() );
+DEFINE_UNIT( Msun       , solar_mass() );
 
-DEFINE_UNIT( year       , 31557600 * second );
-DEFINE_UNIT( yr         , year );
-DEFINE_UNIT( kyr        , Kilo * year );
-DEFINE_UNIT( Myr        , Mega * year );
-DEFINE_UNIT( Gyr        , Giga * year );
+DEFINE_UNIT( year       , 31557600 * second() );
+DEFINE_UNIT( yr         , year() );
+DEFINE_UNIT( kyr        , Kilo() * year() );
+DEFINE_UNIT( Myr        , Mega() * year() );
+DEFINE_UNIT( Gyr        , Giga() * year() );
 
-DEFINE_UNIT( atomic_mass_unit, 1.660538921e-27 * kilogram );
-DEFINE_UNIT( amu        , atomic_mass_unit );
-DEFINE_UNIT( electronvolt, 1.60217656e-19 * Joule );
-DEFINE_UNIT( eV         , electronvolt );
+DEFINE_UNIT( atomic_mass_unit, 1.660538921e-27 * kilogram() );
+DEFINE_UNIT( amu        , atomic_mass_unit() );
+DEFINE_UNIT( electronvolt, 1.60217656e-19 * Joule() );
+DEFINE_UNIT( eV         , electronvolt() );
 
 // Convenient multiples
-DEFINE_UNIT( m2         , m * m );
-DEFINE_UNIT( m3         , m * m * m );
-DEFINE_UNIT( cm2        , cm * cm );
-DEFINE_UNIT( cm3        , cm * cm * cm );
-DEFINE_UNIT( s2         , s * s );
+DEFINE_UNIT( m2         , m() * m() );
+DEFINE_UNIT( m3         , m() * m() * m() );
+DEFINE_UNIT( cm2        , cm() * cm() );
+DEFINE_UNIT( cm3        , cm() * cm() * cm() );
+DEFINE_UNIT( s2         , s() * s() );
 
 // Constants
-DEFINE_UNIT( KBOLTZ     , 1.3806e-23 * Joule / Kelvin );
-DEFINE_UNIT( PROTON_MASS, 1.67262158e-27 * kilogram );
-DEFINE_UNIT( MHE_OVER_MH, 4.002 * one );
-DEFINE_UNIT( HELIUM_MASS, MHE_OVER_MH * PROTON_MASS );
-DEFINE_UNIT( NEWTON_G   , 6.67408e-11 * Newton * (meter*meter) / (kilogram*kilogram) );
-DEFINE_UNIT( SOLAR_MASS , solar_mass );
-DEFINE_UNIT( SPEEDOFLIGHT, 299792458 * meter / second );
-DEFINE_UNIT( H0         , 70.3 * km / s / Mpc );
-DEFINE_UNIT( YHE        , 0.24 * one ); // Helium Mass fraction
-DEFINE_UNIT( yHE        , (YHE/(1.-YHE)/MHE_OVER_MH) ); // Helium number fraction
+DEFINE_UNIT( KBOLTZ     , 1.3806e-23 * Joule() / Kelvin() );
+DEFINE_UNIT( PROTON_MASS, 1.67262158e-27 * kilogram() );
+DEFINE_UNIT( MHE_OVER_MH, 4.002 * one() );
+DEFINE_UNIT( HELIUM_MASS, MHE_OVER_MH() * PROTON_MASS() );
+DEFINE_UNIT( NEWTON_G   , 6.67408e-11 * Newton() * (meter()*meter()) / (kilogram()*kilogram()) );
+DEFINE_UNIT( SOLAR_MASS , solar_mass() );
+DEFINE_UNIT( SPEEDOFLIGHT, 299792458 * meter() / second() );
+DEFINE_UNIT( H0         , 70.3 * km() / s() / Mpc() );
+DEFINE_UNIT( YHE        , 0.24 * one() ); // Helium Mass fraction
+DEFINE_UNIT( yHE        , (YHE()/(1.-YHE())/MHE_OVER_MH()) ); // Helium number fraction
 
 }
 

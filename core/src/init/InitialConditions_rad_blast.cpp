@@ -46,15 +46,15 @@ struct AnalyticalFormula_rad_blast : public AnalyticalFormula_base{
         xe_start(configMap.getValue<real_t>("rad", "xe_start", 1.2e-3)),
         zre_start(configMap.getValue<real_t>("ionization", "zre_start", -1000.0))
     {
-        constexpr real_t SPEEDOFLIGHT_SI = Units::SPEEDOFLIGHT.convert_to( Units::m/Units::s );
+        constexpr real_t SPEEDOFLIGHT_SI = Units::SPEEDOFLIGHT().convert_to( Units::m()/Units::s() );
 
         real_t omegam = 0.0;
-        real_t rstar = (box_size * Units::kpc).convert_to( Units::m ) ; // box size in m 
+        real_t rstar = (box_size * Units::kpc()).convert_to( Units::m() ) ; // box size in m 
         real_t dx = rstar/ (pow(2, levelMin) * bx); // Cell size (m)
-        real_t tstar = (Units::Myr).convert_to(Units::s); // sec
+        real_t tstar = (Units::Myr()).convert_to(Units::s()); // sec
         real_t vstar = rstar/tstar; //m/s
-        real_t ctilde = (clight_fraction * Units::SPEEDOFLIGHT / vstar).convert_to( Units::m/Units::s );
-        rhostar = (1000 * Units::PROTON_MASS / Units::m3).convert_to(Units::kg/Units::m3); // 1000 atomes/m3
+        real_t ctilde = (clight_fraction * Units::SPEEDOFLIGHT() / vstar).convert_to( Units::m()/Units::s() );
+        rhostar = (1000 * Units::PROTON_MASS() / Units::m3()).convert_to(Units::kg()/Units::m3()); // 1000 atomes/m3
         pstar = rhostar * vstar * vstar;
 
         // Compute sigma_n, sigma_e and typical energy
@@ -93,7 +93,7 @@ struct AnalyticalFormula_rad_blast : public AnalyticalFormula_base{
     {        
         ConsState res{};
 
-        auto temp = this->temperature * Units::Kelvin;
+        auto temp = this->temperature * Units::Kelvin();
 
         if(rad_type==BUNNY){
 
@@ -136,9 +136,9 @@ struct AnalyticalFormula_rad_blast : public AnalyticalFormula_base{
             res.rho_u = 0.0;
             res.rho_v = 0.0;
             res.rho_w = 0.0;
-            res.rho = (1000 * Units::PROTON_MASS/Units::m3).convert_to(Units::kg/Units::m3) / rhostar ;
+            res.rho = (1000 * Units::PROTON_MASS()/Units::m3()).convert_to(Units::kg()/Units::m3()) / rhostar ;
 
-            real_t p_0 = ((gamma0 - 1.0) * 1.5 * 1e3 * Units::KBOLTZ * temp).convert_to(Units::J) / pstar;
+            real_t p_0 = ((gamma0 - 1.0) * 1.5 * 1e3 * Units::KBOLTZ() * temp).convert_to(Units::J()) / pstar;
             res.e_tot = p_0/(gamma0-1.0);
         }
 
@@ -147,7 +147,7 @@ struct AnalyticalFormula_rad_blast : public AnalyticalFormula_base{
         res.fz_rad = 0.0;
         res.xe = this->xe_start;
         res.zre = this->zre_start;
-        res.temp = temp.convert_to(Units::Kelvin);
+        res.temp = temp.convert_to(Units::Kelvin());
         
         return res;
 

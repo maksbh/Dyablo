@@ -96,13 +96,13 @@ public:
     set_or_check( "cosmology", "omegav", header.ov );
     this->omegab = configMap.getValue<real_t>("cosmology", "omegab", 0.049);
 
-    auto H0_u = header.H0 * Units::km / Units::s / Units::Mpc; // Hubble constant from grafic
-    this->H0 = H0_u.convert_to( 1/Units::s );
+    auto H0_u = header.H0 * Units::km() / Units::s() / Units::Mpc(); // Hubble constant from grafic
+    this->H0 = H0_u.convert_to( 1/Units::s() );
     set_or_check( "cosmology", "H0", H0 );
-    real_t dx = (header.dx * Units::Mpc).convert_to(Units::m); // Cell size (m)
+    real_t dx = (header.dx * Units::Mpc()).convert_to(Units::m()); // Cell size (m)
     set_or_check( "cosmology", "dx", dx );
 
-    rhoc = (3. * H0_u * H0_u / (8. * M_PI * Units::NEWTON_G)).convert_to( Units::kg / Units::m3 ); // comoving critical density (kg/m3)
+    rhoc = (3. * H0_u * H0_u / (8. * M_PI * Units::NEWTON_G())).convert_to( Units::kg() / Units::m3() ); // comoving critical density (kg/m3)
     real_t rstar = header.nx * dx; // box size in m 
     tstar = 2. / H0 / sqrt(omegam); // sec
     vstar = rstar / tstar; //m/s
@@ -112,15 +112,15 @@ public:
     set_or_check( "cosmology", "vstar", vstar );
     set_or_check( "cosmology", "rhostar", rhostar );
     set_or_check( "cosmology", "tstar", tstar );
-    set_or_check( "cosmology", "ctilde", (clight_fraction * 3e5 * (Units::km/Units::s) * astart/vstar).convert_to( Units::m/Units::s ));
+    set_or_check( "cosmology", "ctilde", (clight_fraction * 3e5 * (Units::km()/Units::s()) * astart/vstar).convert_to( Units::m()/Units::s() ));
 
     real_t cosmo_z = 1. / astart - 1.;
     this->temp = 317.5 * (cosmo_z * cosmo_z) / (151.0 * 151.0);
 
     // Compute sigma_n, sigma_e and typical energy
     auto s = computeSigma(this->temperature_bb);
-    set_or_check( "ionization", "sigma_n_c", s.sn * clight_fraction * Units::SPEEDOFLIGHT.convert_to( Units::m/Units::s ) );
-    set_or_check( "ionization", "sigma_e_c", s.se * clight_fraction * Units::SPEEDOFLIGHT.convert_to( Units::m/Units::s ) );
+    set_or_check( "ionization", "sigma_n_c", s.sn * clight_fraction * Units::SPEEDOFLIGHT().convert_to( Units::m()/Units::s() ) );
+    set_or_check( "ionization", "sigma_e_c", s.se * clight_fraction * Units::SPEEDOFLIGHT().convert_to( Units::m()/Units::s() ) );
     set_or_check( "ionization", "typical_energy", s.etyp);
   }
 
@@ -241,11 +241,11 @@ public:
       real_t rho_w = rho * w;
 
       // Physical baryon density in kg/m3
-      auto cosmo_rhob = (cosmo_density + 1.0) * omegab * rhoc / (astart * astart * astart) * Units::kg / Units::m3;
+      auto cosmo_rhob = (cosmo_density + 1.0) * omegab * rhoc / (astart * astart * astart) * Units::kg() / Units::m3();
 
       // Physical pressure
-      auto cosmo_pressure_u = (gamma0 - 1.0) * 1.5 * (cosmo_rhob * (1. - Units::YHE) / Units::PROTON_MASS * (1. + Units::yHE)) * Units::KBOLTZ * (temp * Units::Kelvin);
-      real_t cosmo_pressure = cosmo_pressure_u.convert_to( Units::Pa );
+      auto cosmo_pressure_u = (gamma0 - 1.0) * 1.5 * (cosmo_rhob * (1. - Units::YHE()) / Units::PROTON_MASS() * (1. + Units::yHE())) * Units::KBOLTZ() * (temp * Units::Kelvin());
+      real_t cosmo_pressure = cosmo_pressure_u.convert_to( Units::Pa() );
       real_t p = fmax( cosmo_pressure/pstar * (astart * astart * astart * astart * astart), smallp );
       real_t e_tot = rho*u2/2.0 + p/(gamma0-1.0);
 
