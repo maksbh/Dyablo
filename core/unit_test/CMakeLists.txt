@@ -83,10 +83,6 @@ dyablo_add_test(utest_CopyGhostBlockCellData ON
   legacy/test_CopyGhostBlockCellData.cpp
   main.cpp)
 
-dyablo_add_test(utest_MusclBlockGodunovUpdateFunctor OFF
-  legacy/test_MusclBlockGodunovUpdateFunctor.cpp
-  main.cpp)
-
 dyablo_add_test(utest_ViewCommunicator ON
   block_data/test_ViewCommunicator.cpp
   main.cpp)
@@ -116,8 +112,8 @@ foreach( test "${utest_GravitySolver_cg_TEST_LIST}" )
 endforeach()
 set_tests_properties(utest_GravitySolver_cg_MPI PROPERTIES TIMEOUT 100) 
 
-dyablo_add_test(utest_HydroConservativity ON
-  hydro/test_HydroConservativity.cpp
+dyablo_add_test(utest_HyperbolicConservativity ON
+  hyperbolic/test_HyperbolicConservativity.cpp
   main.cpp)
 
 dyablo_add_test(utest_States ON

@@ -24,6 +24,23 @@ inline named_enum<BoundaryConditionType>::init_list named_enum<BoundaryCondition
   };
 }
 
+enum MagneticBoundaryConditionType {
+  BCMAG_UNDEFINED, 
+  BCMAG_SAME_AS_HYDRO,     /*!< Apply absorbing/reflective as for hydro */
+  BCMAG_PERFECT_CONDUCTOR, /*!< Normal field is set to 0 */
+  BCMAG_NORMAL_FIELD,      /*!< Horizontal field is set to 0 */
+};
+
+template<>
+inline named_enum<MagneticBoundaryConditionType>::init_list named_enum<MagneticBoundaryConditionType>::names()
+{
+  return{
+    {MagneticBoundaryConditionType::BCMAG_SAME_AS_HYDRO, "same_as_hydro"},
+    {MagneticBoundaryConditionType::BCMAG_PERFECT_CONDUCTOR, "perfect_conductor"},
+    {MagneticBoundaryConditionType::BCMAG_NORMAL_FIELD, "normal_field"},
+  };
+}
+
 //! enum component index
 enum ComponentIndex3D {
   IX = 0,
@@ -79,5 +96,21 @@ inline named_enum<DiffusivityMode>::init_list named_enum<DiffusivityMode>::names
   return {
     {DiffusivityMode::DM_CONSTANT, "constant"},
     {DiffusivityMode::DM_ANALYTICAL, "analytical"},
+  };
+}
+
+enum RadType {
+  BUNNY,
+  REGULAR,
+  STROMGREN
+};
+
+template<>
+inline named_enum<RadType>::init_list named_enum<RadType>::names() 
+{
+  return {
+    {RadType::BUNNY, "bunny"},
+    {RadType::REGULAR, "regular"},
+    {RadType::STROMGREN, "stromgren"}
   };
 }

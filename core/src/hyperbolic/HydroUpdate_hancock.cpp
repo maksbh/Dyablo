@@ -1,0 +1,20 @@
+#include "states/State_hydro.h"
+
+#include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
+
+#include "hyperbolic/scheme/Hyperbolic_hancock.h"
+
+namespace dyablo{
+
+class HydroUpdate_hancock 
+  : public Hyperbolic_hancock<HyperbolicPolicy_Hydro>
+{
+public:
+  using Hyperbolic_hancock<HyperbolicPolicy_Hydro>::Hyperbolic_hancock;
+};
+
+} //namespace dyablo
+
+FACTORY_REGISTER( dyablo::HyperbolicUpdateFactory, 
+                  dyablo::HydroUpdate_hancock, 
+                  "HydroUpdate_hancock")

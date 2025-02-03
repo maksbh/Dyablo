@@ -43,9 +43,9 @@ CellIndex get_sibling_cell<true>(const CellIndex& iCell, const CellIndex::offset
  * NOTE : level_diff() must be -1
  * NOTE : for example, neighbors in 3D are the 4 cells that are in contact with the original cell
  **/
-template< int ndim, bool enable_different_block=true, typename Func >
+template< bool enable_different_block=true, typename Func >
 KOKKOS_INLINE_FUNCTION
-int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted::Shape_t& array, const Func& apply_neighbor )
+int foreach_smaller_neighbor( int ndim, const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted::Shape_t& array, const Func& apply_neighbor )
 {
   DYABLO_ASSERT_KOKKOS_DEBUG( iCell.level_diff() == -1, "iCell must be smaller neighbor for foreach_smaller_neighbor" );
   DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && iCell.bz%2 == 0 ),
@@ -66,6 +66,13 @@ int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t&
 
 template< int ndim, bool enable_different_block=true, typename Func >
 KOKKOS_INLINE_FUNCTION
+int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted::Shape_t& array, const Func& apply_neighbor )
+{
+  return foreach_smaller_neighbor( ndim, iCell, offset, array, apply_neighbor );
+}
+
+template< int ndim, bool enable_different_block=true, typename Func >
+KOKKOS_INLINE_FUNCTION
 int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t& offset, const CellArray_global_ghosted& array, const Func& apply_neighbor )
 {
   return foreach_smaller_neighbor<ndim>( iCell, offset, array.getShape(), apply_neighbor );
@@ -81,12 +88,12 @@ int foreach_smaller_neighbor( const CellIndex& iCell, const CellIndex::offset_t&
  * @returns number of sibling cells
  * NOTE : for example in 3D, sibings are the 8 cells that form a bigger supercell
  **/
-template< int ndim, bool enable_different_block=true, typename Func >
+template< bool enable_different_block=true, typename Func >
 KOKKOS_INLINE_FUNCTION
-int foreach_sibling( const CellIndex& iCell, const CellArray_global_ghosted::Shape_t& array, const Func& apply_sibling )
+int foreach_sibling( int ndim, const CellIndex& iCell, const CellArray_global_ghosted::Shape_t& array, const Func& apply_sibling )
 {
   // enable_different_block must be activated for cell-based or odd block size
-DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && iCell.bz%2 == 0 ),
+  DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && iCell.bz%2 == 0 ),
     "enable_different_block must be activated for cell-based or odd block size" );
   int dk_count = ndim==3?2:1;
   for( int8_t dk=0; dk<dk_count; dk++ )
@@ -97,6 +104,13 @@ DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx%2 == 0 && iCell
       apply_sibling(iCell_ghost);
   }
   return 2*2*dk_count;
+}
+
+template< int ndim, bool enable_different_block=true, typename Func >
+KOKKOS_INLINE_FUNCTION
+int foreach_sibling( const CellIndex& iCell, const CellArray_global_ghosted::Shape_t& array, const Func& apply_sibling )
+{
+  return foreach_sibling(ndim, iCell, array, apply_sibling);
 }
 
 } // namespace dyablo

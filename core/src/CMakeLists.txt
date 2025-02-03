@@ -4,10 +4,16 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap_new.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_mean.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_hancock.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_hancock_oneneighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_euler.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_RK2.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/scheme/HyperbolicUpdate_hancock_oneneighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/HydroUpdate_gravity.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/HydroUpdate_euler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/HydroUpdate_euler_nopatch.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/HydroUpdate_hancock.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/HydroUpdate_RK2.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/GLMMHDUpdate_euler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/GLMMHDUpdate_hancock.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/GLMMHDUpdate_RK2.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/RadUpdate_euler.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_point_mass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_constant.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/gravity/GravitySolver_cg.cpp
@@ -15,6 +21,7 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_cosmology.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_particle_velocity.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_parabolic.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_rad.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_second_derivative_error.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_pseudo_gradient.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_mass.cpp    
@@ -25,32 +32,37 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_CIC_move.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/particles/ParticleUpdate_CIC_density.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/parabolic/ParabolicUpdate_explicit.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/cooling/CoolingUpdate_FF.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/source_terms/SourceUpdate_Cooling_FF.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/source_terms/SourceUpdate_GLM.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/source_terms/SourceUpdate_Ionization_Bunny.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/source_terms/SourceUpdate_Ionization_Chem.cpp
 )
 
 set( ic_src
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_blast.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_implode.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_riemann2d.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_kelvin_helmholtz.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_rayleigh_taylor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_orszag_tang.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_MHD_blast.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_MHD_rotor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_blast.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_implode.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_riemann2d.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_kelvin_helmholtz.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_rayleigh_taylor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_sod.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_double_mach.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_orszag_tang.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_MHD_blast.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_MHD_rotor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_MHD_rayleigh_taylor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_simple_particles.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_sod.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_particle_grid.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_grafic_fields.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/wholesun/InitialConditions_C91.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/wholesun/InitialConditions_tri_layer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_zeldovitch_pancake.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_rad_blast.cpp
 )
      
 set( legacy_src
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/CopyGhostBlockCellData.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/legacy/MarkOctantsHydroFunctor.cpp
     # ${CMAKE_CURRENT_SOURCE_DIR}/legacy/io_utils.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/hydro/HydroUpdate_legacy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_legacy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_legacy.cpp
     #${CMAKE_CURRENT_SOURCE_DIR}/legacy/MapUserData_legacy.cpp

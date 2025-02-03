@@ -13,11 +13,11 @@
 #include "init/InitialConditions.h"
 #include "io/IOManager.h"
 #include "gravity/GravitySolver.h"
-#include "hydro/HydroUpdate.h"
+#include "hyperbolic/HyperbolicUpdate.h"
 #include "particles/ParticleUpdate.h"
 #include "amr/MapUserData.h"
 #include "parabolic/ParabolicUpdate.h"
-#include "cooling/CoolingUpdate.h"
+#include "source_terms/SourceUpdate.h"
 #include "UserData.h"
 #include "Cosmo.h"
 #include "mpi/GhostCommunicator.h"
@@ -281,6 +281,11 @@ public:
       t0_default = cosmo_manager->expansionToTime( cosmo_manager->a_start );
       m_scalar_data.set("aexp", cosmo_manager->a_start);
     }
+    else
+    {
+      m_scalar_data.set("aexp", 1.0);
+      configMap.getValue<real_t>("cosmology",  "aStart",  1.0);
+    }
 
     this->m_scalar_data.set("iter", m_iter_start);
     {
@@ -300,6 +305,13 @@ public:
       m_gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
     else
       m_gravity_type = GRAVITY_NONE;
+
+    std::string gravity_update_id = configMap.getValue<std::string>("gravity", "hydro_update", m_gravity_type==GRAVITY_NONE?"none":"HydroUpdate_gravity");
+    this->gravity_update = HyperbolicUpdateFactory::make_instance( gravity_update_id,
+        configMap,
+        m_foreach_cell,
+        timers
+      );
 
     this->m_iteration_handler = std::make_unique<IterationHandler>(configMap, m_scalar_data);
 
@@ -322,7 +334,7 @@ public:
     
 
 
-    this->godunov_updater = HydroUpdateFactory::make_instance( godunov_updater_id,
+    this->godunov_updater = HyperbolicUpdateFactory::make_instance( godunov_updater_id,
       configMap,
       this->m_foreach_cell,
       timers
@@ -405,18 +417,27 @@ public:
       );
     }
 
-    std::string cooling_updater_id = configMap.getValue<std::string>("cooling", "update", "none");
-    if (cooling_updater_id != "none") {
-      this->cooling_updater = CoolingUpdateFactory::make_instance( cooling_updater_id,
+    std::vector<std::string> source_updater_ids = configMap.getValue<std::vector<std::string>>("source_terms", "updates", {});
+    for (auto source_updater_id: source_updater_ids) {
+      this->source_updaters.push_back(SourceUpdateFactory::make_instance( source_updater_id,
+        configMap,
+        m_foreach_cell, 
+        timers
+      ));
+    }
+
+    std::string rad_updater_id = configMap.getValue<std::string>("rad", "update", "none");
+    if (rad_updater_id != "none") {
+      this->rad_updater = HyperbolicUpdateFactory::make_instance( rad_updater_id,
         configMap,
         m_foreach_cell,
         timers);
     }
 
-    // Sanity check : No sense in doing parabolic update nor cooling without hydro 
+
+    // Sanity check : No sense in doing parabolic update without hydro 
     DYABLO_ASSERT_HOST_RELEASE(godunov_updater || !viscosity_updater, "Cannot have viscosity without hydro !");
     DYABLO_ASSERT_HOST_RELEASE(godunov_updater || !thermal_conduction_updater, "Cannot have thermal conduction without hydro !");
-    DYABLO_ASSERT_HOST_RELEASE(godunov_updater || !cooling_updater, "Cannot have cooling without hydro");
 
     int rank = m_communicator.MPI_Comm_rank();
     if (rank==0) {
@@ -432,12 +453,14 @@ public:
       std::cout << "Compute dt         : "; 
         for( const std::string& id : compute_dt_ids )
           std::cout << "`" << id << "` ";
+        std::cout << std::endl;
       if (viscosity_updater_id != "none") 
         std::cout << std::endl << "Viscosity solver : " << viscosity_updater_id << std::endl;
       if (tc_updater_id != "none") 
         std::cout << "Thermal conduction solver : " << tc_updater_id << std::endl;
-      if (cooling_updater_id != "none")
-        std::cout << "Cooling : " << cooling_updater_id << std::endl;
+      std::cout << "Source Terms : ";
+      for(const std::string &id : source_updater_ids )
+        std::cout << "`" << id << "` ";
       std::cout << std::endl;
       std::cout << "##########################" << std::endl;
     }
@@ -670,6 +693,13 @@ public:
       fields_to_exchange.push_back("gphi");
     }
 
+    if( this->rad_updater ){
+      fields_to_exchange.push_back("e_rad");
+      fields_to_exchange.push_back("fx_rad");
+      fields_to_exchange.push_back("fy_rad");
+      fields_to_exchange.push_back("fz_rad");
+    }
+
     timers.get("MPI ghosts").start();
     communicate_ghosts( fields_to_exchange );
     timers.get("MPI ghosts").stop();
@@ -719,12 +749,22 @@ public:
 
       godunov_updater->update( U, m_scalar_data );
 
+      if( rad_updater )
+      {
+        U.new_fields({"e_rad_next", "fx_rad_next", "fy_rad_next", "fz_rad_next"});
+        rad_updater->update( U, m_scalar_data );
+      }
+
+      if(gravity_update)
+        gravity_update->update( U, m_scalar_data );
+
       if ( viscosity_updater )
         viscosity_updater->update( U, m_scalar_data );
       if ( thermal_conduction_updater )
         thermal_conduction_updater->update( U, m_scalar_data );   
-      if ( cooling_updater )
-        cooling_updater->update( U, m_scalar_data );
+
+      for (auto &source_updater : source_updaters)
+        source_updater->update( U, m_scalar_data );
 
       U.move_field( "rho", "rho_next" ); 
       U.move_field( "e_tot", "e_tot_next" ); 
@@ -738,6 +778,13 @@ public:
         U.move_field( "Bz", "Bz_next" );
         if (this->is_glm)
           U.move_field( "psi", "psi_next" );
+      }
+      if(rad_updater)
+      {
+        U.move_field( "e_rad", "e_rad_next" ); 
+        U.move_field( "fx_rad", "fx_rad_next" ); 
+        U.move_field( "fy_rad", "fy_rad_next" ); 
+        U.move_field( "fz_rad", "fz_rad_next" );
       }
     }
 
@@ -830,19 +877,21 @@ private:
   std::unique_ptr<IterationHandler> m_iteration_handler;
   std::vector<std::unique_ptr<Compute_dt>> compute_dt;
   std::unique_ptr<RefineCondition> refine_condition;
-  std::unique_ptr<HydroUpdate> godunov_updater;
+  std::unique_ptr<HyperbolicUpdate> godunov_updater;
+  std::unique_ptr<HyperbolicUpdate> rad_updater;
   bool has_mhd, is_glm; // TODO : remove this
   int ghost_count; // TODO : remove this
   std::unique_ptr<ParticleUpdate> particle_position_updater, particle_update_density;
   std::unique_ptr<MapUserData> mapUserData;
   std::unique_ptr<IOManager> io_manager, io_manager_checkpoint;
   std::unique_ptr<GravitySolver> gravity_solver;
+  std::unique_ptr<HyperbolicUpdate> gravity_update;
 
   std::unique_ptr<CosmoManager> cosmo_manager;
 
   std::unique_ptr<ParabolicUpdate> thermal_conduction_updater;
   std::unique_ptr<ParabolicUpdate> viscosity_updater;
-  std::unique_ptr<CoolingUpdate> cooling_updater;
+  std::vector<std::unique_ptr<SourceUpdate>> source_updaters;
 
   Timers timers;
 };
