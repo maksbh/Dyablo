@@ -233,6 +233,21 @@ public:
   {
     return impl.getBoundaryFlux(*this, U, iCell_boundary, q_in_reconstructed, metadata);
   }
+
+  KOKKOS_INLINE_FUNCTION
+  constexpr static bool has_postProcess()
+  {return HyperbolicPolicy_impl::has_postProcess();}
+
+  /**
+   * @brief Add a post-processing step after the solver
+   * 
+   * This is usually a light sub-grid processing, for example to clean negative values for pressure or density
+   **/
+  KOKKOS_INLINE_FUNCTION
+  ConsState postProcess( const ConsState &u ) const
+  {
+    return impl.postProcess(u);
+  }
 };
 
 template< class T >

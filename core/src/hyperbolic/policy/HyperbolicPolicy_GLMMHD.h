@@ -964,8 +964,36 @@ public:
   : HyperbolicPolicy_State_GLMMHD(params.policy_params),
     RiemannSolver_t(params.policy_params, scalar_data),
     Slope_t(params.slope_params),
-    BoundaryConditions_t(params.bc_params, scalar_data)
+    BoundaryConditions_t(params.bc_params, scalar_data),
+    smallr(params.policy_params.smallr),
+    smallp(params.policy_params.smallp)
   {}
+private:
+  real_t smallr, smallp;
+
+public:
+  KOKKOS_INLINE_FUNCTION
+  constexpr static bool has_postProcess()
+  {return true;}
+
+  KOKKOS_INLINE_FUNCTION
+  ConsState postProcess( const ConsState &u ) const
+  {
+    real_t smallr = this->smallr;
+    real_t smallp = this->smallp;
+    PrimState q = this->consToPrim(u);
+    if (q.rho < 0.0) {
+      //this->negative_rho_count()++;
+      q.rho = smallr;
+    }
+    if (q.p < 0.0) {
+      //this->negative_p_count()++;
+      q.p   = smallp;
+    }
+    ConsState u_pp = this->primToCons(q);
+
+    return u_pp;
+  }
 };
 
 using HyperbolicPolicy_GLMMHD = HyperbolicPolicy_base< HyperbolicPolicy_GLMMHD_impl >;

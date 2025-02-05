@@ -408,7 +408,46 @@ void compute_fluxes_and_update( const FieldArray& Uin, const FieldArray& Uout, c
   setConservativeState<ndim>(Uout, iCell_Q, qcons);
 }
 
+template< int ndim, typename State, typename Array_t >
+void clean_negative_primitive_values(const ForeachCell& foreach_cell, const Array_t& U, double gamma0, double smallr, double smallp)
+{
+  using PrimState = typename State::PrimState;
+  using ConsState = typename State::ConsState;
+
+  int negative_p_count=0;
+  int negative_rho_count=0;
+
+  foreach_cell.reduce_cell( "clean_negative_values", U.getShape(),
+    KOKKOS_LAMBDA(  const ForeachCell::CellIndex& iCell, 
+                    int& negative_p_count, 
+                    int& negative_rho_count )
+  {
+    ConsState u{};
+    getConservativeState<ndim>(U, iCell, u);
+    PrimState q = consToPrim<ndim>(u, gamma0);
+    if( q.rho < 0.0 || q.p < 0.0 )
+    {
+      if (q.rho < 0.0) {
+        negative_rho_count++;
+        q.rho = smallr;
+      }
+      if (q.p < 0.0) {
+        negative_p_count++;
+        q.p   = smallp;
+      }
+      u = primToCons<ndim>(q, gamma0);
+      setConservativeState<ndim>(U, iCell, u);
+    }    
+  }, negative_p_count, negative_rho_count);
+
+  if( negative_rho_count > 0 )
+    printf("WARNING ! Negative density detected (x%d) !!!\n", negative_rho_count);
+  if( negative_p_count > 0 )
+    printf("WARNING ! Negative pressure detected (x%d) !!!\n", negative_p_count);
+
 }
+
+} // namespace
 
 /**
  * @brief Solves the equations with a Hancock timestepping on 

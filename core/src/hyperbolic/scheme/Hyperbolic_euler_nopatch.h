@@ -13,47 +13,6 @@ using offset_t      = typename CellIndex::offset_t;
 enum VarIndex_gravity {IGX, IGY, IGZ};
 
 }// namespace
-}// namespace dyablo
-
-namespace dyablo {
-
-template< typename Policy, typename Array_t >
-void clean_negative_primitive_values(const Policy& policy, const ForeachCell& foreach_cell, const Array_t& U, double smallr, double smallp)
-{
-  using PrimState = typename Policy::PrimState;
-  using ConsState = typename Policy::ConsState;
-
-  int negative_p_count=0;
-  int negative_rho_count=0;
-
-  foreach_cell.reduce_cell( "clean_negative_values", U.getShape(),
-    KOKKOS_LAMBDA(  const ForeachCell::CellIndex& iCell, 
-                    int& negative_p_count, 
-                    int& negative_rho_count )
-  {
-    ConsState u = policy.getConsState(U, iCell);
-    PrimState q = policy.consToPrim(u);
-    if( q.rho < 0.0 || q.p < 0.0 )
-    {
-      if (q.rho < 0.0) {
-        negative_rho_count++;
-        q.rho = smallr;
-      }
-      if (q.p < 0.0) {
-        negative_p_count++;
-        q.p   = smallp;
-      }
-      ConsState u = policy.primToCons(q);
-      policy.setConsState(U, iCell, u);
-    }    
-  }, negative_p_count, negative_rho_count);
-
-  if( negative_rho_count > 0 )
-    printf("WARNING ! Negative density detected (x%d) !!!\n", negative_rho_count);
-  if( negative_p_count > 0 )
-    printf("WARNING ! Negative pressure detected (x%d) !!!\n", negative_p_count);
-
-}
 
 /**
  * @brief Euler update algorithm
@@ -283,7 +242,16 @@ public:
       ghost_count );
     ghost_comm.reduce_ghosts( Uout );
 
-    clean_negative_primitive_values(policy, foreach_cell, Uout, smallr, smallp);
+    if constexpr ( Policy::has_postProcess() )
+    {
+      foreach_cell.foreach_cell( "HyperbolicUpdate::post-process", Uout.getShape(),
+        KOKKOS_LAMBDA(  const ForeachCell::CellIndex& iCell)
+      {
+        ConsState u = policy.getConsState(Uout, iCell);
+        ConsState u_pp = policy.postProcess( u );
+        policy.setConsState( Uout, iCell, u_pp );
+      });
+    }
 
     timers.get("HyperbolicUpdate_euler").stop();
   }

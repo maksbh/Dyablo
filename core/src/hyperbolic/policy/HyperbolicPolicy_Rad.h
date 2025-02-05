@@ -477,6 +477,10 @@ public:
     Slope_t(params.slope_params),
     BoundaryConditions_t(params.bc_params, scalar_data)
   {}
+public:
+  KOKKOS_INLINE_FUNCTION
+  constexpr static bool has_postProcess()
+  {return false;}
 };
 
 using HyperbolicPolicy_Rad = HyperbolicPolicy_base< HyperbolicPolicy_Rad_impl >;
