@@ -481,6 +481,9 @@ public:
   KOKKOS_INLINE_FUNCTION
   constexpr static bool has_postProcess()
   {return false;}
+
+  void printWarnings() const
+  {}
 };
 
 using HyperbolicPolicy_Rad = HyperbolicPolicy_base< HyperbolicPolicy_Rad_impl >;

@@ -282,6 +282,8 @@ public:
         policy.setConsState( Uout, iCell, u_pp );
       });
     }
+    
+    policy.printWarnings();
 
     timers.get("HyperbolicUpdate_euler").stop();
   }

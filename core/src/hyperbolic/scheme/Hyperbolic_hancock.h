@@ -361,6 +361,8 @@ public:
       });
     }
 
+    policy.printWarnings();
+
     timers.get("Hyperbolic_hancock").stop();
   }
 

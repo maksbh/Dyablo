@@ -246,7 +246,15 @@ public:
   KOKKOS_INLINE_FUNCTION
   ConsState postProcess( const ConsState &u ) const
   {
-    return impl.postProcess(u);
+    if constexpr (has_postProcess())
+      return impl.postProcess(u);
+    else 
+      return u;
+  }
+
+  void printWarnings() const
+  {
+    impl.printWarnings();
   }
 };
 

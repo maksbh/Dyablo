@@ -85,6 +85,8 @@ public:
       policy.setConsState(Uout, iCell, uout);
     });
 
+    policy.printWarnings();
+
     timers.get("HyperbolicUpdate_RK2").stop();
 
   }

@@ -253,6 +253,8 @@ public:
       });
     }
 
+    policy.printWarnings();
+
     timers.get("HyperbolicUpdate_euler").stop();
   }
 
