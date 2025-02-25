@@ -48,6 +48,11 @@ run_and_render test_gravity_spheres_3D.ini visu_gravity_spheres_3D.pvsm gravity_
 run_and_render test_sod_3D.ini visu_sod_3D.pvsm sod_3D 
 run_and_render test_zeldovitch.ini visu_zeldovitch.pvsm zeldovitch 
 
+cd build/dyablo/bin
+python3 ../../../settings/cosmo/zeldovitch_generate_grafic.py
+cd ../../..
+run_and_render test_zeldovitch_grafic.ini visu_zeldovitch.pvsm zeldovitch_grafic 
+
 echo "${err_count}/${run_count} runs failed"
 
 
