@@ -141,7 +141,6 @@ plt.legend()
 plt.suptitle(f'Zeldovitch')
 plt.legend()
 plt.tight_layout()
-plt.show()
 plt.savefig(f'{png_filename}')
 print( f'Exported {png_filename}' )
 
