@@ -90,8 +90,8 @@ private:
 public:
   CosmoManager(ConfigMap &configMap)
     : cosmo_run(configMap.getValue<bool>("cosmology", "active", false)),
-      omega_m(configMap.getValue<real_t>("cosmology",  "omega_m", 0.3)),
-      omega_v(configMap.getValue<real_t>("cosmology",  "omega_v", 0.7)),
+      omega_m(configMap.getValue<real_t>("cosmology",  "omegam", 0.3)),
+      omega_v(configMap.getValue<real_t>("cosmology",  "omegav", 0.7)),
       a_start(configMap.getValue<real_t>("cosmology",  "aStart",  1.0e-2)),
       a_end(configMap.getValue<real_t>("cosmology", "aEnd", 1.00)),
       da(configMap.getValue<real_t>("cosmology", "da", 1.02)),
@@ -142,7 +142,7 @@ public:
    * in the definition of ttilde, fn=1.0. Omega_0 is identified with omega_m.
   */
   static real_t static_compute_cosmo_dt(real_t omega_m, real_t omega_v, real_t a, real_t da) {
-    return -0.5 * sqrt(omega_m) * integrate_da_dt(omega_m, omega_v, a*da, a, 1.0e-8);
+    return 0.5*sqrt(omega_m)*(da-1.0)*a/sqrt(std::pow(a, 4) * (1.0-omega_m-omega_v) + std::pow(a, 3) * omega_m + std::pow(a, 6) * omega_v);
   }
 
   real_t compute_cosmo_dt(real_t a)
