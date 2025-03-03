@@ -452,8 +452,58 @@ public:
   : HyperbolicPolicy_State_Hydro(params.policy_params),
     RiemannSolver_t(params.policy_params),
     Slope_t(params.slope_params),
-    BoundaryConditions_t(params.bc_params, scalar_data)
+    BoundaryConditions_t(params.bc_params, scalar_data),
+    smallr(params.policy_params.smallr),
+    smallp(params.policy_params.smallp),
+    negative_rho_count("negative_rho_count"),
+    negative_p_count("negative_p_count")
   {}
+private:
+  real_t smallr, smallp;
+  Kokkos::View<int> negative_rho_count, negative_p_count;
+
+public:
+  KOKKOS_INLINE_FUNCTION
+  constexpr static bool has_postProcess()
+  {return true;}
+
+  KOKKOS_INLINE_FUNCTION
+  ConsState postProcess( const ConsState &u ) const
+  {
+    real_t smallr = this->smallr;
+    real_t smallp = this->smallp;
+    PrimState q = this->consToPrim(u);
+    if (q.rho < 0.0) {
+      this->negative_rho_count()++; 
+      // This inaccurate because of concurrency but it's always > 1 when there is an error 
+      // Use atomic_inc if you need accurate results
+      //Kokkos::atomic_inc( &this->negative_rho_count() );
+      q.rho = smallr;
+    }
+    if (q.p < 0.0) {
+      this->negative_p_count() ++;
+      //Kokkos::atomic_inc( &this->negative_p_count() );
+      q.p   = smallp;
+    }
+    ConsState u_pp = this->primToCons(q);
+
+    return u_pp;
+  }
+
+  void printWarnings() const
+  {
+    auto negative_rho_count = this->negative_rho_count;
+    auto negative_p_count = this->negative_p_count;
+
+    Kokkos::parallel_for( "Print Warnings", 1,
+      KOKKOS_LAMBDA( int )
+    {
+      if( negative_rho_count() > 0 )
+        Kokkos::printf( "Negative density detected\n");
+      if( negative_p_count() > 0 )
+        Kokkos::printf( "Negative pressure detected\n" );
+    });
+  }
 };
 
 using HyperbolicPolicy_Hydro = HyperbolicPolicy_base< HyperbolicPolicy_Hydro_impl >;
