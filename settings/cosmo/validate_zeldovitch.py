@@ -80,8 +80,8 @@ omegab=0.049
 G = 1
 H0 = 1
 Lbox = 1
-across=0.16 #crossing expansion factor
-asnap=0.16 #crossing expansion factor
+across=0.16666666 #crossing expansion factor
+asnap=0.16666666 #crossing expansion factor
 
 # Open output file
 reader = pyablo.XdmfReader()
@@ -109,8 +109,13 @@ rho_u = rho_u[sort_order]
 u = rho_u/rho
 
 fpart = h5py.File(particles_h5_filename, 'r')
+
 particle_px = np.array(fpart['coordinates'])[:,0]
 particle_vx = np.array(fpart['vx'])
+
+sort_order_part = np.argsort( particle_px )
+particle_px = particle_px[sort_order_part]
+particle_vx = particle_vx[sort_order_part]
 
 formula = zeldovitch_analytical(across, asnap, omegam, omegav, omegab, G, H0, Lbox)
 
@@ -119,11 +124,16 @@ analytical = np.asarray([ formula.value( x ) for x in px ])
 expected_rho = analytical[:,0]
 expected_u = analytical[:,1]
 
+analytical_part = np.asarray([ formula.value( x ) for x in particle_px ])
+expected_upart = np.asarray(analytical_part[:,1])
+
 # Computing L1 norm
 L1_rho   = np.linalg.norm(rho - expected_rho, ord=1)   / NCells
 L1_u   = np.linalg.norm(u - expected_u, ord=1)   / NCells
+L1_upart = np.linalg.norm(particle_vx - expected_upart, ord=1) / particle_vx.size
 
-print( f'Velocity; L1 error = {L1_u:.4}' )
+print( f'Cells Velocity; L1 error = {L1_u:.4}' )
+print( f'Particles Velocity; L1 error = {L1_upart:.4}' )
 
 fig, ax = plt.subplots(2, 1, figsize=(7, 7))
 ax[0].plot(px, expected_rho, '--', label = "Expected")
@@ -131,10 +141,10 @@ ax[0].plot(px, rho, '+', label = "Cells")
 ax[0].set_title(f'Density; L1 error = {L1_rho:.4}')
 ax[0].set_xlabel('x')
 ax[0].set_ylabel(r'$\rho$')
-ax[1].plot(px, expected_u, '--', label = "Expected")
-ax[1].plot(px, u, '+', label = "Cells")
-ax[1].plot(particle_px, particle_vx, '+', label = "Particles")
-ax[1].set_title(f'Velocity; L1 error = {L1_u:.4}')
+ax[1].plot(particle_px, expected_upart, '--', label = "Expected")
+ax[1].plot(px, u, '+', label = f'Cells (L1 error = {L1_u:.4})')
+ax[1].plot(particle_px, particle_vx, '+', label = f'Particles (L1 error = {L1_upart:.4})')
+ax[1].set_title(f'Velocity')
 ax[1].set_xlabel('x')
 ax[1].set_ylabel(r'$v_x$')
 plt.legend()
@@ -146,4 +156,8 @@ print( f'Exported {png_filename}' )
 
 if( L1_u > target_precision ):
   print( f'Precision target not met {L1_u:.4} > {target_precision:.4}'  )
+  exit(1)
+
+if( L1_upart > target_precision ):
+  print( f'Precision target not met {L1_upart:.4} > {target_precision:.4}'  )
   exit(1)
