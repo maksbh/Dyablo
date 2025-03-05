@@ -85,7 +85,7 @@ public:
   real_t t_end; // End value for selected scalar_data variable t_end_var
   bool use_t_end; // enable/disable termination when end value is attaigned (default on t_end is positive, but can be overriden )
   real_t t_end_epsilon = 0;
-  real_t omega_m=0, omega_v=0;
+  CosmoManager cosmo_manager;
 
   IterationHandler(ConfigMap& configMap, const ScalarSimulationData& scalar_data )
   : output_frequency     ( "iter", configMap.getValue<int>("run", "output_frequency",       -1), scalar_data ),
@@ -95,7 +95,8 @@ public:
     iter_end             ( configMap.getValue<int>("run", "nstepmax",                1000) ),
     t_end_var            ( configMap.getValue<std::string>("run", "t_end_var", "time") ),
     t_end                ( configMap.getValue<real_t>("run", "tEnd", 0.0) ),
-    use_t_end            ( configMap.getValue<bool>("run", "use_tEnd", t_end > 0) )
+    use_t_end            ( configMap.getValue<bool>("run", "use_tEnd", t_end > 0) ),
+    cosmo_manager        ( configMap )
   {
     // Translate output/checkpoint_expslice into 
     if( configMap.hasValue("run", "output_expslice") || configMap.hasValue("run", "checkpoint_expslice")  )
@@ -125,9 +126,9 @@ public:
     
     if( t_end_var == "aexp" )
     {
-      this->t_end_epsilon = 2e-8; // This is related to romberg precision in CosmoManager
-      this->omega_m = configMap.getValue<real_t>( "cosmology", "omegam" );
-      this->omega_v = configMap.getValue<real_t>( "cosmology", "omegav" );
+      this->t_end_var = "time";
+      real_t aexp_end = this->t_end;
+      this->t_end = cosmo_manager.expansionToTime( aexp_end );
     }
     else if( t_end_var != "time" ) 
       std::cout << "WARNING : can't correct dt to match t_end, possible overshoot. var=" << t_end_var << std::endl;
@@ -192,13 +193,6 @@ public:
         if (use_t_end && time + scalar_data.get<real_t>("dt") > t_end)
             scalar_data.get<real_t>("dt") = t_end - time;
       }
-      else if ( t_end_var == "aexp" )
-      {
-        real_t aexp = scalar_data.get<real_t>("aexp");
-        real_t da_max = t_end/aexp;
-        real_t dt_max = CosmoManager::static_compute_cosmo_dt(this->omega_m, this->omega_v, aexp, da_max);
-        scalar_data.get<real_t>("dt") = std::min( scalar_data.get<real_t>("dt") , dt_max );
-      }
     }
   }
 
@@ -207,6 +201,10 @@ public:
   {
     scalar_data.get<int>("iter")++;
     scalar_data.get<real_t>("time")+=scalar_data.get<real_t>("dt");
+    if( cosmo_manager.cosmo_run )
+    {
+      scalar_data.get<real_t>("aexp") = cosmo_manager.timeToExpansion(scalar_data.get<real_t>("time"));
+    }
   }
 };
 
@@ -615,14 +613,6 @@ public:
         io_manager_checkpoint->save_snapshot(U, m_scalar_data);
       }
       timers.get("checkpoint").stop();
-    }
-
-    if( cosmo_manager->cosmo_run )
-    {
-      real_t time = m_scalar_data.get<real_t>("time");
-      real_t aexp = cosmo_manager->timeToExpansion(time);
-      m_scalar_data.set("aexp", aexp);
-      m_scalar_data.set("z", 1.0/(aexp)-1.0);
     }
 
     // Compute new dt
