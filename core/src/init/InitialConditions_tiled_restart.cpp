@@ -122,12 +122,10 @@ public:
     constexpr hid_t rank = (hid_t)T::rank;
     hsize_t local_dims[rank];
     hsize_t global_dims[rank];
-    hsize_t local_start[rank];
     for( int i=0; i<rank; i++ )
     {
       local_dims[i] = view.extent(rank-1-i);
       global_dims[i] = view.extent(rank-1-i);
-      local_start[i] = 0;
     }
 
     hid_t filespace = H5Screate_simple( rank, global_dims, nullptr );
@@ -200,7 +198,7 @@ public:
     nrep_z( configMap.getValue<int>("restart", "nrep_z", 1))
   {
     auto comm = foreach_cell.get_amr_mesh().getMpiComm();
-    int nranks = comm.MPI_Comm_size();
+    uint32_t nranks = comm.MPI_Comm_size();
 
     DYABLO_ASSERT_HOST_RELEASE(nranks == nrep_x*nrep_y*nrep_z, "When tiling a restart, the total number of tiles has to be the exact number of MPI ranks");
   }

@@ -40,7 +40,6 @@ public :
         return this->fields.Ughost(iCell, this->fm_active[iVar], iOct);
     }
     
-    KOKKOS_INLINE_FUNCTION
     id2index_t get_id2index()
     {
         return FieldManager( fm_ivar.nbfields() ).get_id2index();

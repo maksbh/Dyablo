@@ -30,8 +30,8 @@ real_t lookup_interpolate( const std::vector<real_t>& lookup_x, const std::vecto
  * @param max_steps: maximum steps of the procedure
  * @param acc  : desired accuracy
  ***/
-template< typename Func /* real_t -> real_t */ >
-real_t romberg(const Func& f, real_t a, real_t b, size_t max_steps, real_t acc) 
+template< int max_steps, typename Func /* real_t -> real_t */ >
+real_t romberg(const Func& f, real_t a, real_t b, real_t acc) 
 {
   real_t R1[max_steps], R2[max_steps]; // buffers
   real_t *Rp = &R1[0], *Rc = &R2[0]; // Rp is previous row, Rc is current row
@@ -84,7 +84,7 @@ private:
                     + std::pow(aexp, 3) * omega_m 
                     + std::pow(aexp, 6) * omega_v);
     };
-    return Impl::romberg( faexp_tilde, a, b, max_iterations, tol );
+    return Impl::romberg<max_iterations>( faexp_tilde, a, b, tol );
   }
 
 public:
