@@ -2,7 +2,7 @@
   <ServerManagerState version="5.11.2">
     <Proxy group="animation" type="AnimationScene" id="263" servers="16">
       <Property name="AnimationTime" id="263.AnimationTime" number_of_elements="1">
-        <Element index="0" value="-1.90926"/>
+        <Element index="0" value="-1.30707"/>
       </Property>
       <Property name="Cues" id="263.Cues" number_of_elements="1">
         <Proxy value="265"/>
@@ -13731,7 +13731,7 @@
       </Property>
       <Property name="TimestepValues" id="14798.TimestepValues" number_of_elements="5">
         <Element index="0" value="-8.75185"/>
-        <Element index="1" value="-1.90926"/>
+        <Element index="1" value="-1.30707"/>
         <Element index="2" value="-1.01114"/>
         <Element index="3" value="-0.625664"/>
         <Element index="4" value="-0.421138"/>
@@ -13828,7 +13828,7 @@
       </Property>
       <Property name="TimestepValues" id="15072.TimestepValues" number_of_elements="5">
         <Element index="0" value="-8.75185"/>
-        <Element index="1" value="-1.90926"/>
+        <Element index="1" value="-1.30707"/>
         <Element index="2" value="-1.01114"/>
         <Element index="3" value="-0.625664"/>
         <Element index="4" value="-0.421138"/>
@@ -14018,7 +14018,7 @@
     <Proxy group="misc" type="TimeKeeper" id="256" servers="16">
       <Property name="SuppressedTimeSources" id="256.SuppressedTimeSources"/>
       <Property name="Time" id="256.Time" number_of_elements="1">
-        <Element index="0" value="-1.90926"/>
+        <Element index="0" value="-1.30707"/>
         <Domain name="range" id="256.Time.range"/>
       </Property>
       <Property name="TimeLabel" id="256.TimeLabel" number_of_elements="1">
@@ -14039,7 +14039,7 @@
       </Property>
       <Property name="TimestepValues" id="256.TimestepValues" number_of_elements="5">
         <Element index="0" value="-8.75185"/>
-        <Element index="1" value="-1.90926"/>
+        <Element index="1" value="-1.30707"/>
         <Element index="2" value="-1.01114"/>
         <Element index="3" value="-0.625664"/>
         <Element index="4" value="-0.421138"/>
@@ -14710,7 +14710,7 @@
         <Element index="1" value="1139"/>
       </Property>
       <Property name="ViewTime" id="16214.ViewTime" number_of_elements="1">
-        <Element index="0" value="-1.90926"/>
+        <Element index="0" value="-1.30707"/>
         <Domain name="range" id="16214.ViewTime.range"/>
       </Property>
     </Proxy>
@@ -15237,7 +15237,7 @@
         <Element index="1" value="1139"/>
       </Property>
       <Property name="ViewTime" id="16146.ViewTime" number_of_elements="1">
-        <Element index="0" value="-1.90926"/>
+        <Element index="0" value="-1.30707"/>
         <Domain name="range" id="16146.ViewTime.range"/>
       </Property>
       <Property name="VolumeAnisotropy" id="16146.VolumeAnisotropy" number_of_elements="1">
