@@ -1,6 +1,8 @@
 #include "InitialConditions_analytical.h"
 #include "AnalyticalFormula_tools.h"
 
+#include "Cosmo.h"
+
 namespace dyablo{
 
 struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
@@ -14,8 +16,10 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
   const real_t xmin, xmax;
   real_t omegab;
   real_t omegam;
-  real_t vmax;
-  real_t fact;
+  real_t omegav;
+  real_t rho_fact;
+  real_t dplus_ratio;
+  real_t vfact;
 
   AnalyticalFormula_Zeldovitch_pancake( ConfigMap& configMap ) : 
     ndim(configMap.getValue<int>("mesh", "ndim", 2)),
@@ -26,18 +30,63 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
     error_max(configMap.getValue<real_t>("amr", "error_max", 0.8)),
     xmin( configMap.getValue<real_t>("mesh","xmin", 0) ),
     xmax( configMap.getValue<real_t>("mesh","xmax", 1) ),
-    omegab(configMap.getValue<real_t>("cosmology","omegab", 0.999)),
-    omegam(configMap.getValue<real_t>("cosmology","omegam", 1.0))
+    omegab(configMap.getValue<real_t>("cosmology","omegab", 0.049)),
+    omegam(configMap.getValue<real_t>("cosmology","omegam", 0.3)),
+    omegav(configMap.getValue<real_t>("cosmology","omegav", 0.7))
   {
     DYABLO_ASSERT_HOST_RELEASE(ndim == 3, "Initial conditions only for 3D");
 
-    real_t a_cross = configMap.getValue<real_t>("zeldovitch_pancake", "aCross", 0.1);
-    real_t a_start = configMap.getValue<real_t>("cosmology", "aStart", 0.01);
+    real_t across = configMap.getValue<real_t>("zeldovitch_pancake", "aCross", 0.1);
+    real_t astart = configMap.getValue<real_t>("cosmology", "aStart", 0.01);
 
-    real_t zc = 1/a_cross - 1;
-    real_t zi = 1/a_start - 1;
-    this->vmax = (1/(M_PI)) * (1+zc)/std::pow(1+zi, 1.5);
-    this->fact = (1+zc)/(1+zi);
+    real_t omegam = this->omegam;
+    real_t omegav = this->omegav;
+
+    auto eta = [&omegam, &omegav](real_t a)
+    {
+      return sqrt(omegam/a+omegav*a*a+1.0-omegam-omegav);
+    };
+
+    auto dplus = [&eta]( real_t a )
+    {
+      auto ddplus = [&eta]( real_t a )
+      {
+        if( a==0 ) return 0.0;
+        return 2.5 / (eta(a)*eta(a)*eta(a));
+      };
+      constexpr int max_iter = 20;
+      real_t precision = 1e-10;
+      real_t romberg_res = Impl::romberg<max_iter>(ddplus, 0, a, precision );
+      return eta(a)/a*romberg_res;
+    };
+
+    auto dladt = [&eta]( real_t a )
+    {
+      return a*eta(a);
+    };
+
+    auto fomega = [&]( real_t a )
+    {
+      if (omegam==1.0 && omegav==0.0)
+        return 1.0;
+      
+      real_t omegak = 1-omegam-omegav;
+      return (2.5 / dplus(a) - 1.5 * omegam / a - omegak ) / (eta(a)*eta(a));
+    };
+
+    real_t H0 = 1;
+    real_t G = 1;
+    real_t Lbox = 1;
+
+    real_t rhoc = 3 * H0*H0 / (8 * M_PI * G);
+    real_t rhostar = omegam * rhoc;
+    real_t tstar = 2.0 / H0 / sqrt(omegam);
+    real_t rstar = Lbox ;
+    real_t vstar = rstar / tstar;
+
+    this->rho_fact = omegab * rhoc / rhostar;
+    this->dplus_ratio = dplus(astart) / dplus(across);
+    this->vfact = (this->dplus_ratio * Lbox / (2*M_PI) * fomega(astart)*dladt(astart) * H0) / vstar;
   }
 
 
@@ -57,15 +106,30 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
   {
     PrimHydroState res {};
 
-    res.rho = (this->omegab/this->omegam) * (1 - fact*cos(2*M_PI*x));  // equation 105 bryan et al  // ressayer la formule ramses
-    //res.rho = (this->omegab/this->omegam) * (1 + fact*cos(2*M_PI*x)); //equation 28 ramses elle marche moins bien
-    res.p = this->smallp;
+    real_t A = this->dplus_ratio;
+    auto newton_raphson_q = [&A](double x)
+    {
+      real_t eps = 1e-10;
+      double q0=0.5;
+      double q1=0.5;
+      do
+      {
+        q0 = q1;
+        real_t f = q0 + A/(2*M_PI) * sin( 2*M_PI*q0) - x;
+        real_t f_prim = 1 + A * cos( 2*M_PI*q0 );
+        q1 = q0 - f/f_prim;
+      } while( fabs( q1 - q0 ) > eps );
 
-    // 0 at edges and center of box,
-    // velocity vmax towards center at 1/4, 3/4 box
-    // https://arxiv.org/abs/astro-ph/0111367
-    // u = -1/2pi * (1+zc)/(1+zi)^3/2 * sin( 2pi x )     (22)
-    res.u   = vmax * sin( x * 2 * M_PI );
+      printf( "%f %f \n", x, q1 );
+
+      return q1;
+    };
+
+    real_t q = newton_raphson_q(x);
+
+    res.rho = this->rho_fact/( 1 + this->dplus_ratio * cos(2*M_PI*q) );
+    res.p   = this->smallp;
+    res.u   = this->vfact * sin(2*M_PI*q);
     res.v   = 0.0;
     res.w   = 0.0;
 
