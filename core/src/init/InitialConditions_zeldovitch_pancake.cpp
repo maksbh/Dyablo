@@ -120,8 +120,6 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
         q1 = q0 - f/f_prim;
       } while( fabs( q1 - q0 ) > eps );
 
-      printf( "%f %f \n", x, q1 );
-
       return q1;
     };
 
