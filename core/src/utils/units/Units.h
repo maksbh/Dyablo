@@ -1,8 +1,27 @@
 #pragma once
 
+#include "real_type.h"
+#include "Kokkos_Core.hpp"
+#include "../misc/Dyablo_assert.h"
+
 namespace dyablo {
 
 namespace Units{
+
+namespace {
+real_t pow_int(real_t x, int exp)
+{
+    if( exp < 0 )
+        return 1 / pow_int( x, -exp );
+    if( exp == 0)
+       return 1;
+    real_t temp = pow_int(x, exp/2);       
+    if (exp%2 == 0)
+        return temp*temp;
+    else 
+        return x*temp*temp;
+}
+} // namespace
 
 /**
  * Represents a unit with it's dimensionnality as template parameters and 
@@ -63,6 +82,19 @@ public:
         static_assert( std::is_same_v<Unit, Unit<Dims...>>, "Unit substraction error : dimension mismatch" );
         return Unit(value_SI - u2.value_SI);
     }
+
+    template<int p, int... Dims>
+    constexpr static Unit<p*Dims...> pow(const Unit<Dims...>& u)
+    {
+        return Unit<p*Dims...>(pow_int( u.value_SI, p ));
+    }
+
+    template<int p>
+    KOKKOS_INLINE_FUNCTION
+    constexpr auto pow() const
+    {
+        return pow<p>(*this);
+    }
 };
 
 /// Multiply Units to create derived units
@@ -107,10 +139,17 @@ struct Unit_traits
     constexpr static bool is_unit = false;
 };
 
-template< int... Dims >
-struct Unit_traits<Unit<Dims...>>
+template< int T, int L, int M, int C, int Temp, int Mol, int LI >
+struct Unit_traits<Unit<T, L, M, C, Temp, Mol, LI>>
 {
     constexpr static bool is_unit = true;
+    constexpr static int Time_exp = T;
+    constexpr static int Length_exp = L;
+    constexpr static int Mass_exp = M;
+    constexpr static int Current_exp = C;
+    constexpr static int Temp_exp = Temp;
+    constexpr static int Mol_exp = Mol;
+    constexpr static int LuminousIntensity_exp = LI;
 };
 
 /// Is type a unit or not?
@@ -240,7 +279,44 @@ DEFINE_UNIT( H0         , 70.3 * km() / s() / Mpc() );
 DEFINE_UNIT( YHE        , 0.24 * one() ); // Helium Mass fraction
 DEFINE_UNIT( yHE        , (YHE()/(1.-YHE())/MHE_OVER_MH()) ); // Helium number fraction
 
-}
+class UnitSystem
+{
+protected:
+    Unit<1> time;
+    Unit<0,1> length;
+    Unit<0,0,1> mass;
+    Unit<0,0,0,1> current;
+    Unit<0,0,0,0,1> temp;
+    Unit<0,0,0,0,0,1> mol;
+    Unit<0,0,0,0,0,0,1> luminousIntensity;
+
+public:
+    UnitSystem( Unit<1> time = Units::second(), Unit<0,1> length = Units::meter(), Unit<0,0,1> mass = Units::kg(), 
+                Unit<0,0,0,1> current = Units::Ampere(), Unit<0,0,0,0,1> temp = Units::Kelvin(), Unit<0,0,0,0,0,1> mol = Units::mol(), Unit<0,0,0,0,0,0,1> luminousIntensity = Units::candela() )
+    : time(time), length(length), mass(mass), 
+      current(current), temp(temp), mol(mol), luminousIntensity(luminousIntensity)
+    {}
+
+    template<typename Unit_t>
+    Unit_t getUnit( const Unit_t& u = Unit_t() ) const
+    {
+        using traits = Unit_traits<Unit_t>;
+
+        return time     .pow<traits::Time_exp>() 
+             * length   .pow<traits::Length_exp>() 
+             * mass     .pow<traits::Mass_exp>()
+             * current  .pow<traits::Current_exp>()
+             * temp     .pow<traits::Temp_exp>()
+             * mol      .pow<traits::Mol_exp>()
+             * luminousIntensity.pow<traits::LuminousIntensity_exp>();
+    }
+};
+
+void code_units_init( const UnitSystem& code_units );
+
+const UnitSystem& code_units();
+
+} // namespace Units
 
 
 } //namespace dyablo

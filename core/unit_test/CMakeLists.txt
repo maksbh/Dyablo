@@ -28,6 +28,7 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
   target_link_libraries(${UNIT_TEST_NAME} PUBLIC
     dyablo_core
     config
+    units
     Kokkos::kokkos
     monitoring
     BITPIT::BITPIT
