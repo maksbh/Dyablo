@@ -5,6 +5,8 @@
 #include "particles/ForeachParticle.h"
 
 #include "states/State_forward.h"
+#include "utils/units/Units.h"
+
 
 namespace dyablo{
 
@@ -93,8 +95,14 @@ public:
         fomega = (2.5 / dplus - 1.5 * omegam / astart - omegak) / (eta * eta);
       }
 
-      default_total_mass = 1.0-omegab/omegam;
-      default_dt_perturb = 1/ (2 * fomega * dladt / sqrt(omegam));
+      real_t H0 = configMap.getValue<real_t>( "cosmology", "H0" );
+      real_t four_pi_G = configMap.getValue<real_t>( "gravity", "4_Pi_G" );
+
+      real_t rhoc = 3.0 * H0 * H0 /( 2 * four_pi_G);
+      real_t Vbox = (xmax-xmin) * (ymax-ymin) * (zmax -zmin);
+
+      default_total_mass = ((omegam-omegab) * rhoc * Vbox);
+      default_dt_perturb = 1/ (fomega * dladt )/ H0;
     }
 
     this->total_mass = configMap.getValue<real_t>("particle_grid", "total_mass", default_total_mass);

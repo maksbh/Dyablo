@@ -5,6 +5,8 @@
 #include <cmath>
 #include <algorithm>
 #include <fstream>
+#include "utils/units/Units.h"
+
 
 namespace dyablo {
 
@@ -96,8 +98,14 @@ public:
       a_end(configMap.getValue<real_t>("cosmology", "aEnd", 1.00)),
       da(configMap.getValue<real_t>("cosmology", "da", 1.02)),
       save_expansion_table(configMap.getValue<bool>("cosmology", "save_expansion_table", false)),
-      lookup_size(configMap.getValue<size_t>("cosmology", "lookup_size", 1024)) {
-    computeFLM();
+      lookup_size(configMap.getValue<size_t>("cosmology", "lookup_size", 1024)) 
+  {
+    if(cosmo_run)
+    {
+      this->H0 = configMap.getValue<real_t>("cosmology", "H0");
+      
+      computeFLM();
+    }
   }
 
   real_t timeToExpansion(const real_t time) const 
@@ -118,7 +126,7 @@ public:
     lookup_t.reserve(lookup_size);
     for (size_t i=0; i < lookup_size; ++i) {
       real_t a = a_start + i*delta_a / (lookup_size-1);
-      real_t t = -0.5 * sqrt(omega_m) * integrate_da_dt(omega_m, omega_v, a, 1.0, 1.0e-8);
+      real_t t = -1.0/H0 * integrate_da_dt(omega_m, omega_v, a, 1.0, 1.0e-8);
       lookup_a.push_back(a);
       lookup_t.push_back(t);
     }
@@ -141,19 +149,20 @@ public:
    * Eq. (32) is used to get the relation between dt and da. We take a0=1.0 and, 
    * in the definition of ttilde, fn=1.0. Omega_0 is identified with omega_m.
   */
-  static real_t static_compute_cosmo_dt(real_t omega_m, real_t omega_v, real_t a, real_t da) {
-    return 0.5*sqrt(omega_m)*(da-1.0)*a/sqrt(std::pow(a, 4) * (1.0-omega_m-omega_v) + std::pow(a, 3) * omega_m + std::pow(a, 6) * omega_v);
+  static real_t static_compute_cosmo_dt(real_t omega_m, real_t omega_v, real_t H0, real_t a, real_t da) {
+    return 1.0/H0*(da-1.0)*a/sqrt(std::pow(a, 4) * (1.0-omega_m-omega_v) + std::pow(a, 3) * omega_m + std::pow(a, 6) * omega_v);
   }
 
   real_t compute_cosmo_dt(real_t a)
   {
-    return static_compute_cosmo_dt(omega_m, omega_v, a, da);
+    return static_compute_cosmo_dt(omega_m, omega_v, H0, a, da);
   }
 
 
   // Members
   bool cosmo_run;          //!< Is the current run a cosmo run
   real_t omega_m, omega_v; //!< Energy budget
+  real_t H0;               // Hubble Parameter at z=0
   real_t a_start, a_end;   //!< Expansion factor at the start and at the end of the simulation
   real_t da;               //!< By how much do we need to multiplpy a for the next step
 

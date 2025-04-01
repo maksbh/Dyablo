@@ -57,24 +57,15 @@ public:
         DYABLO_ASSERT_HOST_RELEASE( configMap.getValue< T >(section, param) == val, 
           ".ini parameter does not match grafic file : \n"
           << ".ini " << section << "/" << param << " : " << configMap.getValue< T >(section, param) << "\n"
-          << grafic_filename << " : " << val
+          << grafic_filename << " : `" << Impl::to_string( val ) << "`"
            )
       }
       else
         configMap.getValue< T >(section, param, val);
     };
 
-    {
-      // Mean mass for a raw cell used for refinement
-      double mass0 = 1.0/(header.nx*header.ny*header.nz);
-      std::cout << "COSMO mass0=" << mass0 << std::endl;
-
-      real_t mass_coarsen_factor = configMap.getValue<real_t>("cosmology", "mass_coarsen_factor", 0.1);
-      real_t mass_refine_factor = configMap.getValue<real_t>("cosmology", "mass_refine_factor", 1.0);
-
-      set_or_check("amr", "mass_coarsen", mass0*mass_coarsen_factor);
-      set_or_check("amr", "mass_refine", mass0*mass_refine_factor);
-    }
+    auto code_time = Units::code_units().getUnit(Units::s());
+    auto code_length = Units::code_units().getUnit(Units::m());
 
     DYABLO_ASSERT_HOST_RELEASE( 0 == header.nx%foreach_cell.blockSize()[IX], "Block size (x) is not compatible with grafic file" );
     DYABLO_ASSERT_HOST_RELEASE( 0 == header.ny%foreach_cell.blockSize()[IY], "Block size (y) is not compatible with grafic file" );
@@ -82,12 +73,12 @@ public:
     set_or_check( "amr", "coarse_oct_resolution_x", header.nx/foreach_cell.blockSize()[IX] );
     set_or_check( "amr", "coarse_oct_resolution_y", header.ny/foreach_cell.blockSize()[IY] );
     set_or_check( "amr", "coarse_oct_resolution_z", header.nz/foreach_cell.blockSize()[IZ] );
-    this->xmin = header.xo;
-    set_or_check( "mesh", "xmin", header.xo );
-    this->ymin = header.yo;
-    set_or_check( "mesh", "ymin", header.yo );
-    this->zmin = header.zo;
-    set_or_check( "mesh", "zmin", header.zo );
+    this->xmin = header.xo * Units::Mpc().convert_to( code_length );
+    set_or_check( "mesh", "xmin", this->xmin );
+    this->ymin = header.yo * Units::Mpc().convert_to( code_length );
+    set_or_check( "mesh", "ymin", this->ymin );
+    this->zmin = header.zo * Units::Mpc().convert_to( code_length );
+    set_or_check( "mesh", "zmin", this->zmin );
 
     this->astart = header.astart;
     set_or_check( "cosmology", "astart", header.astart );
@@ -97,30 +88,45 @@ public:
     this->omegab = configMap.getValue<real_t>("cosmology", "omegab", 0.049);
 
     auto H0_u = header.H0 * Units::km() / Units::s() / Units::Mpc(); // Hubble constant from grafic
-    this->H0 = H0_u.convert_to( 1/Units::s() );
+    this->H0 = H0_u.convert_to( 1/code_time );
     set_or_check( "cosmology", "H0", H0 );
-    real_t dx = (header.dx * Units::Mpc()).convert_to(Units::m()); // Cell size (m)
+    real_t dx = (header.dx * Units::Mpc()).convert_to(code_length);
     set_or_check( "cosmology", "dx", dx );
+    this->xmax = xmin + header.nx * dx;
+    set_or_check( "mesh", "xmax", xmax  );
+    this->ymax = ymin + header.ny * dx;
+    set_or_check( "mesh", "ymax", ymax  );
+    this->zmax = zmin + header.nz * dx;
+    set_or_check( "mesh", "zmax", zmax  );
 
-    rhoc = (3. * H0_u * H0_u / (8. * M_PI * Units::NEWTON_G())).convert_to( Units::kg() / Units::m3() ); // comoving critical density (kg/m3)
-    real_t rstar = header.nx * dx; // box size in m 
-    tstar = 2. / H0 / sqrt(omegam); // sec
-    vstar = rstar / tstar; //m/s
-    rhostar = rhoc * omegam;
-    pstar = rhostar * vstar * vstar;
+    real_t four_pi_G = configMap.getValue<real_t>("gravity", "4_Pi_G", 4 * M_PI * Units::NEWTON_G().convert_to( Units::code_units().getUnit(Units::NEWTON_G()) ) );
+    this->rhoc = (3. * H0 * H0 / (2 * four_pi_G)); // comoving critical density 
 
-    set_or_check( "cosmology", "vstar", vstar );
-    set_or_check( "cosmology", "rhostar", rhostar );
-    set_or_check( "cosmology", "tstar", tstar );
-    set_or_check( "cosmology", "ctilde", (clight_fraction * 3e5 * (Units::km()/Units::s()) * astart/vstar).convert_to( Units::m()/Units::s() ));
+    {
+      // Mean mass for a raw cell used for refinement
+      double Lbox = (xmax-xmin);
+      double mass0 = rhoc * omegam/(Lbox*Lbox*Lbox);
+      std::cout << "COSMO mass0=" << mass0 << std::endl;
+
+      real_t mass_coarsen_factor = configMap.getValue<real_t>("cosmology", "mass_coarsen_factor", 0.1);
+      real_t mass_refine_factor = configMap.getValue<real_t>("cosmology", "mass_refine_factor", 1.0);
+
+      set_or_check("amr", "mass_coarsen", mass0*mass_coarsen_factor);
+      set_or_check("amr", "mass_refine", mass0*mass_refine_factor);
+    }
+
+    real_t clight = clight_fraction * Units::SPEEDOFLIGHT().convert_to(code_length/code_time);
+
+    set_or_check( "cosmology", "ctilde", clight * astart);
+
 
     real_t cosmo_z = 1. / astart - 1.;
     this->temp = 317.5 * (cosmo_z * cosmo_z) / (151.0 * 151.0);
 
     // Compute sigma_n, sigma_e and typical energy
     auto s = computeSigma(this->temperature_bb);
-    set_or_check( "ionization", "sigma_n_c", s.sn * clight_fraction * Units::SPEEDOFLIGHT().convert_to( Units::m()/Units::s() ) );
-    set_or_check( "ionization", "sigma_e_c", s.se * clight_fraction * Units::SPEEDOFLIGHT().convert_to( Units::m()/Units::s() ) );
+    set_or_check( "ionization", "sigma_n_c", s.sn * clight );
+    set_or_check( "ionization", "sigma_e_c", s.se * clight );
     set_or_check( "ionization", "typical_energy", s.etyp);
   }
 
@@ -212,41 +218,43 @@ public:
     // Parameters
     real_t gamma0 = this->gamma0;
     real_t omegab = this->omegab;
-    real_t omegam = this->omegam;
     real_t astart = this->astart;
     real_t smallp = this->smallp;
     real_t rhoc = this->rhoc;
-    real_t pstar = this->pstar;
-    real_t vstar = this->vstar;
     real_t xe_start = this->xe_start;
     real_t zre_start = this->zre_start;
     real_t temp = this->temp;
 
+    auto grafic_vel = Units::km() / Units::s();
+    auto grafic_energy = Units::Pa();
+    auto code_density = Units::code_units().getUnit(Units::kg() / Units::m3());
+    auto code_vel = Units::code_units().getUnit(grafic_vel);
+    auto code_pressure = Units::code_units().getUnit(grafic_energy);
+
     foreach_cell.foreach_cell( "InitialConditions_grafic_fields::compute_conservative", Uinout.getShape(),
       KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
     {
-      real_t cosmo_density = Uinout.at( iCell, ID );
+      real_t cosmo_contrast = Uinout.at( iCell, ID ); // contrast is (rho - rho_mean) / rho_mean
       real_t cosmo_velx = Uinout.at( iCell, IU );
       real_t cosmo_vely = Uinout.at( iCell, IV );
       real_t cosmo_velz = Uinout.at( iCell, IW );
 
-      real_t u = cosmo_velx * 1e3 * astart / vstar;
-      real_t v = cosmo_vely * 1e3 * astart / vstar;
-      real_t w = cosmo_velz * 1e3 * astart / vstar;
+      real_t u = (cosmo_velx * grafic_vel).convert_to(code_vel) * astart;
+      real_t v = (cosmo_vely * grafic_vel).convert_to(code_vel) * astart;
+      real_t w = (cosmo_velz * grafic_vel).convert_to(code_vel) * astart;
       real_t u2 = u * u + v * v + w * w;
 
-      real_t rho = (cosmo_density + 1.0) * omegab / omegam;
+      real_t rho_tot = (cosmo_contrast + 1.0) * rhoc;
+
+      real_t rho = omegab * rho_tot;
       real_t rho_u = rho * u;
       real_t rho_v = rho * v;
       real_t rho_w = rho * w;
 
-      // Physical baryon density in kg/m3
-      auto cosmo_rhob = (cosmo_density + 1.0) * omegab * rhoc / (astart * astart * astart) * Units::kg() / Units::m3();
-
-      // Physical pressure
+      auto cosmo_rhob = rho_tot * omegab / (astart * astart * astart) * code_density;
       auto cosmo_pressure_u = (gamma0 - 1.0) * 1.5 * (cosmo_rhob * (1. - Units::YHE()) / Units::PROTON_MASS() * (1. + Units::yHE())) * Units::KBOLTZ() * (temp * Units::Kelvin());
-      real_t cosmo_pressure = cosmo_pressure_u.convert_to( Units::Pa() );
-      real_t p = fmax( cosmo_pressure/pstar * (astart * astart * astart * astart * astart), smallp );
+      real_t cosmo_pressure = cosmo_pressure_u.convert_to( code_pressure );
+      real_t p = fmax( cosmo_pressure * (astart * astart * astart * astart * astart), smallp );
       real_t e_tot = rho*u2/2.0 + p/(gamma0-1.0);
 
       // Hydro
@@ -298,10 +306,11 @@ private:
   
   // Cosmo params
   real_t xmin, ymin, zmin;
+  real_t xmax, ymax, zmax;
   real_t omegab;
   real_t astart, omegam;
   real_t H0;
-  real_t rhoc, pstar, vstar, rhostar, tstar;
+  real_t rhoc;
 
 
   // Hydro params

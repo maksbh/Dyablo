@@ -9,7 +9,8 @@ namespace dyablo {
 namespace Units{
 
 namespace {
-real_t pow_int(real_t x, int exp)
+
+[[maybe_unused]] real_t pow_int(real_t x, int exp) 
 {
     if( exp < 0 )
         return 1 / pow_int( x, -exp );

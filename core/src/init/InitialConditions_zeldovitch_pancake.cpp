@@ -74,19 +74,15 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
       return (2.5 / dplus(a) - 1.5 * omegam / a - omegak ) / (eta(a)*eta(a));
     };
 
-    real_t H0 = 1;
-    real_t G = 1;
-    real_t Lbox = 1;
+    real_t H0 = configMap.getValue<real_t>("cosmology", "H0");
+    real_t four_pi_G = configMap.getValue<real_t>("gravity", "4_pi_G");
+    real_t Lbox = xmax-xmin;
 
-    real_t rhoc = 3 * H0*H0 / (8 * M_PI * G);
-    real_t rhostar = omegam * rhoc;
-    real_t tstar = 2.0 / H0 / sqrt(omegam);
-    real_t rstar = Lbox ;
-    real_t vstar = rstar / tstar;
+    real_t rhoc = 3 * H0*H0 / (2*four_pi_G);
 
-    this->rho_fact = omegab * rhoc / rhostar;
+    this->rho_fact = omegab * rhoc;
     this->dplus_ratio = dplus(astart) / dplus(across);
-    this->vfact = (this->dplus_ratio * Lbox / (2*M_PI) * fomega(astart)*dladt(astart) * H0) / vstar;
+    this->vfact = (this->dplus_ratio * Lbox / (2*M_PI) * fomega(astart)*dladt(astart) * H0);
   }
 
 
@@ -123,7 +119,7 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
       return q1;
     };
 
-    real_t q = newton_raphson_q(x);
+    real_t q = newton_raphson_q(x/(xmax-xmin));
 
     res.rho = this->rho_fact/( 1 + this->dplus_ratio * cos(2*M_PI*q) );
     res.p   = this->smallp;

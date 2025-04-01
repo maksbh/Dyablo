@@ -53,8 +53,7 @@ GravitySolver_cg::GravitySolver_cg(
     })
 {
   int ndim = configMap.getValue<int>("mesh", "ndim", 3);
-  if(!pdata->cosmo_run)
-    pdata->four_Pi_G = configMap.getValue<real_t>("gravity", "4_Pi_G", 1.0);
+  pdata->four_Pi_G = configMap.getValue<real_t>("gravity", "4_Pi_G");
   
   DYABLO_ASSERT_HOST_RELEASE( ndim == 3, "GravitySolver_cg can only run in 3D" )
   
@@ -196,28 +195,11 @@ real_t Aii(const UserData::FieldAccessor& GCdata, const CellIndex& iCell_CGdata,
  * @param size[in]: sizes of the cell at iCell_Uin
  */
 KOKKOS_INLINE_FUNCTION
-real_t b(const UserData::FieldAccessor& Uin, const CellIndex& iCell_Uin, real_t rho_mean, real_t four_Pi_G, ForeachCell::CellMetaData::pos_t size)
+real_t b(const UserData::FieldAccessor& Uin, const CellIndex& iCell_Uin, real_t rho_mean, real_t four_Pi_G_physical, ForeachCell::CellMetaData::pos_t size)
 {
-  return -four_Pi_G*(Uin.at(iCell_Uin, ID)-rho_mean)*size[IX]*size[IY]*size[IZ];
+  return -four_Pi_G_physical*(Uin.at(iCell_Uin, ID)-rho_mean)*size[IX]*size[IY]*size[IZ];
 }
 
-/**
- * @brief Right hand term of the poisson equation in the cosmo case
- * 
- * The right hand side of the Poisson equation for gravity in cosmological cases.
- * This expression comes from Martel & Shapiro 1998, eq. (38)
- * 
- * @param Uin[in]: Array to read the density from
- * @param iCell_Uin[in]: cell index where to read the density
- * @param rho_mean[in]: average value of rho in the box for periodic cases
- * @param aexp[in]: expansion factor
- * @param size[in]: sizes of the cell at iCell_Uin
- */
-KOKKOS_INLINE_FUNCTION
-real_t b_cosmo(const UserData::FieldAccessor& Uin, const CellIndex& iCell_Uin, real_t rho_mean, real_t aexp, ForeachCell::CellMetaData::pos_t size)
-{
-  return -6.0*aexp*(Uin.at(iCell_Uin, ID)/rho_mean-1.0)*size[IX]*size[IY]*size[IZ];
-}
 
 real_t MPI_Allreduce_scalar( real_t local_v )
 {
@@ -272,7 +254,7 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
   real_t aexp = 1.0;
   if( cosmo_run )
     aexp = scalar_data.get<real_t>("aexp");
-  real_t four_Pi_G = pdata->four_Pi_G;  
+  real_t four_Pi_G_physical = pdata->four_Pi_G*aexp;  
 
   // Compute initial residual
   real_t R=0, B=0, r_dot_z=0;
@@ -282,11 +264,7 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
     // Get gravity potential from last iteration as approximate solution
     CGdata.at(iCell_CGdata, CG_PHI) = Uin.at(iCell_CGdata, IGPHI);
     auto cell_size = cells.getCellSize(iCell_CGdata);
-    real_t bi;
-    if( cosmo_run )
-      bi = b_cosmo(Uin, iCell_CGdata, rho_mean, 1.0, cell_size);
-    else
-      bi = b(Uin, iCell_CGdata, rho_mean, four_Pi_G, cell_size);
+    real_t bi = b(Uin, iCell_CGdata, rho_mean, four_Pi_G_physical, cell_size);
 
     real_t r = bi - matprod(Uin, iCell_CGdata, IGPHI, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition);
     CGdata.at(iCell_CGdata, CG_IR) = r; // r = b-A*x0
@@ -410,7 +388,7 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
 
       Kokkos::Array< VarIndex, 3 > IG = {IGX, IGY, IGZ};
 
-      Uout.at(iCell_Uout, IG[dir]) = (dphi_L + dphi_R)/2*aexp; 
+      Uout.at(iCell_Uout, IG[dir]) = (dphi_L + dphi_R)/2; 
     };
     gradient(IX);
     gradient(IY);
