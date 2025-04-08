@@ -99,7 +99,7 @@ public:
     this->zmax = zmin + header.nz * dx;
     set_or_check( "mesh", "zmax", zmax  );
 
-    real_t four_pi_G = configMap.getValue<real_t>("gravity", "4_Pi_G", 4 * M_PI * Units::NEWTON_G().convert_to( Units::code_units().getUnit(Units::NEWTON_G()) ) );
+    real_t four_pi_G = configMap.getValue<real_t>("gravity", "4_Pi_G", 4 * M_PI * Units::constant_to_code_units(Units::NEWTON_G()));
     this->rhoc = (3. * H0 * H0 / (2 * four_pi_G)); // comoving critical density 
 
     {
@@ -115,7 +115,7 @@ public:
       set_or_check("amr", "mass_refine", mass0*mass_refine_factor);
     }
 
-    real_t clight = clight_fraction * Units::SPEEDOFLIGHT().convert_to(code_length/code_time);
+    real_t clight = clight_fraction * Units::constant_to_code_units(Units::SPEEDOFLIGHT());
 
     set_or_check( "cosmology", "ctilde", clight * astart);
 
@@ -226,10 +226,9 @@ public:
     real_t temp = this->temp;
 
     auto grafic_vel = Units::km() / Units::s();
-    auto grafic_energy = Units::Pa();
     auto code_density = Units::code_units().getUnit(Units::kg() / Units::m3());
     auto code_vel = Units::code_units().getUnit(grafic_vel);
-    auto code_pressure = Units::code_units().getUnit(grafic_energy);
+    auto code_pressure = Units::code_units().getUnit(Units::Pa());
 
     foreach_cell.foreach_cell( "InitialConditions_grafic_fields::compute_conservative", Uinout.getShape(),
       KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )

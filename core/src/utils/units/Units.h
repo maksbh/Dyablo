@@ -299,7 +299,7 @@ public:
     {}
 
     template<typename Unit_t>
-    Unit_t getUnit( const Unit_t& u = Unit_t() ) const
+    Unit_t getUnit( const Unit_t& u = Unit_t(1) ) const
     {
         using traits = Unit_traits<Unit_t>;
 
@@ -316,6 +316,12 @@ public:
 void code_units_init( const UnitSystem& code_units );
 
 const UnitSystem& code_units();
+
+template< typename Unit_t >
+real_t constant_to_code_units( const Unit_t& cst )
+{
+    return cst.convert_to( code_units().getUnit(cst) );
+}
 
 } // namespace Units
 
