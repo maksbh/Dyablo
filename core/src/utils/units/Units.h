@@ -236,29 +236,32 @@ DEFINE_UNIT( g          , gram() );
 DEFINE_UNIT( centimeter , centi() * meter() );
 DEFINE_UNIT( cm         , centimeter() );
 DEFINE_UNIT( cm_per_s   , cm() / s() );
-DEFINE_UNIT( erg        , g() * cm()*cm() /s()/s() );
+DEFINE_UNIT( erg        , 1e-7 * Joule() );
 
 // Common astro units
-DEFINE_UNIT( parsec     , 3.085677580962325e+16 * meter() );
+DEFINE_UNIT( parsec     , 3.085678e16 * meter() );
 DEFINE_UNIT( pc         , parsec()  );
 DEFINE_UNIT( kpc        , Kilo() * parsec() );
 DEFINE_UNIT( Mpc        , Mega() * parsec() );
 DEFINE_UNIT( Gpc        , Giga() * parsec() );
 
-DEFINE_UNIT( astronomical_unit, 149597870750.76672 * meter() );
+DEFINE_UNIT( astronomical_unit, 149597870700.0 * meter() );
 DEFINE_UNIT( au         , astronomical_unit() );
-DEFINE_UNIT( solar_mass , 1.98841586e+30 * kilogram() );
+DEFINE_UNIT( solar_mass , 1.9884e30 * kilogram() );
 DEFINE_UNIT( Msun       , solar_mass() );
 
-DEFINE_UNIT( year       , 31557600 * second() );
+DEFINE_UNIT( minute     , 60 * second() );
+DEFINE_UNIT( hour       , 60 * minute() );
+DEFINE_UNIT( year       , 8760.0 * hour() );
 DEFINE_UNIT( yr         , year() );
 DEFINE_UNIT( kyr        , Kilo() * year() );
 DEFINE_UNIT( Myr        , Mega() * year() );
 DEFINE_UNIT( Gyr        , Giga() * year() );
 
-DEFINE_UNIT( atomic_mass_unit, 1.660538921e-27 * kilogram() );
-DEFINE_UNIT( amu        , atomic_mass_unit() );
-DEFINE_UNIT( electronvolt, 1.60217656e-19 * Joule() );
+DEFINE_UNIT( Dalton, 1.6605388628e-27 * kilogram() );
+DEFINE_UNIT( atomic_mass_unit, Dalton() );
+DEFINE_UNIT( amu        , Dalton() );
+DEFINE_UNIT( electronvolt, 1.602176634e-19 * Joule() );
 DEFINE_UNIT( eV         , electronvolt() );
 
 // Convenient multiples

@@ -28,7 +28,7 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
   target_link_libraries(${UNIT_TEST_NAME} PUBLIC
     dyablo_core
     config
-    units
+    dyablo_units
     Kokkos::kokkos
     monitoring
     BITPIT::BITPIT
@@ -140,6 +140,10 @@ dyablo_add_test(utest_RegisteringFactory OFF
   utils/test_RegisteringFactory.cpp
   main.cpp)
 target_link_libraries( utest_RegisteringFactory PUBLIC RegisteringFactory_impl_lib )
+
+dyablo_add_test(utest_units OFF
+  utils/test_units.cpp
+  main.cpp)
 
 dyablo_add_test(utest_MpiComm ON
   utils/test_MpiComm.cpp
