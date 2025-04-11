@@ -24,15 +24,20 @@ int main(int argc, char *argv[])
   ConfigMap configMap = ConfigMap::broadcast_parameters(input_file);
   if( configMap.hasValue("units","time") )
   { // Set code units
-    auto unit_time = configMap.getValue<real_t>("units", "time", 1.0) * Units::second();
-    auto unit_length = configMap.getValue<real_t>("units", "length", 1.0) * Units::meter();
-    real_t unit_mass_SI = 1;
+    auto unit_time = configMap.getValue<Units::Time>("units", "time");
+    auto unit_length = configMap.getValue<Units::Length>("units", "length");
+    Units::Mass unit_mass = Units::kg();
+    DYABLO_ASSERT_HOST_RELEASE( !(configMap.hasValue("units","mass") && configMap.hasValue("units","density")), "Parsing units in .ini : cannot set code density and mass et the same time" );
     if( configMap.hasValue("units","density") )
     {
-      real_t unit_density = configMap.getValue<real_t>("units", "density");
-      unit_mass_SI = unit_density * unit_length.pow<3>().convert_to( Units::meter().pow<3>() );
+      auto unit_density = configMap.getValue<Units::Density>("units", "density");
+      unit_mass = unit_density * unit_length.pow<3>();
     }
-    auto unit_mass = configMap.getValue<real_t>("units", "mass", unit_mass_SI) * Units::kg();
+    else
+    {
+      unit_mass = configMap.getValue<Units::Mass>("units", "mass");
+    }
+    
     Units::code_units_init( Units::UnitSystem(
         unit_time,
         unit_length,

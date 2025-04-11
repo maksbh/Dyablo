@@ -13,6 +13,7 @@
 #include "utils/mpi/GlobalMpiSession.h"
 #include "utils/config/inih/ini.h"
 #include "utils/misc/Dyablo_assert.h"
+#include "utils/units/UnitParser.hpp"
 #include "enums.h"
 #include "named_enum.h"
 #include <cassert>
@@ -69,6 +70,10 @@ struct convert_to_t
         }
         DYABLO_ASSERT_HOST_RELEASE( false, sst.str() );
       }
+    }
+    else if constexpr ( dyablo::Units::is_unit<T> )
+    {
+      return dyablo::Units::parse_unit<T>(str);
     }
     else
     {
@@ -169,6 +174,16 @@ struct to_string_t<std::vector<T>>
     if(!res.empty())
       res.pop_back(); // Remove last ','
     return res;
+  }
+};
+
+template< int... Dims >
+struct to_string_t<dyablo::Units::Unit<Dims...>>
+{
+  static std::string convert( const dyablo::Units::Unit<Dims...>& u )
+  {
+    real_t u_code = u.convert_to( dyablo::Units::code_units().getUnit<dyablo::Units::Unit<Dims...>>() );
+    return to_string_t<real_t>::convert( u_code );
   }
 };
 
@@ -305,14 +320,15 @@ public:
     name = tolower(name);
     value_container& val = _values[section][name];
     val.used = true;
-    T res;
+    std::unique_ptr<T> res_ptr;
     try {        
-      res = Impl::convert_to<T>(val.value);
+      res_ptr = std::make_unique<T>(Impl::convert_to<T>(val.value));
     }
     catch (const std::exception& e)
     {
       DYABLO_ASSERT_HOST_RELEASE( false, "Error while parsing .ini " << section << "/" << name << " -- " << e.what())
     }
+    T& res = *res_ptr;    
 
     if( print_config )
     {

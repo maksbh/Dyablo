@@ -31,8 +31,8 @@ real_t parse_unit( const std::string& str, const UnitDims& expected_dims )
         && mol_match
         && LuminousIntensity_match
          , "Error while parsing unit : bad dimension " << std::endl
-        << "  Expected : <" << expected_dims.Time << "," << expected_dims.Length << "," << expected_dims.Mass << "," << expected_dims.Current << "," << expected_dims.Temp << "," << expected_dims.mol << ">"
-        << "  Provided : '" << str << "' : " << to_string(u)
+        << "  Expected : <" << expected_dims.Time << "," << expected_dims.Length << "," << expected_dims.Mass << "," << expected_dims.Current << "," << expected_dims.Temp << "," << expected_dims.mol << ">" << std::endl
+        << "  Provided : '" << str << "' : " //<< units::to_string(u)
     );
 
     return u.convert_to_base().value();

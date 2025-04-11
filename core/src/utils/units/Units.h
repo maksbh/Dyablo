@@ -283,6 +283,22 @@ DEFINE_UNIT( H0         , 70.3 * km() / s() / Mpc() );
 DEFINE_UNIT( YHE        , 0.24 * one() ); // Helium Mass fraction
 DEFINE_UNIT( yHE        , (YHE()/(1.-YHE())/MHE_OVER_MH()) ); // Helium number fraction
 
+using Time          = Unit<1>;
+using Length        = Unit<0,1>;
+using Mass          = Unit<0,0,1>;
+using Current       = Unit<0,0,0,1>;
+using Temperature   = Unit<0,0,0,0,1>;
+using Mol           = Unit<0,0,0,0,0,1>;
+using LuminousIntensity= Unit<0,0,0,0,0,0,1>;
+
+using Velocity      = decltype( m()/s() );
+using Acceleration  = decltype( m()/s2() );
+using Density       = decltype( kg()/m3() );
+using Energy        = decltype( J() );
+using EnergyDensity = decltype( J()/m3() );
+using Pressure      = decltype( Pa() );
+
+
 class UnitSystem
 {
 protected:
