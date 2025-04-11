@@ -34,7 +34,7 @@ def ddplus(a, om, ov):
 
 def dplus(a,omegam,omegav):
     eta = np.sqrt(omegam/a+omegav*a*a+1.0-omegam-omegav)
-    return eta/a*integrate.romberg(lambda a : ddplus(a, omegam, omegav), 0., a)
+    return eta/a*integrate.quad(lambda a : ddplus(a, omegam, omegav), 0., a)[0]
 
 #=======================================================
 
