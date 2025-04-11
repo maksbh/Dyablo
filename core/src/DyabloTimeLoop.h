@@ -204,6 +204,7 @@ public:
     if( cosmo_manager.cosmo_run )
     {
       scalar_data.get<real_t>("aexp") = cosmo_manager.timeToExpansion(scalar_data.get<real_t>("time"));
+      scalar_data.set<real_t>("time_physical", cosmo_manager.compute_physical_t(scalar_data.get<real_t>("aexp")));
     }
   }
 };
@@ -278,6 +279,7 @@ public:
     {
       t0_default = cosmo_manager->expansionToTime( cosmo_manager->a_start );
       m_scalar_data.set("aexp", cosmo_manager->a_start);
+      m_scalar_data.set<real_t>("time_physical", cosmo_manager->compute_physical_t(m_scalar_data.get<real_t>("aexp")));
     }
     else
     {

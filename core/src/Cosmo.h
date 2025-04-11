@@ -89,6 +89,18 @@ private:
     return Impl::romberg<max_iterations>( faexp_tilde, a, b, tol );
   }
 
+  static real_t integrate_da_dt_physical(real_t omega_m, real_t omega_v, real_t a, real_t b, real_t tol)
+  {
+    constexpr int max_iterations=16;
+    auto faexp_tilde = [&](real_t aexp)
+    {
+      return aexp*aexp / sqrt(std::pow(aexp, 4) * (1.0-omega_m-omega_v) 
+                    + std::pow(aexp, 3) * omega_m 
+                    + std::pow(aexp, 6) * omega_v);
+    };
+    return Impl::romberg<max_iterations>( faexp_tilde, a, b, tol );
+  }
+
 public:
   CosmoManager(ConfigMap &configMap)
     : cosmo_run(configMap.getValue<bool>("cosmology", "active", false)),
@@ -156,6 +168,11 @@ public:
   real_t compute_cosmo_dt(real_t a)
   {
     return static_compute_cosmo_dt(omega_m, omega_v, H0, a, da);
+  }
+
+  real_t compute_physical_t(real_t a)
+  {
+    return -1.0/H0 * integrate_da_dt_physical(omega_m, omega_v, a, 1.0, 1.0e-8);
   }
 
 
