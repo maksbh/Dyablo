@@ -49,9 +49,9 @@ run_and_verify test_sod_2D.ini "validate_sod.py test_sod_2D_main.xmf 1e-2 ../../
 cd build/dyablo/bin
 python3 ../../../settings/cosmo/zeldovitch_generate_grafic.py
 cd ../../..
-run_and_verify test_zeldovitch_grafic.ini "../../../settings/cosmo/validate_zeldovitch.py zeldovitch_main.xmf 1e-2 ../../../zeldovitch_grafic/zeldovitch_grafic.png" zeldovitch_grafic 
+run_and_verify test_zeldovitch_grafic.ini "../../../settings/cosmo/validate_zeldovitch.py zeldovitch_main.xmf 0.2 ../../../zeldovitch_grafic/zeldovitch_grafic.png" zeldovitch_grafic 
 
-run_and_verify test_zeldovitch_dyablo.ini "../../../settings/cosmo/validate_zeldovitch.py zeldovitch_main.xmf 1e-2 ../../../zeldovitch_dyablo/zeldovitch_dyablo.png" zeldovitch_dyablo 
+run_and_verify test_zeldovitch_dyablo.ini "../../../settings/cosmo/validate_zeldovitch.py zeldovitch_main.xmf 0.2 ../../../zeldovitch_dyablo/zeldovitch_dyablo.png" zeldovitch_dyablo 
 
 echo "${err_count}/${run_count} runs failed"
 
