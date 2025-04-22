@@ -53,7 +53,7 @@ GravitySolver_cg::GravitySolver_cg(
     })
 {
   int ndim = configMap.getValue<int>("mesh", "ndim", 3);
-  pdata->four_Pi_G = configMap.getValue<real_t>("gravity", "4_Pi_G");
+  pdata->four_Pi_G = configMap.getValue<real_t>("gravity", "4_Pi_G", 1.0);
   
   DYABLO_ASSERT_HOST_RELEASE( ndim == 3, "GravitySolver_cg can only run in 3D" )
   
