@@ -114,7 +114,8 @@ public:
   {
     if(cosmo_run)
     {
-      this->H0 = configMap.getValue<real_t>("cosmology", "H0");
+      using Inv_Time = decltype( 1/Units::s() );
+      this->H0 = configMap.getValue_in_code_unit<Inv_Time>("cosmology", "H0");
       
       computeFLM();
     }

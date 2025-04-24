@@ -89,7 +89,17 @@ public:
 
     auto H0_u = header.H0 * Units::km() / Units::s() / Units::Mpc(); // Hubble constant from grafic
     this->H0 = H0_u.convert_to( 1/code_time );
-    set_or_check( "cosmology", "H0", H0 );
+
+    {
+      using Inv_Time = decltype( 1/Units::s() );
+      real_t H0_ini = configMap.getValue_in_code_unit<Inv_Time>("cosmology", "H0");
+      DYABLO_ASSERT_HOST_RELEASE( H0 == H0_ini, 
+          ".ini parameter does not match grafic file : \n"
+          << ".ini cosmology/H0 : " << H0_ini << "\n"
+          << "grafic file : `" << this->H0 << "`"
+           );
+    }
+
     real_t dx = (header.dx * Units::Mpc()).convert_to(code_length);
     set_or_check( "cosmology", "dx", dx );
     this->xmax = xmin + header.nx * dx;

@@ -94,8 +94,9 @@ public:
         }
         fomega = (2.5 / dplus - 1.5 * omegam / astart - omegak) / (eta * eta);
       }
-
-      real_t H0 = configMap.getValue<real_t>( "cosmology", "H0" );
+      
+      using Inv_Time = decltype( 1/Units::s() );
+      real_t H0 = configMap.getValue_in_code_unit<Inv_Time>("cosmology", "H0");
       real_t four_pi_G = configMap.getValue<real_t>( "gravity", "4_Pi_G" );
 
       real_t rhoc = 3.0 * H0 * H0 /( 2 * four_pi_G);
