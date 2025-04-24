@@ -348,6 +348,37 @@ public:
     return res;
   }
 
+  template<typename Unit_t, typename F>
+  real_t getValue_in_unit_aux(std::string section, std::string name, const F& unit)
+  {
+    bool is_present = hasValue(section, name);
+    DYABLO_ASSERT_HOST_RELEASE( is_present, "Error while parsing .ini " << section << "/" << name << " -- Value not found and no default was provided." )
+    
+    real_t value;
+    try{
+      value = this->getValue<real_t>(section, name);
+    }
+    catch(...)
+    {
+      Unit_t value_u = this->getValue<Unit_t>(section, name);
+      //unit is deduced here to avoid triggering "code units not set" when raw float is given in getValue_in_code_unit
+      value = value_u.convert_to( unit() ); 
+    }
+    return value;    
+  }
+
+  template<typename Unit_t>
+  real_t getValue_in_unit(std::string section, std::string name, const Unit_t& unit)
+  {
+    return getValue_in_unit_aux<Unit_t>(section, name, [&](){return unit;});
+  }
+
+  template<typename Unit_t>
+  real_t getValue_in_code_unit(std::string section, std::string name)
+  {
+    return getValue_in_unit_aux<Unit_t>(section, name, [&](){return dyablo::Units::code_units().getUnit<Unit_t>();});
+  }
+
   bool hasValue( std::string section, std::string name )
   {
     section = tolower(section);
