@@ -213,6 +213,8 @@ public:
 
     DYABLO_ASSERT_HOST_RELEASE( error == 0, "Error in .ini file line " << error );
     this->print_config = this->getValue<bool>( "ini", "print_config", false );
+    this->convert_units = this->getValue<bool>( "ini", "convert_units", false );
+
   }
 
   ConfigMap( ConfigMap&& ) = default;
@@ -363,6 +365,14 @@ public:
       Unit_t value_u = this->getValue<Unit_t>(section, name);
       //unit is deduced here to avoid triggering "code units not set" when raw float is given in getValue_in_code_unit
       value = value_u.convert_to( unit() ); 
+
+      if( this->convert_units )
+      {
+        section = tolower(section);
+        name = tolower(name);
+        value_container& val = _values.at(section).at(name);
+        val.value = Impl::to_string( value );
+      }
     }
     return value;    
   }
@@ -431,6 +441,7 @@ protected:
   };
 
   bool print_config;
+  bool convert_units;
 
   std::map<std::string, std::map< std::string, value_container> > _values;
   static int valueHandler( void* user, const char* section_cstr, const char* name_cstr,
