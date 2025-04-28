@@ -99,7 +99,10 @@ public:
         std::set<std::string> fields;
         {
             for( const auto& field_info : State_t::getFieldsInfo() )
-                fields.insert( field_info.name );
+            {
+                if( !U.has_field(field_info.name) )
+                    fields.insert( field_info.name );
+            }
         }
         U.new_fields( fields );
 
