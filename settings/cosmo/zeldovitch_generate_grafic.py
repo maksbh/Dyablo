@@ -51,7 +51,7 @@ def fomega(a,omegam,omegav) :
 
 # Cosmology
 H0 = 70.0 #km/s/Mpc
-omegab = 0.049
+omegab = 1e-10
 omegam = 0.3
 omegav = 1.0 - omegam
 om = omegam
@@ -82,7 +82,7 @@ xg0 = np.linspace(0,n1,n1+1)
 xgrid0 = (xg0[1:]+xg0[:-1])*0.5
 xgrid = xgrid0#np.roll(xgrid0,10)
 zzg,yyg,xxg = np.meshgrid(xgrid,xgrid,xgrid,indexing='ij')
-qxgrid = np.interp(xxg,x,q)
+qxgrid = xxg #np.interp(xxg,x,q)
 rho = 1/(1+A*Dp*k*np.cos(k*qxgrid)) - 1.0
 
 vel = A*Dp*np.sin(k*qxgrid)*dx*vfact #velocity km/s
