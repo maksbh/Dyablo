@@ -264,6 +264,9 @@ public:
         initial_conditions->init( U );
       }     
     } 
+
+    if( !U.has_field("rho") )
+      U.new_fields({"rho"});
     timers.get("initial_conditions").stop();
 
     configMap.getValue<int>("mesh", "ndim", 3); 
@@ -672,7 +675,15 @@ public:
     }
 
     //U.exchange_ghosts( ghost_comm );
-    std::vector<std::string> fields_to_exchange{"rho","e_tot","rho_vx","rho_vy","rho_vz"};
+    std::vector<std::string> fields_to_exchange;
+    if( godunov_updater )
+    {
+      fields_to_exchange.push_back("rho");
+      fields_to_exchange.push_back("e_tot");
+      fields_to_exchange.push_back("rho_vx");
+      fields_to_exchange.push_back("rho_vy");
+      fields_to_exchange.push_back("rho_vz");
+    }
     if( this->has_mhd )
     {
       fields_to_exchange.push_back("Bx");
