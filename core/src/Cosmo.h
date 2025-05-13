@@ -15,6 +15,9 @@ namespace {
 
 real_t lookup_interpolate( const std::vector<real_t>& lookup_x, const std::vector<real_t>& lookup_y, real_t x )
   {
+    if( x == lookup_x[0])
+      return lookup_y[0];
+
     auto lower_bound_it = std::lower_bound( lookup_x.begin(), lookup_x.end(), x );
     int i = lower_bound_it - lookup_x.begin(); // First greater or equal
 
@@ -128,7 +131,8 @@ public:
 
   real_t expansionToTime(const real_t aexp) const 
   {
-    return Impl::lookup_interpolate( lookup_a, lookup_t, aexp );
+    DYABLO_ASSERT_HOST_RELEASE( lookup_a[0] <= aexp && aexp <= lookup_a[lookup_a.size()-1], "aexp out of range : " << aexp << " not in [" << lookup_a[0] << ", " << lookup_a[lookup_a.size()-1] << "]"  );
+    return Impl::lookup_interpolate( lookup_a, lookup_t, aexp+0.0000000001 );
   }
 
   void computeFLM() {
