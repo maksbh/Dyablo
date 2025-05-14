@@ -52,6 +52,7 @@ cd ../../..
 run_and_verify test_zeldovitch_grafic.ini "../../../settings/cosmo/validate_zeldovitch.py zeldovitch_main.xmf 0.2 ../../../zeldovitch_grafic/zeldovitch_grafic.png" zeldovitch_grafic 
 
 run_and_verify test_zeldovitch_dyablo.ini "../../../settings/cosmo/validate_zeldovitch.py zeldovitch_main.xmf 0.2 ../../../zeldovitch_dyablo/zeldovitch_dyablo.png" zeldovitch_dyablo 
+run_and_verify test_zeldovitch_particles_dyablo.ini "../../../settings/cosmo/validate_zeldovitch.py zeldovitch_main.xmf 0.2 ../../../zeldovitch_particles_dyablo/zeldovitch_particles_dyablo.png" zeldovitch_particles_dyablo 
 
 echo "${err_count}/${run_count} runs failed"
 

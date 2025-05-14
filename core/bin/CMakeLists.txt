@@ -62,6 +62,7 @@ configure_file(visu_gravity_spheres_3D.pvsm visu_gravity_spheres_3D.pvsm COPYONL
 
 # Zeldovitch 3D test
 configure_file(../../settings/cosmo/zeldovitch_dyablo.ini test_zeldovitch_dyablo.ini COPYONLY)
+configure_file(../../settings/cosmo/zeldovitch_particles_dyablo.ini test_zeldovitch_particles_dyablo.ini COPYONLY)
 configure_file(../../settings/cosmo/visu_zeldovitch.pvsm visu_zeldovitch.pvsm COPYONLY)
 
 # Zeldovitch grafic test
