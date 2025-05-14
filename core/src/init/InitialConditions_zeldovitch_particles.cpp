@@ -102,7 +102,7 @@ public:
       real_t Vbox = (xmax-xmin) * (ymax-ymin) * (zmax -zmin);
 
       default_total_mass = ((omegam-omegab) * rhoc * Vbox);
-      default_dt_perturb = 1/ fomega(astart)*dladt(astart)/ H0;
+      default_dt_perturb = 1/ (fomega(astart)*dladt(astart))/ H0;
 
       real_t across = configMap.getValue<real_t>("zeldovitch_pancake", "aCross");
 
@@ -112,7 +112,7 @@ public:
 
     this->total_mass = configMap.getValue<real_t>("particle_grid", "total_mass", default_total_mass);
     this->dt_perturb = configMap.getValue<real_t>("particle_grid", "dt_perturb", default_dt_perturb);
-    this->vfact = configMap.getValue<real_t>("zeldovitch_pancake", "zeldovitch_pancake", default_vfact);
+    this->vfact = configMap.getValue<real_t>("zeldovitch_pancake", "vfact", default_vfact);
   }
 
   void init( UserData& U )
