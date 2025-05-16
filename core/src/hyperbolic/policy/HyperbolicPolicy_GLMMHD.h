@@ -26,6 +26,20 @@ struct HyperbolicPolicy_ConsGLMMHDState {
     Ipsi
   }; 
 
+  static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
+  {
+    return  { {"rho",     VarIndex::Irho}, 
+              {"e_tot",   VarIndex::Ie_tot},
+              {"rho_u",  VarIndex::Irho_vx},
+              {"rho_v",  VarIndex::Irho_vy},
+              {"rho_w",  VarIndex::Irho_vz},
+              {"Bx",  VarIndex::IBx},
+              {"By",  VarIndex::IBy},
+              {"Bz",  VarIndex::IBz},
+              {"psi",  VarIndex::Ipsi},
+            };
+  }
+
   static FieldManager getFieldManager()
   {
     return FieldManager( {VarIndex::Irho, VarIndex::Ie_tot, VarIndex::Irho_vx, VarIndex::Irho_vy, VarIndex::Irho_vz, VarIndex::IBx, VarIndex::IBy, VarIndex::IBz, VarIndex::Ipsi } );

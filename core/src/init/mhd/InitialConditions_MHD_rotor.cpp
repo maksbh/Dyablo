@@ -107,9 +107,5 @@ struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base{
 } // namespace dyablo
 
 FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
-                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor<dyablo::MHDState>>, 
-                 "MHD_rotor");
-
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
                  dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor<dyablo::GLMMHDState>>, 
                  "MHD_rotor_glm");

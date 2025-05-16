@@ -40,7 +40,7 @@ public:
   {
     real_t dt_local;
     if( has_mhd )
-      dt_local = compute_dt_aux<MHDState>(U);
+      dt_local = compute_dt_aux<GLMMHDState>(U);
     else
       dt_local = compute_dt_aux<HydroState>(U);
 
@@ -95,7 +95,7 @@ public:
       // TODO : Find a BETTER way to do this !
       // In fine, compute_dt should be templated by the type of State
       // and calculations of inv_dt should be held in a separate State function
-      if constexpr (std::is_same_v<State, MHDState>) {
+      if constexpr (std::is_same_v<State, GLMMHDState>) {
         const real_t Bx = qLoc.Bx;
         const real_t By = qLoc.By;
         const real_t Bz = qLoc.Bz;

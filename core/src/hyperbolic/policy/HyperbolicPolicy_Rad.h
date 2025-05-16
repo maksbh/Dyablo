@@ -19,6 +19,15 @@ struct HyperbolicPolicy_RadState {
     Ifz_rad
   }; 
 
+  static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
+  {
+    return  { {"e_rad",     VarIndex::Ie_rad}, 
+              {"fx_rad",   VarIndex::Ifx_rad},
+              {"fy_rad",  VarIndex::Ify_rad},
+              {"fz_rad",  VarIndex::Ifz_rad},
+            };
+  }
+
   static FieldManager getFieldManager()
   {
     return FieldManager( {VarIndex::Ie_rad, VarIndex::Ifx_rad, VarIndex::Ify_rad, VarIndex::Ifz_rad } );

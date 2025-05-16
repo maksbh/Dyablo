@@ -20,6 +20,15 @@ struct HyperbolicPolicy_ConsHydroState {
     Irho_vz
   }; 
 
+  static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
+  {
+    return  { {"rho",     VarIndex::Irho}, 
+              {"e_tot",   VarIndex::Ie_tot},
+              {"rho_vx",  VarIndex::Irho_vx},
+              {"rho_vy",  VarIndex::Irho_vy},
+              {"rho_vz",  VarIndex::Irho_vz} };
+  }
+
   static FieldManager getFieldManager()
   {
     return FieldManager( {VarIndex::Irho, VarIndex::Ie_tot, VarIndex::Irho_vx, VarIndex::Irho_vy, VarIndex::Irho_vz } );

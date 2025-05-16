@@ -75,10 +75,6 @@ struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base{
 } // namespace dyablo
 
 FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
-                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang<dyablo::MHDState>>, 
-                 "orszag_tang");
-
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
                  dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang<dyablo::GLMMHDState>>, 
                  "orszag_tang_glm");
 
