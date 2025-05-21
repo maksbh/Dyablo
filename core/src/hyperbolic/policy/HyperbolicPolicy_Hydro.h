@@ -102,7 +102,7 @@ struct HyperbolicPolicy_Hydro_Params
 
 class HyperbolicPolicy_State_Hydro
 {
-private:
+protected:
   int ndim;
   real_t gamma0;
 

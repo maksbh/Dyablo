@@ -33,424 +33,8 @@ namespace{
 using GhostedArray = ForeachCell::CellArray_global_ghosted;
 using CellIndex = ForeachCell::CellIndex;
 using FieldArray = UserData::FieldAccessor;
-
-//Copied from HyperbolicUpdate_generic
-template < 
-  int ndim,
-  typename State>
-KOKKOS_INLINE_FUNCTION
-void computePrimitives(const RiemannParams& params, const FieldArray& Ugroup, 
-                       const CellIndex& iCell_Ugroup, const GhostedArray& Qgroup)
-{
-  using PrimState = typename State::PrimState;
-  using ConsState = typename State::ConsState;
-
-  ConsState uLoc{};
-  getConservativeState<ndim>( Ugroup, iCell_Ugroup, uLoc );
-  PrimState qLoc = consToPrim<ndim>( uLoc, params.gamma0 );
-  setPrimitiveState<ndim>( Qgroup, iCell_Ugroup, qLoc );
+ 
 }
-
-KOKKOS_INLINE_FUNCTION
-real_t big_real()
-{
-  return 1e99;
-}
-
-/**
- * Compute limited slopes and store result in Slopes_xyz
- * @tparam ndim 2d or 3d
- * @param[in] Q Array containing primitive variables
- * @param[in] iCell_U is current cell index
- * @param pos_cell cell center position
- * @param cell_size size of the cell
- * @param Slope_xyz limited slopes for every cell (in the xyz direction)
- **/
-template< int ndim, typename State >
-KOKKOS_INLINE_FUNCTION
-void compute_limited_slopes(const GhostedArray& Q, const CellIndex& iCell_U, 
-                            ForeachCell::CellMetaData::pos_t pos_cell, ForeachCell::CellMetaData::pos_t cell_size,
-                            const GhostedArray& Slope_x, const GhostedArray& Slope_y, const GhostedArray& Slope_z)
-{
-  using PrimState = typename State::PrimState;
-
-  PrimState grad[ndim];
-  for (int d=0; d < ndim; ++d) 
-    state_foreach_var( [](real_t& res){ res=big_real(); }, grad[d] );        
-
-  PrimState qP{};
-  getPrimitiveState<ndim>(Q, iCell_U, qP);
-  PrimState q = qP;
-  
-  /// Compute gradient and apply slope limiter for neighbor 'iCell_neighbor' at position 'pos_neighbor' and in direction 'dir'
-  auto update_minmod =[&]( const ComponentIndex3D& dir, const CellIndex& iCell_neighbor, real_t pos_n )
-  {
-    // default returned value (limited gradient didn't change)
-    auto old_value = grad[dir];
-    auto new_value = old_value;
-
-    // compute distance along direction "dir" between current and
-    // neighbor cell
-    real_t pos_c = pos_cell[dir];
-    real_t delta_x = pos_n - pos_c;
-
-    PrimState qNeighP{};
-    getPrimitiveState<ndim>(Q, iCell_neighbor, qNeighP);
-    PrimState qNeigh = qNeighP;
-
-    PrimState new_grad = (qNeigh - q)/delta_x;
-
-    // this first test ensure a correct initialization
-    state_foreach_var( 
-      [](real_t& new_value, real_t old_value, real_t new_grad)
-    {
-      if ( old_value == big_real() )
-        new_value = new_grad;
-      else if (old_value * new_grad < 0)
-        new_value = 0.0;
-      else if ( fabs(new_grad) < fabs(old_value) )
-        new_value = new_grad;
-    }, new_value, old_value, new_grad ); 
-
-    grad[dir] = new_value;
-  };
-
-  // Compute gradient and apply slope limiter for every neighbor in direction dir (sign = Left(-1)/Right(1))
-  auto process_neighbors = [&]( ComponentIndex3D dir, int sign )
-  {
-      CellIndex::offset_t offset{};
-      offset[dir] = sign;
-      CellIndex iCell_n0 = iCell_U.getNeighbor_ghost( offset, Q );
-
-      if( iCell_n0.is_boundary() )
-        return;
-      if( iCell_n0.level_diff() == 0 ) // same size
-          update_minmod(dir, iCell_n0, pos_cell[dir]+offset[dir]*cell_size[dir]);
-      if( iCell_n0.level_diff() == 1 ) // bigger
-          update_minmod(dir, iCell_n0, pos_cell[dir]+1.5*offset[dir]*cell_size[dir]);
-      if( iCell_n0.level_diff() == -1 ) // smaller
-      {
-        foreach_smaller_neighbor<ndim>(iCell_n0, offset, Q, 
-          [&](const CellIndex& iCell_neighbor)
-        {
-          update_minmod(dir, iCell_neighbor, pos_cell[dir]+0.75*offset[dir]*cell_size[dir]);
-        });
-      }
-  };
-
-  process_neighbors(IX, +1);
-  process_neighbors(IX, -1);
-  process_neighbors(IY, +1);
-  process_neighbors(IY, -1);
-  if(ndim==3)
-  {
-    process_neighbors(IZ, +1);
-    process_neighbors(IZ, -1);
-  }
-
-  PrimState gradP[ndim]{};
-
-  gradP[IX] = grad[IX];
-  setPrimitiveState<ndim>(Slope_x, iCell_U, gradP[IX]);
-
-  gradP[IY] = grad[IY];
-  setPrimitiveState<ndim>(Slope_y, iCell_U, gradP[IY]);
-
-  if(ndim==3) {
-    gradP[IZ] = grad[IZ];
-    setPrimitiveState<ndim>(Slope_z, iCell_U, gradP[IZ]);
-  }
-}
-
-/**
-   * Compute Riemann fluxes and update current cell.
-   *
-   * @param Uin Initial fields
-   * @param Uout Fields to update
-   * @param Q Primitive fields
-   * @param iCell_Q current cell index
-   * @param Slope_xyz limited slopes for every cell (in the xyz direction)
-   * @param cellmetadata cell meta data to retrieve cell size and position
-   * @param dt timestep
-   * @param params RiemannParams configuration
-   */
-template< 
-  int ndim,
-  typename State >
-KOKKOS_INLINE_FUNCTION
-void compute_fluxes_and_update( const FieldArray& Uin, const FieldArray& Uout, const GhostedArray& Q, const CellIndex& iCell_Q,
-                                const GhostedArray& Slopes_x, const GhostedArray& Slopes_y, const GhostedArray& Slopes_z,
-                                const ForeachCell::CellMetaData& cellmetadata, real_t dt, const RiemannParams& params,
-                                const BoundaryConditions& bc_manager)
-{
-  using PrimState = typename State::PrimState;
-  using ConsState = typename State::ConsState;
-
-  ForeachCell::CellMetaData::pos_t cell_size = cellmetadata.getCellSize(iCell_Q);
-  ForeachCell::CellMetaData::pos_t pos_c = cellmetadata.getCellCenter(iCell_Q);
-
-  PrimState qprim{};
-  ConsState qcons{};
-  getPrimitiveState<ndim>(Q, iCell_Q, qprim);
-  getConservativeState<ndim>(Uin, iCell_Q, qcons);
-
-  /**
-   * Solve riemann problem at interface between cells
-   * @param qr_c primitive variables for current cell
-   * @param qr_n primitive variables for neighbor cell
-   * @param dir direction of interface between cells (e.g IX if neighbor is left of cell)
-   * @param int sign : -1 neighbor is left of current cell, +1 neighbor is right
-   * @return flux between cells
-   **/
-  auto riemann = [&](PrimState qr_c, PrimState qr_n, ComponentIndex3D dir, int sign)
-  {
-    PrimState &qr_L = (sign<0)?qr_n:qr_c;
-    PrimState &qr_R = (sign<0)?qr_c:qr_n;
-
-    HyperbolicPolicy_RiemannSolver_Hydro_hllc solver ({
-      .gamma0 = params.gamma0,
-      .smallr = params.smallr,
-      .smallp = params.smallp,
-      .smallc = params.smallc,
-    });
-    return solver.riemann_solver( qr_L, qr_R, dir );
-  };
-
-  
-  using reconstruct_offset_t = Kokkos::Array<real_t, 3>;
-
-  /**
-   * Reconstruct state form cell values and slopes at the iven position
-   * 
-   * @param q initial cell value
-   * @param iCell_U cell position
-   * @param Position on cell border where the primitive variables must be reconstructed
-   * using the limited slopes.
-   *
-   * In 2D, offsets lies in the following square (mapping current cell)
-   *
-   *  (-1,1) --- (0,1) ---- (1,1) 
-   *    |          |          |
-   *    |          |          |
-   *    |          |          |
-   *  (-1,0) --- (0,0) ---- (1,0)
-   *    |          |          |
-   *    |          |          |
-   *    |          |          |
-   *  (-1,-1) ---(0,-1) --- (1,-1) 
-   * @param dx_over_2 half cell size
-   **/
-  auto reconstruct_state = [&] ( PrimState q, 
-                                 const CellIndex& iCell_U,
-                                 reconstruct_offset_t offsets,
-                                 ForeachCell::CellMetaData::pos_t cell_size, real_t dt ) -> PrimState
-  {
-    DYABLO_ASSERT_KOKKOS_DEBUG( ndim==3 || offsets[IZ]==0, "offsets[IZ] should be 0 in 2D" );
-
-    const real_t gamma  = params.gamma0;
-    const real_t smallr = params.smallr;
-    const real_t smallp = params.smallp;
-    
-    const real_t dtdx = dt/cell_size[IX];
-    const real_t dtdy = dt/cell_size[IY];
-    const real_t dtdz = dt/cell_size[IZ];
-
-    PrimState diff_x{};
-    PrimState diff_y{};
-    PrimState diff_z{};
-
-    getPrimitiveState<ndim>( Slopes_x, iCell_U, diff_x );
-    getPrimitiveState<ndim>( Slopes_y, iCell_U, diff_y );
-    if (ndim == 3)
-      getPrimitiveState<ndim>( Slopes_z, iCell_U, diff_z );
-
-    diff_x *= cell_size[IX];
-    diff_y *= cell_size[IY];
-    diff_z *= cell_size[IZ];
-
-    auto qs = compute_source<ndim>(q, diff_x, diff_y, diff_z, dtdx, dtdy, dtdz, gamma);
-    // reconstruct state on interface
-    PrimState qr = qs + diff_x * 0.5 * offsets[IX] + diff_y * 0.5 * offsets[IY] + diff_z * 0.5 * offsets[IZ];
-    qr.rho = fmax(smallr, qr.rho);
-    qr.p   = fmax(smallp, qr.p);
-
-    return qr;    
-  };
-
-  // Process every neighbor in direction dir (sign = Left(-1)/Right(1))
-  auto process_dir = [&]( ComponentIndex3D dir, int sign )
-  {
-    CellIndex::offset_t offset{};
-    offset[dir] = sign;
-    CellIndex iCell_n0 = iCell_Q.getNeighbor_ghost( offset, Q );
-
-    if( iCell_n0.is_boundary() )
-    {
-      
-      PrimState qr_c = qprim;
-      ConsState ur_n = bc_manager.template getBoundaryValue<ndim, State>(Uin, iCell_n0, cellmetadata);
-      PrimState qr_n = consToPrim<ndim>(ur_n, params.gamma0);
-      ConsState flux = riemann(qr_c, qr_n, dir, sign);
-
-      if (sign == 1 && bc_manager.bc_min[dir] == BC_USER)
-        flux = bc_manager.template overrideBoundaryFlux<ndim, State>(flux, qr_c, dir, true);
-      else if (sign == -1 && bc_manager.bc_max[dir] == BC_USER)
-        flux = bc_manager.template overrideBoundaryFlux<ndim, State>(flux, qr_c, dir, false);
-        
-      // +- dS / dV 
-      real_t scale = -sign * dt / cell_size[dir];     
-      qcons += flux*scale;     
-    }
-    else
-    {
-       ForeachCell::CellMetaData::pos_t cell_size_n = cellmetadata.getCellSize(iCell_n0);
-
-      if( iCell_n0.level_diff() >= 0 ) // Only one cell
-      {
-        // 0. retrieve primitive variables in neighbor cell
-        PrimState qprim_n{};
-        getPrimitiveState<ndim>( Q, iCell_n0, qprim_n );
-
-        // 1. reconstruct primitive variables on both sides of current interface (iface)
-
-        // current cell reconstruction  (primitive variables)
-        // Position at which state is reconstructed on current cell border ([-1,1])
-        // In this case, neighbor is always bigger or same size : center of face is used
-        const reconstruct_offset_t offsets_c{
-          (real_t)offset[IX], 
-          (real_t)offset[IY], 
-          (real_t)offset[IZ] 
-        };
-        PrimState qr_c = reconstruct_state(qprim, iCell_Q, offsets_c, cell_size, dt);
-
-        // neighbor cell reconstruction (primitive variables)
-        // Position at which state is reconstructed on neighbor cell border ([-1,1])
-        // In this case, current cell can be smaller or same size
-        //  Center of face is used if same size:
-        reconstruct_offset_t offsets_n{
-          (real_t)-offset[IX], 
-          (real_t)-offset[IY], 
-          (real_t)-offset[IZ] 
-        };
-        //  If "current" is smaller than "neighbor", center of "current" cell is used
-        if( iCell_n0.level_diff() > 0 )
-        {
-          ForeachCell::CellMetaData::pos_t pos_n = cellmetadata.getCellCenter(iCell_n0);
-          //We need to determine which quadrant of "neighbor"'s face is "current"'s face
-          for( int facedir = 0; facedir < ndim; facedir++ )
-          if( facedir != dir ) // Foreach direction inside face (orthogonal to dir)
-          {
-            offsets_n[facedir] += (pos_c[facedir] > pos_n[facedir])? 0.5 : -0.5;
-          }
-        }
-        PrimState qr_n = reconstruct_state(qprim_n, iCell_n0, offsets_n, cell_size_n, dt);
-
-        ConsState flux = riemann(qr_c, qr_n, dir, sign);
-        // +- dS / dV 
-        real_t scale = -sign * dt / cell_size[dir] ;      
-        qcons += flux*scale; 
-      }
-      else // ( iCell_n0.level_diff() == -1 ) // Multiple smaller neighbors
-      {
-        // Accumulate fluxes from neighbors of initial cell
-        int di_count = (offset[IX]==0)?2:1;
-        int dj_count = (offset[IY]==0)?2:1;
-        int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
-        for( int8_t dk=0; dk<dk_count; dk++ )
-        for( int8_t dj=0; dj<dj_count; dj++ )
-        for( int8_t di=0; di<di_count; di++ )
-        {
-            CellIndex iCell_n = iCell_n0.getNeighbor_ghost({di,dj,dk}, Q);
-            // 0. retrieve primitive variables in neighbor cell
-            PrimState qprim_n{};
-            getPrimitiveState<ndim>( Q, iCell_n, qprim_n );
-
-            // 1. reconstruct primitive variables on both sides of current interface (iface)
-
-            // current cell reconstruction  (primitive variables)
-            // Position at which state is reconstructed on current cell border ([-1,1])
-            // In this case, neighbor is always smaller : center of neighbor face is used
-            // Relative position of neighbor can be computed from {di,dj,dk}
-            const reconstruct_offset_t offsets_c{
-              (offset[IX] != 0) ? (real_t)offset[IX] : di-0.5, 
-              (offset[IY] != 0) ? (real_t)offset[IY] : dj-0.5, 
-              (ndim==2 || offset[IZ] != 0) ? (real_t)offset[IZ] : dk-0.5
-            };
-            PrimState qr_c = reconstruct_state(qprim, iCell_Q, offsets_c, cell_size, dt);
-
-            // neighbor cell reconstruction (primitive variables)
-            // Position at which state is reconstructed on neighbor cell border ([-1,1])
-            // In this case, current cell is bigger than neighbor, center of neighbor is used
-            const reconstruct_offset_t offsets_n{
-              (real_t)-offset[IX], 
-              (real_t)-offset[IY], 
-              (real_t)-offset[IZ] 
-            };            
-            PrimState qr_n = reconstruct_state(qprim_n, iCell_n, offsets_n, cell_size_n, dt);
-            ConsState flux = riemann(qr_c, qr_n, dir, sign);
-            // +- dS / dV 
-            int nneigh = (ndim-1)*2;
-            real_t scale = -sign * dt /  (cell_size[dir] * nneigh)  ;      
-            qcons += flux*scale; 
-        }
-      }
-    }
-  };
-
-  process_dir(IX, +1);
-  process_dir(IX, -1);
-  process_dir(IY, +1);
-  process_dir(IY, -1);
-  if(ndim==3)
-  {
-    process_dir(IZ, +1);
-    process_dir(IZ, -1);
-  }
-
-  setConservativeState<ndim>(Uout, iCell_Q, qcons);
-}
-
-template< int ndim, typename State, typename Array_t >
-void clean_negative_primitive_values(const ForeachCell& foreach_cell, const Array_t& U, double gamma0, double smallr, double smallp)
-{
-  using PrimState = typename State::PrimState;
-  using ConsState = typename State::ConsState;
-
-  int negative_p_count=0;
-  int negative_rho_count=0;
-
-  foreach_cell.reduce_cell( "clean_negative_values", U.getShape(),
-    KOKKOS_LAMBDA(  const ForeachCell::CellIndex& iCell, 
-                    int& negative_p_count, 
-                    int& negative_rho_count )
-  {
-    ConsState u{};
-    getConservativeState<ndim>(U, iCell, u);
-    PrimState q = consToPrim<ndim>(u, gamma0);
-    if( q.rho < 0.0 || q.p < 0.0 )
-    {
-      if (q.rho < 0.0) {
-        negative_rho_count++;
-        q.rho = smallr;
-      }
-      if (q.p < 0.0) {
-        negative_p_count++;
-        q.p   = smallp;
-      }
-      u = primToCons<ndim>(q, gamma0);
-      setConservativeState<ndim>(U, iCell, u);
-    }    
-  }, negative_p_count, negative_rho_count);
-
-  if( negative_rho_count > 0 )
-    printf("WARNING ! Negative density detected (x%d) !!!\n", negative_rho_count);
-  if( negative_p_count > 0 )
-    printf("WARNING ! Negative pressure detected (x%d) !!!\n", negative_p_count);
-
-}
-
-} // namespace
-
 /**
  * @brief Solves the equations with a Hancock timestepping on 
  * small blocks.
@@ -458,20 +42,18 @@ void clean_negative_primitive_values(const ForeachCell& foreach_cell, const Arra
  * This solver should only be used for comparison with cell-based AMR
  * as it is the only one allowing for bx=by=bz=1.
 */
-template <typename State_>
+template <typename Policy>
 class HyperbolicUpdate_hancock_oneneighbor : public HyperbolicUpdate{
 public: 
-  using State = State_;
-  using PrimState = typename State::PrimState;
-  using ConsState = typename State::ConsState;
+  using PrimState = typename Policy::PrimState;
+  using ConsState = typename Policy::ConsState;
 
   HyperbolicUpdate_hancock_oneneighbor(
                 ConfigMap& configMap,
                 ForeachCell& foreach_cell,
                 Timers& timers )
     : foreach_cell(foreach_cell),
-      riemann_params(configMap),
-      bc_manager(configMap),
+      policy_params(Policy::getParams(configMap)),
       timers(timers)
   {}
 
@@ -479,20 +61,10 @@ public:
   {
     real_t dt = scalar_data.get<real_t>("dt");
     int ndim = foreach_cell.getDim();
-    if(ndim==2)
-      update_aux<2>(U, dt);
-    else if(ndim==3)
-      update_aux<3>(U, dt);
-    else 
-      DYABLO_ASSERT_HOST_RELEASE(false, "invalid ndim = " << ndim);
-  }
-
-  template< int ndim>
-  void update_aux(  UserData& U,
-                    real_t dt) {
+ 
     using GhostedArray = ForeachCell::CellArray_global_ghosted;
-    const RiemannParams& riemann_params = this->riemann_params;
-    const BoundaryConditions& bc_manager = this->bc_manager;
+
+    Policy policy( this->policy_params, scalar_data );
     ForeachCell& foreach_cell = this->foreach_cell;
     
     int nb_ghosts = 1;
@@ -500,22 +72,19 @@ public:
 
     timers.get("HyperbolicUpdate_hancock_oneneighbor").start();
 
-    auto fields_info = ConsState::getFieldsInfo();
-    UserData::FieldAccessor Uin = U.getAccessor( fields_info );
-    
-    auto fields_info_next = fields_info;
-    for( auto& p : fields_info_next )
-      p.name += "_next";
-    UserData::FieldAccessor Uout = U.getAccessor( fields_info_next );
-
-    FieldManager fm_prim = PrimState::getFieldManager();
+    UserData::FieldAccessor Uin = policy.getUin(U);
+    UserData::FieldAccessor Uout = policy.getUout(U);
+    FieldManager fm_prim = policy.getFieldManager();
     
     GhostedArray Q = foreach_cell.allocate_ghosted_array( "Q", fm_prim );
 
     // Fill Q with primitive variables
-    foreach_cell.foreach_cell("HyperbolicUpdate_hancock_oneneighbor::convertToPrimitives", Q, KOKKOS_LAMBDA(const CellIndex& iCell_Q)
+    foreach_cell.foreach_cell("HyperbolicUpdate_hancock_oneneighbor::convertToPrimitives", Q, 
+      KOKKOS_LAMBDA(const CellIndex& iCell_Q)
     { 
-        computePrimitives<ndim, State>(riemann_params, Uin, iCell_Q, Q);
+      ConsState uLoc = policy.getConsState( Uin, iCell_Q );
+      PrimState qLoc = policy.consToPrim( uLoc );
+      policy.setPrimState( Q, iCell_Q, qLoc );
     });
     // Primitive variables of ghost cells are needed to compute slopes
     ghost_comm.exchange_ghosts(Q);
@@ -530,9 +99,64 @@ public:
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
     // Fill slope arrays
-    foreach_cell.foreach_cell("HyperbolicUpdate_hancock_oneneighbor::reconstruct_gradients", Q, KOKKOS_LAMBDA(const CellIndex& iCell_Q)
+    foreach_cell.foreach_cell("HyperbolicUpdate_hancock_oneneighbor::compute_slopes", Q, 
+      KOKKOS_LAMBDA(const CellIndex& iCell_Q)
     { 
-        compute_limited_slopes<ndim, State>(Q, iCell_Q, cellmetadata.getCellCenter(iCell_Q), cellmetadata.getCellSize(iCell_Q), Slopes_x, Slopes_y, Slopes_z);
+      PrimState qC = policy.getPrimState( Q, iCell_Q );
+      auto compute_slope = [&](ComponentIndex3D dir)
+      {
+        auto get_neighbor_val = [&](int side)
+        {
+          CellIndex::offset_t offset{};
+          offset[dir] = side;
+          CellIndex iCell_n0 = iCell_Q.getNeighbor_ghost( offset, Q.getShape() );
+          int level_diff = iCell_n0.level_diff();
+
+          PrimState q;
+          if( iCell_n0.is_boundary() )
+          {
+            ConsState u = policy.getBoundaryValue(Uin, iCell_n0, cellmetadata);
+            q = policy.consToPrim( u );
+          }
+          else if ( level_diff >= 0 )
+            q = policy.getPrimState( Q, iCell_n0 );
+          else //if (level_diff < 0)
+          {
+            int subcell_count = 
+            foreach_smaller_neighbor(ndim, iCell_n0, offset, Q.getShape(),
+              [&](const CellIndex& iCell_n) {
+                PrimState qloc = policy.getPrimState(Q, iCell_n);
+                q += qloc;
+              });
+            q /= subcell_count;
+          }
+
+          real_t dx;
+          if( level_diff == 0 )
+            dx = 1;
+          else if (level_diff > 0)
+            dx = 2;
+          else
+            dx = 0.5;
+
+          return std::make_pair(q, dx);
+        };
+
+        const auto [qL, dL] = get_neighbor_val(-1);
+        const auto [qR, dR] = get_neighbor_val(+1);
+        PrimState slope = policy.compute_slope( qL, qC, qR, dL, dR);
+        return slope;
+      };
+
+      PrimState slopeX = compute_slope( IX );
+      policy.setPrimState( Slopes_x, iCell_Q, slopeX );
+      PrimState slopeY = compute_slope( IY );
+      policy.setPrimState( Slopes_y, iCell_Q, slopeY );
+      if(ndim == 3)
+      {
+        PrimState slopeZ = compute_slope( IZ );
+        policy.setPrimState( Slopes_z, iCell_Q, slopeZ );
+      }
     });
     // Slopes of ghost cells are needed to compute flux
     ghost_comm.exchange_ghosts(Slopes_x);
@@ -541,26 +165,249 @@ public:
       ghost_comm.exchange_ghosts(Slopes_z);
 
     // Compute flux and update Uout
-    foreach_cell.foreach_cell("HyperbolicUpdate_hancock_oneneighbor::flux_and_update", Q, KOKKOS_LAMBDA(const CellIndex& iCell_Q)
+    foreach_cell.foreach_cell("HyperbolicUpdate_hancock_oneneighbor::flux_and_update", Q, 
+      KOKKOS_LAMBDA(const CellIndex& iCell)
     { 
-        compute_fluxes_and_update<ndim, State>(Uin, Uout, Q, iCell_Q, 
-                                               Slopes_x, Slopes_y, Slopes_z,
-                                               cellmetadata, dt, riemann_params, bc_manager);
+      ForeachCell::CellMetaData::pos_t cell_size = cellmetadata.getCellSize(iCell);
+      ForeachCell::CellMetaData::pos_t pos_c = cellmetadata.getCellCenter(iCell);
+
+      // Return the flux entering the cell at dir,sign interface
+      auto flux = [&]( ComponentIndex3D dir, int sign )
+      {
+        CellIndex::offset_t offset{};
+        offset[dir] = sign;
+        CellIndex iCell_n0 = iCell.getNeighbor_ghost( offset, Q );
+
+        // Reconstruct state at position off{xyz} in iCell (normalized positions in [-1,1], (0,0,0) is center of cell )
+        using real_offset = Kokkos::Array<real_t, 3>;
+        auto reconstruct_state = [&]( const CellIndex& iCell, const real_offset& off )
+        {
+          PrimState q  = policy.getPrimState( Q, iCell );
+          PrimState sx = policy.getPrimState( Slopes_x, iCell );
+          PrimState sy = policy.getPrimState( Slopes_y, iCell );
+          PrimState sz = policy.getPrimState( Slopes_z, iCell );
+          auto cell_size = cellmetadata.getCellSize(iCell);
+          const real_t dtdx = dt/cell_size[IX];
+          const real_t dtdy = dt/cell_size[IY];
+          const real_t dtdz = dt/cell_size[IZ];
+          PrimState q_half = policy.compute_half_step(q, sx, sy, sz, dtdx, dtdy, dtdz );
+          return q_half + 0.5 * (off[IX] * sx + off[IY] * sy + off[IZ] * sz);
+        };
+
+        if( iCell_n0.is_boundary() )
+        {
+          real_offset offset_c{
+            (real_t)offset[IX],
+            (real_t)offset[IY],
+            (real_t)offset[IZ]
+          };
+          PrimState qin_reconstructed = reconstruct_state( iCell, offset_c );
+          ConsState res = policy.getBoundaryFlux( Uin, iCell_n0, qin_reconstructed, cellmetadata );
+          return res;
+        }
+        else if( iCell_n0.level_diff() >= 0 )
+        { // Only one neighbor
+          real_offset offset_c{
+            (real_t)offset[IX],
+            (real_t)offset[IY],
+            (real_t)offset[IZ]
+          };
+          PrimState qin_reconstructed = reconstruct_state( iCell, offset_c );
+          
+          real_offset offset_n{
+            (real_t)-offset[IX],
+            (real_t)-offset[IY],
+            (real_t)-offset[IZ]
+          };
+          // Correct reconstruction position if neighbor cell is 
+          // bigger to center of smaller cell's interface
+          if( iCell_n0.level_diff() > 0 )
+          {
+            ForeachCell::CellMetaData::pos_t pos_n = cellmetadata.getCellCenter(iCell_n0);  
+            for( int facedir = 0; facedir < ndim; facedir++ )
+              if( facedir != dir ) // Foreach direction inside face (orthogonal to dir)
+              {
+                offset_n[facedir] += (pos_c[facedir] > pos_n[facedir])? 0.5 : -0.5;
+              }        
+          }
+          PrimState qout_reconstructed = reconstruct_state( iCell_n0, offset_n );
+          PrimState& qL = (sign == -1) ? qout_reconstructed : qin_reconstructed;
+          PrimState& qR = (sign == -1) ? qin_reconstructed  : qout_reconstructed;
+          ConsState flux = policy.riemann_solver( qL, qR, dir );
+          return flux;
+        }
+        else //if( iCell_n0.level_diff() < 0 )
+        { // Multiple smaller neighbors
+
+          PrimState qC  = policy.getPrimState( Q, iCell );
+          PrimState sx = policy.getPrimState( Slopes_x, iCell );
+          PrimState sy = policy.getPrimState( Slopes_y, iCell );
+          PrimState sz = policy.getPrimState( Slopes_z, iCell );
+          auto cell_size = cellmetadata.getCellSize(iCell);
+          const real_t dtdx = dt/cell_size[IX];
+          const real_t dtdy = dt/cell_size[IY];
+          const real_t dtdz = dt/cell_size[IZ];
+          PrimState qC_half = policy.compute_half_step(qC, sx, sy, sz, dtdx, dtdy, dtdz );
+
+          // Accumulate fluxes from neighbors of initial cell
+          ConsState flux;
+          int di_count = (offset[IX]==0)?2:1;
+          int dj_count = (offset[IY]==0)?2:1;
+          int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
+          for( int8_t dk=0; dk<dk_count; dk++ )
+          for( int8_t dj=0; dj<dj_count; dj++ )
+          for( int8_t di=0; di<di_count; di++ )
+          {            
+            CellIndex iCell_n = iCell_n0.getNeighbor_ghost({di,dj,dk}, Q);
+
+            // Reconstruct in state at center of neighbor cell's interface
+            real_offset offset_c{
+              (offset[IX] != 0) ? (real_t)offset[IX] : di-0.5, 
+              (offset[IY] != 0) ? (real_t)offset[IY] : dj-0.5, 
+              (ndim==2 || offset[IZ] != 0) ? (real_t)offset[IZ] : dk-0.5
+            };
+            // Equivalent to :
+            // `PrimState qin_reconstructed = reconstruct_state( iCell, offset_c);`
+            PrimState qin_reconstructed = qC_half + 0.5 * (offset_c[IX] * sx + offset_c[IY] * sy + offset_c[IZ] * sz);
+
+            // Reconstruct out state at center of neighbor cell's interface
+            real_offset offset_n{
+              (real_t)-offset[IX],
+              (real_t)-offset[IY],
+              (real_t)-offset[IZ]
+            };
+            PrimState qout_reconstructed = reconstruct_state( iCell_n, offset_n );
+
+            PrimState& qL = (sign == -1) ? qout_reconstructed : qin_reconstructed;
+            PrimState& qR = (sign == -1) ? qin_reconstructed  : qout_reconstructed;
+            ConsState flux_contrib = policy.riemann_solver( qL, qR, dir );
+            real_t dim_fac = (ndim == 2 ? 0.5 : 0.25);
+            flux += dim_fac * flux_contrib;
+          }
+          return flux;
+        }
+      };
+
+      ConsState uC = policy.getConsState( Uin, iCell );
+      uC += (flux( IX, -1 ) - flux( IX, +1 )) * dt / cell_size[IX];
+      uC += (flux( IY, -1 ) - flux( IY, +1 )) * dt / cell_size[IY];
+      if (ndim == 3)
+        uC += (flux( IZ, -1 ) - flux( IZ, +1 )) * dt / cell_size[IZ];
+      policy.setConsState(Uout, iCell, uC);
     });
 
-    clean_negative_primitive_values<ndim, State>(foreach_cell, Uout, riemann_params.gamma0, riemann_params.smallr, riemann_params.smallp);
+    if constexpr ( Policy::has_postProcess() )
+    {
+      foreach_cell.foreach_cell( "HyperbolicUpdate::post-process", Uout.getShape(),
+        KOKKOS_LAMBDA(  const ForeachCell::CellIndex& iCell)
+      {
+        ConsState u = policy.getConsState(Uout, iCell);
+        ConsState u_pp = policy.postProcess( u );
+        policy.setConsState( Uout, iCell, u_pp );
+      });
+    }
+
+    policy.printWarnings();
 
     timers.get("HyperbolicUpdate_hancock_oneneighbor").stop();
   }
   private:
     ForeachCell& foreach_cell;
-    RiemannParams riemann_params;  
-    BoundaryConditions bc_manager;    
+    typename Policy::Params policy_params;     
     Timers& timers;
 };
 
-} //namespace dyablo 
+class HyperbolicPolicy_Hydro_Hancock_impl : public HyperbolicPolicy_Hydro_impl
+{
+public : 
+  using HyperbolicPolicy_Hydro_impl::HyperbolicPolicy_Hydro_impl;
 
+  static FieldManager getFieldManager()
+  {
+    return FieldManager( {
+      PrimState::VarIndex::Irho,
+      PrimState::VarIndex::Ip,
+      PrimState::VarIndex::Iu,
+      PrimState::VarIndex::Iv,
+      PrimState::VarIndex::Iw
+    });
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  PrimState compute_half_step(PrimState q,
+                              PrimState sx, PrimState sy, PrimState sz,
+                              real_t dtdx, real_t dtdy, real_t dtdz ) const
+  {
+    int ndim = this->ndim;
+    real_t gamma0 = this->gamma0;
+
+    // retrieve variations = dx * slopes
+    sx*=0.5;
+    sy*=0.5;
+    sz*=0.5;
+
+    PrimState half_step{};
+    if( ndim == 3 )
+    {
+      half_step.rho = q.rho + (-q.u * sx.rho - sx.u * q.rho) * dtdx 
+                      + (-q.v * sy.rho - sy.v * q.rho) * dtdy 
+                      + (-q.w * sz.rho - sz.w * q.rho) * dtdz;
+      half_step.u   = q.u + (-q.u * sx.u - sx.p / q.rho) * dtdx 
+                    + (-q.v * sy.u) * dtdy 
+                    + (-q.w * sz.u) * dtdz;
+      half_step.v   = q.v + (-q.u * sx.v) * dtdx 
+                    + (-q.v * sy.v - sy.p / q.rho) * dtdy 
+                    + (-q.w * sz.v) * dtdz;
+      half_step.w   = q.w + (-q.u * sx.w) * dtdx  
+                    + (-q.v * sy.w) * dtdy 
+                    + (-q.w * sz.w - sz.p / q.rho) * dtdz;
+      half_step.p   = q.p + (-q.u * sx.p - sx.u * gamma0 * q.p) * dtdx 
+                    + (-q.v * sy.p - sy.v * gamma0 * q.p) * dtdy 
+                    + (-q.w * sz.p - sz.w * gamma0 * q.p) * dtdz;
+    }
+    else
+    {
+      half_step.rho = q.rho + (-q.u * sx.rho - sx.u * q.rho) * dtdx 
+                      + (-q.v * sy.rho - sy.v * q.rho) * dtdy;
+      half_step.u   = q.u + (-q.u * sx.u - sx.p / q.rho) * dtdx 
+                    + (-q.v * sy.u) * dtdy;
+      half_step.v   = q.v + (-q.u * sx.v) * dtdx 
+                    + (-q.v * sy.v - sy.p / q.rho) * dtdy;
+      half_step.p   = q.p + (-q.u * sx.p - sx.u * gamma0 * q.p) * dtdx 
+                    + (-q.v * sy.p - sy.v * gamma0 * q.p) * dtdy;
+    }
+    return half_step;
+  }
+};
+
+class HyperbolicPolicy_Hydro_Hancock : public HyperbolicPolicy_base< HyperbolicPolicy_Hydro_Hancock_impl >
+{
+public:
+  using HyperbolicPolicy_base::HyperbolicPolicy_base;
+
+  static FieldManager getFieldManager()
+  {
+    return HyperbolicPolicy_Hydro_Hancock_impl::getFieldManager();
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  PrimState compute_half_step(PrimState q,
+    PrimState sx, PrimState sy, PrimState sz,
+    real_t dtdx, real_t dtdy, real_t dtdz ) const
+  {
+    return impl.compute_half_step(q, sx, sy, sz, dtdx, dtdy, dtdz );
+  }
+};
+
+class HydroUpdate_hancock_oneneighbor 
+  : public HyperbolicUpdate_hancock_oneneighbor<HyperbolicPolicy_Hydro_Hancock>
+{
+public:
+  using HyperbolicUpdate_hancock_oneneighbor<HyperbolicPolicy_Hydro_Hancock>::HyperbolicUpdate_hancock_oneneighbor;
+};
+
+} //namespace dyablo 
+  
 FACTORY_REGISTER( dyablo::HyperbolicUpdateFactory, 
-                  dyablo::HyperbolicUpdate_hancock_oneneighbor<dyablo::HydroState>, 
+                  dyablo::HydroUpdate_hancock_oneneighbor, 
                   "HydroUpdate_hancock_oneneighbor")
