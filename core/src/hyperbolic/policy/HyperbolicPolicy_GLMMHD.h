@@ -176,6 +176,7 @@ public:
   using PrimState = HyperbolicPolicy_PrimGLMMHDState;
   using ConsState = HyperbolicPolicy_ConsGLMMHDState;
 
+  KOKKOS_INLINE_FUNCTION
   HyperbolicPolicy_State_GLMMHD( const HyperbolicPolicy_GLMMHD_Params& params )
   : ndim(params.ndim),
     gamma0(params.gamma0)

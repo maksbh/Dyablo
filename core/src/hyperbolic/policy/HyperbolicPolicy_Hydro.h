@@ -112,6 +112,7 @@ public:
   using PrimState = HyperbolicPolicy_PrimHydroState;
   using ConsState = HyperbolicPolicy_ConsHydroState;
 
+  KOKKOS_INLINE_FUNCTION
   HyperbolicPolicy_State_Hydro( const HyperbolicPolicy_Hydro_Params& params )
   : ndim(params.ndim),
     gamma0(params.gamma0)
