@@ -1,9 +1,8 @@
 #include "../InitialConditions_analytical.h"
-#include "../AnalyticalFormula_tools.h"
 
 namespace dyablo{
 
-struct AnalyticalFormula_blast : public AnalyticalFormula_base{
+struct AnalyticalFormula_blast{
      // blast problem parameters
     const int ndim;
     const real_t blast_radius;
@@ -48,17 +47,6 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
         smallp ( smallc*smallc / gamma0 )
     {}
 
-    KOKKOS_INLINE_FUNCTION
-    bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
-    {
-        real_t gamma0 = this->gamma0;
-        real_t smallr = this->smallr;
-        real_t smallp = this->smallp;
-        real_t error_max = this->error_max;
-        return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                      x, y, z, dx, dy, dz );
-    }
-
     // Geometrical version
     // KOKKOS_INLINE_FUNCTION
     // bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
@@ -98,8 +86,38 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
     //     return should_refine;
     // } 
 
+    struct State
+    {
+        real_t rho = 0;
+        real_t e_tot = 0;
+    };
+
+    enum VarIndex : dyablo::VarIndex
+    {
+        Irho,
+        Ie_tot,
+        Irho_vx, Irho_vy, Irho_vz
+    };
+
+    std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo() const
+    {
+        return  {   {"rho",     VarIndex::Irho}, 
+                    {"e_tot",   VarIndex::Ie_tot},
+                    {"rho_vx",  VarIndex::Irho_vx}, // Unused but fields still need to be created
+                    {"rho_vy",  VarIndex::Irho_vy},
+                    {"rho_vz",  VarIndex::Irho_vz},
+                };
+    }
+
     KOKKOS_INLINE_FUNCTION
-    ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+    void setState( const UserData::FieldAccessor& Uout, const ForeachCell::CellIndex& iCell, const State& u ) const
+    {
+        Uout.at(iCell, Irho) = u.rho;
+        Uout.at(iCell, Ie_tot) = u.e_tot;
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    State value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
     {
         // Quadrant size
         real_t qsx = 1.0 / this->blast_nx;
@@ -119,7 +137,7 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
         real_t r2 = (x-qcx)*(x-qcx) + (y-qcy)*(y-qcy);
         if( this->ndim == 3 ) r2 += (z-qcz)*(z-qcz);
         
-        ConsHydroState res;
+        State res;
 
         if (r2 < radius*radius) {
             res.rho = blast_density_in;
