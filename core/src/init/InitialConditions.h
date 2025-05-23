@@ -5,6 +5,7 @@
 
 namespace dyablo{
 
+class InitialConditions_zeroinit;
 
 template< typename AnalyticalFormula >
 class InitialConditions_analytical;
@@ -50,6 +51,8 @@ class AnalyticalFormula_tri_layer;
 template<>
 bool dyablo::InitialConditionsFactory::init()
 {
+  DECLARE_REGISTERED( dyablo::InitialConditions_zeroinit);
+
 #ifdef DYABLO_USE_HDF5
   DECLARE_REGISTERED( dyablo::InitialConditions_restart );
   DECLARE_REGISTERED( dyablo::InitialConditions_tiled_restart );
