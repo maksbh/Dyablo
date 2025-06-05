@@ -19,27 +19,29 @@ using str2int_t = std::unordered_map<std::string,int>;
  * a convenience alias to map id (enum) to index used in DataArray
  **/
 class id2index_t{
-private:
+public:
   static constexpr int MAX_INDEX_COUNT = 64; 
-
+private:
   Kokkos::Array < int, MAX_INDEX_COUNT > id2index {};
   Kokkos::Array < bool,MAX_INDEX_COUNT > field_enabled {};
   int _nbfields = 0;
 public:
-  constexpr void activate( VarIndex id )
+  void activate( VarIndex id )
   {
     // DYABLO_ASSERT_ASSERT used because function is constexpr
-    DYABLO_ASSERT_ASSERT( (int)id < MAX_INDEX_COUNT, "Too many VarIndex : id >= MAX_INDEX_COUNT" );
+    DYABLO_ASSERT_HOST_RELEASE( (int)id < MAX_INDEX_COUNT, 
+      "VarIndex too big : id=" << id << " >= MAX_INDEX_COUNT=" << MAX_INDEX_COUNT);
     id2index[(int)id] = _nbfields;
-    DYABLO_ASSERT_ASSERT(!field_enabled[(int)id], "Field already enabled" );
+    DYABLO_ASSERT_HOST_RELEASE(!field_enabled[(int)id], "Field already enabled" );
     field_enabled[(int)id] = true;
     _nbfields++;
   }
-  constexpr void activate( VarIndex id, int field_index )
+  void activate( VarIndex id, int field_index )
   {
-    DYABLO_ASSERT_ASSERT( (int)id < MAX_INDEX_COUNT, "Too many VarIndex : id >= MAX_INDEX_COUNT" );
+    DYABLO_ASSERT_HOST_RELEASE( (int)id < MAX_INDEX_COUNT, 
+      "VarIndex too big : id=" << id << " >= MAX_INDEX_COUNT=" << MAX_INDEX_COUNT);
     id2index[(int)id] = field_index;
-    DYABLO_ASSERT_ASSERT(!field_enabled[(int)id], "Field already enabled" );
+    DYABLO_ASSERT_HOST_RELEASE(!field_enabled[(int)id], "Field already enabled" );
     field_enabled[(int)id] = true;
     _nbfields++;
   }
@@ -91,13 +93,9 @@ public:
     }
   }
 
-  constexpr FieldManager( const std::initializer_list<VarIndex>& active_fields = {} ) 
-  {
-    for( VarIndex id : active_fields )
-    {
-      id2index.activate(id);
-    }
-  }
+  FieldManager( const std::initializer_list<VarIndex>& active_fields = {} ) 
+    : FieldManager( std::set<VarIndex>( active_fields.begin(), active_fields.end() ) )
+  {}
 
   /**
    * Create a new FieldManager with unnamed fields
@@ -107,6 +105,8 @@ public:
    **/
   FieldManager( int count ) 
   {
+    DYABLO_ASSERT_HOST_RELEASE( count <= id2index_t::MAX_INDEX_COUNT, 
+      "FieldManager error - too many fields : count=" << count << " > MAX_INDEX_COUNT=" << id2index_t::MAX_INDEX_COUNT);
     for( int i=0; i<count; i++ )
     {
       id2index.activate((VarIndex)i);

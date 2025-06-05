@@ -205,7 +205,7 @@ class UserData_fields::FieldAccessor
 friend GhostCommunicator_full_blocks;
 friend UserData_fields;
 public:
-    static constexpr int MAX_FIELD_COUNT = 32;
+    static constexpr int MAX_FIELD_COUNT = id2index_t::MAX_INDEX_COUNT;
     using FieldInfo = FieldAccessor_FieldInfo;
 
     FieldAccessor() = default;
@@ -224,6 +224,7 @@ public:
         : fields(user_data.fields)
     {
         DYABLO_ASSERT_HOST_RELEASE( fields_info.size() > 0, "fields_info cannot be empty" );
+        DYABLO_ASSERT_HOST_RELEASE( fields_info.size() <= MAX_FIELD_COUNT, "FieldAccessor error : MAX_FIELD_COUNT = " << MAX_FIELD_COUNT << " but " << fields_info.size() << " fields requested." );
 
         auto unknown_field_error = [&](std::string field_name)
         {

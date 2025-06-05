@@ -286,7 +286,7 @@ struct UserData_particles::ParticleAccessor_AttributeInfo
 class UserData_particles::ParticleAccessor
 {
 public:
-    static constexpr int MAX_ATTR_COUNT = 32;
+    static constexpr int MAX_ATTR_COUNT = id2index_t::MAX_INDEX_COUNT;;
     using AttributeInfo = ParticleAccessor_AttributeInfo;
 
     ParticleAccessor() = default;
@@ -309,6 +309,7 @@ public:
      : particles(particles.particles)
     {
         DYABLO_ASSERT_HOST_RELEASE( attr_info.size() > 0, "fields_info cannot be empty" );
+        DYABLO_ASSERT_HOST_RELEASE( attr_info.size() <= MAX_ATTR_COUNT, "ParticleAccessor error : MAX_ATTR_COUNT = " << MAX_ATTR_COUNT << " but " << attr_info.size() << " attributes requested." );
 
         auto unknown_attr_error = [&](std::string attr_name)
         {
