@@ -27,9 +27,9 @@ public:
 
     void exchange_ghosts( const UserData::FieldAccessor& U ) const
     {
-      for(int i=0; i<U.fm_ivar.nbfields(); i++)
+      for(int i=0; i<U.nbFields(); i++)
       {
-        int iVar = U.fm_active[i];
+        int iVar = U.get_index_from_ivar_host(i);
         auto U_subview      = Kokkos::subview( U.fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
         auto Ughost_subview = Kokkos::subview( U.fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
 
@@ -44,9 +44,9 @@ public:
 
     void reduce_ghosts( UserData::FieldAccessor& U ) const
     {
-      for(int i=0; i<U.fm_ivar.nbfields(); i++)
+      for(int i=0; i<U.nbFields(); i++)
       {
-        int iVar = U.fm_active[i];
+        int iVar = U.get_index_from_ivar_host(i);
         auto U_subview      = Kokkos::subview( U.fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
         auto Ughost_subview = Kokkos::subview( U.fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
 

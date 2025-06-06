@@ -19,35 +19,55 @@ using str2int_t = std::unordered_map<std::string,int>;
  * a convenience alias to map id (enum) to index used in DataArray
  **/
 class id2index_t{
+public:
+  static constexpr int MAX_INDEX_COUNT = 16; 
 private:
-  static constexpr int MAX_INDEX_COUNT = 64; 
-
   Kokkos::Array < int, MAX_INDEX_COUNT > id2index {};
   Kokkos::Array < bool,MAX_INDEX_COUNT > field_enabled {};
   int _nbfields = 0;
+  bool _identity = false; // Special case with unlimited index
 public:
-  constexpr void activate( VarIndex id )
+  id2index_t()
+  {}
+
+  id2index_t( VarIndex index_count )
+  :_nbfields( index_count ), _identity( true )
+  {}
+
+  void activate( VarIndex id )
   {
+    DYABLO_ASSERT_HOST_RELEASE( !_identity, "Cannot edit identity id2index" );
     // DYABLO_ASSERT_ASSERT used because function is constexpr
-    DYABLO_ASSERT_ASSERT( (int)id < MAX_INDEX_COUNT, "Too many VarIndex : id >= MAX_INDEX_COUNT" );
+    DYABLO_ASSERT_HOST_RELEASE( (int)id < MAX_INDEX_COUNT, 
+      "VarIndex too big : id=" << id << " >= MAX_INDEX_COUNT=" << MAX_INDEX_COUNT);
     id2index[(int)id] = _nbfields;
-    DYABLO_ASSERT_ASSERT(!field_enabled[(int)id], "Field already enabled" );
+    DYABLO_ASSERT_HOST_RELEASE(!field_enabled[(int)id], "Field already enabled" );
     field_enabled[(int)id] = true;
     _nbfields++;
   }
-  constexpr void activate( VarIndex id, int field_index )
+  void activate( VarIndex id, int field_index )
   {
-    DYABLO_ASSERT_ASSERT( (int)id < MAX_INDEX_COUNT, "Too many VarIndex : id >= MAX_INDEX_COUNT" );
+    DYABLO_ASSERT_HOST_RELEASE( !_identity, "Cannot edit identity id2index" );
+    DYABLO_ASSERT_HOST_RELEASE( (int)id < MAX_INDEX_COUNT, 
+      "VarIndex too big : id=" << id << " >= MAX_INDEX_COUNT=" << MAX_INDEX_COUNT);
     id2index[(int)id] = field_index;
-    DYABLO_ASSERT_ASSERT(!field_enabled[(int)id], "Field already enabled" );
+    DYABLO_ASSERT_HOST_RELEASE(!field_enabled[(int)id], "Field already enabled" );
     field_enabled[(int)id] = true;
     _nbfields++;
   }
   std::set<VarIndex> enabled_fields() const
   {
     std::set<VarIndex> res;
-    for( int i=0; i<MAX_INDEX_COUNT; i++ )
-      if( field_enabled[i] ) res.insert( (VarIndex)i );
+    if(_identity)
+    {
+      for(int i=0; i<nbfields(); i++)
+        res.insert( (VarIndex)i );
+    }
+    else
+    {
+      for( int i=0; i<MAX_INDEX_COUNT; i++ )
+        if( field_enabled[i] ) res.insert( (VarIndex)i );
+    }
     return res;
   }
   KOKKOS_INLINE_FUNCTION
@@ -59,14 +79,20 @@ public:
   KOKKOS_INLINE_FUNCTION
   bool enabled(VarIndex id) const
   {
-    return field_enabled[(int)id];
+    if(_identity)
+      return id < _nbfields;
+    else
+      return field_enabled[(int)id];
   }
 
   KOKKOS_INLINE_FUNCTION
   int operator[](VarIndex id) const
   {
     DYABLO_ASSERT_KOKKOS_DEBUG( enabled(id), "This variable is not active");
-    return id2index[(int)id];
+    if(_identity)
+      return (int)id;
+    else
+      return id2index[(int)id];
   }
 };
 
@@ -91,13 +117,9 @@ public:
     }
   }
 
-  constexpr FieldManager( const std::initializer_list<VarIndex>& active_fields = {} ) 
-  {
-    for( VarIndex id : active_fields )
-    {
-      id2index.activate(id);
-    }
-  }
+  FieldManager( const std::initializer_list<VarIndex>& active_fields = {} ) 
+    : FieldManager( std::set<VarIndex>( active_fields.begin(), active_fields.end() ) )
+  {}
 
   /**
    * Create a new FieldManager with unnamed fields
@@ -105,15 +127,11 @@ public:
    * VarIndexes generated this way should not be used with var_name()
    * This is usually used for temporary arrays when VarIndexes don't need to be conserved between kernels
    **/
-  FieldManager( int count ) 
-  {
-    for( int i=0; i<count; i++ )
-    {
-      id2index.activate((VarIndex)i);
-    }
-  }
+  FieldManager( VarIndex count ) 
+    : id2index(count)
+  {  }
 
-  constexpr id2index_t get_id2index() const
+  id2index_t get_id2index() const
   { 
     return id2index; 
   }

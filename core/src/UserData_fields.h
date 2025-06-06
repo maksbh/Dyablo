@@ -205,7 +205,7 @@ class UserData_fields::FieldAccessor
 friend GhostCommunicator_full_blocks;
 friend UserData_fields;
 public:
-    static constexpr int MAX_FIELD_COUNT = 32;
+    static constexpr int MAX_FIELD_COUNT = id2index_t::MAX_INDEX_COUNT;
     using FieldInfo = FieldAccessor_FieldInfo;
 
     FieldAccessor() = default;
@@ -217,7 +217,7 @@ public:
     KOKKOS_INLINE_FUNCTION
     int nbFields() const
     {
-        return fm_ivar.nbfields();
+        return ivar_to_arrayindex.size();
     }
 
     FieldAccessor(const UserData_fields& user_data, const std::vector<FieldInfo>& fields_info)
@@ -237,29 +237,42 @@ public:
             return s.str();
         };
 
+        int max_varindex = 0;
+        for( const FieldInfo& info : fields_info )
+        {
+            max_varindex = std::max( max_varindex, info.id );
+        }
+
+        this->var_to_arrayindex = Kokkos::View<int*>( "varindex_to_viewindex", max_varindex+1 );
+        this->ivar_to_arrayindex = Kokkos::View<int*>( "ivar_to_viewindex", fields_info.size() );
+        auto var_to_arrayindex_host = Kokkos::create_mirror_view( var_to_arrayindex );
+        this->ivar_to_arrayindex_host = Kokkos::create_mirror_view( ivar_to_arrayindex );
+        for(int i=0; i<var_to_arrayindex_host.size(); i++)
+            var_to_arrayindex_host(i) = -1;
+
         int i=0; 
         for( const FieldInfo& info : fields_info )
         {
             DYABLO_ASSERT_HOST_RELEASE( user_data.has_field(info.name), 
                                         unknown_field_error(info.name) );
             int index = user_data.field_index.at(info.name).index;
-            fm_ivar.activate( info.id, index );
-            fm_active[i] = index; // TODO : maybe reorder?
+            var_to_arrayindex_host(info.id) = index;
+            ivar_to_arrayindex_host(i) = index;
             i++;
         }
-        fields = user_data.fields;
-        DYABLO_ASSERT_HOST_RELEASE( fields_info.size() == (size_t)fm_ivar.nbfields(), "fields_info contains duplicate" );
+        Kokkos::deep_copy( var_to_arrayindex, var_to_arrayindex_host );
+        Kokkos::deep_copy( ivar_to_arrayindex, ivar_to_arrayindex_host );
     }
     KOKKOS_INLINE_FUNCTION
-    real_t& at( const ForeachCell::CellIndex& iCell, const VarIndex& ivar ) const
+    real_t& at( const ForeachCell::CellIndex& iCell, const VarIndex& varindex ) const
     {
-        return fields.at_ivar( iCell, fm_ivar[ivar] );
+        return fields.at_ivar( iCell, get_index_from_varindex(varindex) );
     }
 
     KOKKOS_INLINE_FUNCTION
     real_t& at_ivar( const ForeachCell::CellIndex& iCell, int ivar ) const
     {
-        return fields.at_ivar( iCell, fm_active[ivar] );
+        return fields.at_ivar( iCell, get_index_from_ivar_device(ivar) );
     }
 
     KOKKOS_INLINE_FUNCTION
@@ -269,9 +282,26 @@ public:
         return fields.getShape();
     }
 
+private:
+    Kokkos::View<int*> var_to_arrayindex; // Index conversion for at()
+    Kokkos::View<int*> ivar_to_arrayindex; // Index conversion for at_ivar()
+    Kokkos::View<int*>::HostMirror ivar_to_arrayindex_host;
+
+    KOKKOS_INLINE_FUNCTION
+    int get_index_from_varindex(VarIndex var) const
+    {
+        return var_to_arrayindex(var);
+    }
 protected:
-    id2index_t fm_ivar; // ivar from fields_info to position in `fields` view
-    Kokkos::Array< int, MAX_FIELD_COUNT > fm_active; // ivar from int sequence to position in `fields` view
+    KOKKOS_INLINE_FUNCTION
+    int get_index_from_ivar_device(int ivar) const
+    {
+        return ivar_to_arrayindex(ivar);
+    }
+    int get_index_from_ivar_host(int ivar) const
+    {
+        return ivar_to_arrayindex_host(ivar);
+    }
     FieldView_t fields;
 };
 
