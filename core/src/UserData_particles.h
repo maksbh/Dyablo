@@ -286,7 +286,6 @@ struct UserData_particles::ParticleAccessor_AttributeInfo
 class UserData_particles::ParticleAccessor
 {
 public:
-    static constexpr int MAX_ATTR_COUNT = id2index_t::MAX_INDEX_COUNT;;
     using AttributeInfo = ParticleAccessor_AttributeInfo;
 
     ParticleAccessor() = default;
@@ -298,7 +297,7 @@ public:
     KOKKOS_INLINE_FUNCTION
     int nbFields() const
     {
-        return fm_ivar.nbfields();
+        return ivar_to_arrayindex.size();
     }
 
     ParticleAccessor(const UserData_particles& user_data, const std::string& array_name, const std::vector<AttributeInfo>& attr_info)
@@ -309,7 +308,6 @@ public:
      : particles(particles.particles)
     {
         DYABLO_ASSERT_HOST_RELEASE( attr_info.size() > 0, "fields_info cannot be empty" );
-        DYABLO_ASSERT_HOST_RELEASE( attr_info.size() <= MAX_ATTR_COUNT, "ParticleAccessor error : MAX_ATTR_COUNT = " << MAX_ATTR_COUNT << " but " << attr_info.size() << " attributes requested." );
 
         auto unknown_attr_error = [&](std::string attr_name)
         {
@@ -323,29 +321,43 @@ public:
             return s.str();
         };
 
+        int max_varindex = 0;
+        for( const AttributeInfo& info : attr_info )
+        {
+            max_varindex = std::max( max_varindex, info.id );
+        }
+
+        this->var_to_arrayindex = Kokkos::View<int*>( "varindex_to_viewindex", max_varindex+1 );
+        this->ivar_to_arrayindex = Kokkos::View<int*>( "ivar_to_viewindex", attr_info.size() );
+        auto var_to_arrayindex_host = Kokkos::create_mirror_view( var_to_arrayindex );
+        this->ivar_to_arrayindex_host = Kokkos::create_mirror_view( ivar_to_arrayindex );
+        for(int i=0; i<var_to_arrayindex_host.size(); i++)
+            var_to_arrayindex_host(i) = -1;
+
         int i=0; 
         for( const AttributeInfo& info : attr_info )
         {
             DYABLO_ASSERT_HOST_RELEASE( particles.has_ParticleAttribute(info.name),
                                         unknown_attr_error(info.name));
             int index = particles.attribute_index.at(info.name);
-            fm_ivar.activate( info.id, index );
-            fm_active[i] = index; // TODO : maybe reorder?
+            var_to_arrayindex_host(info.id) = index;
+            ivar_to_arrayindex_host(i) = index;
             i++;
         }
-        DYABLO_ASSERT_HOST_RELEASE( attr_info.size() == (size_t)fm_ivar.nbfields(), "attr_info contains duplicate" );
+        Kokkos::deep_copy( var_to_arrayindex, var_to_arrayindex_host );
+        Kokkos::deep_copy( ivar_to_arrayindex, ivar_to_arrayindex_host );
     }
 
     KOKKOS_INLINE_FUNCTION
-    real_t& at( const ForeachParticle::ParticleIndex& iPart, const VarIndex& ivar ) const
+    real_t& at( const ForeachParticle::ParticleIndex& iPart, const VarIndex& varindex ) const
     {
-        return particles.at_ivar( iPart, fm_ivar[ivar]);
+        return particles.at_ivar( iPart, get_index_from_varindex(varindex));
     }
 
     KOKKOS_INLINE_FUNCTION
     real_t& at_ivar( const ForeachParticle::ParticleIndex& iPart, int ivar ) const
     {
-        return particles.at_ivar( iPart, fm_active[ivar]);
+        return particles.at_ivar( iPart, get_index_from_ivar_device(ivar));
     }
 
     KOKKOS_INLINE_FUNCTION
@@ -354,9 +366,23 @@ public:
         return particles;
     }
 
+private:
+    Kokkos::View<int*> var_to_arrayindex; // Index conversion for at()
+    Kokkos::View<int*> ivar_to_arrayindex; // Index conversion for at_ivar()
+    Kokkos::View<int*>::HostMirror ivar_to_arrayindex_host;
+
+    KOKKOS_INLINE_FUNCTION
+    int get_index_from_varindex(VarIndex var) const
+    {
+        return var_to_arrayindex(var);
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    int get_index_from_ivar_device(int ivar) const
+    {
+        return ivar_to_arrayindex(ivar);
+    }
 protected:
-    id2index_t fm_ivar; // ivar from fields_info to position in `fields` view
-    Kokkos::Array< int, MAX_ATTR_COUNT > fm_active; // ivar from int sequence to position in `fields` view
     ParticleData particles;
 };
 
