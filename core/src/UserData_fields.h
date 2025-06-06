@@ -243,10 +243,10 @@ public:
             max_varindex = std::max( max_varindex, info.id );
         }
 
-        this->var_to_arrayindex = Kokkos::View<VarIndex*>( "varindex_to_viewindex", max_varindex );
-        this->ivar_to_arrayindex = Kokkos::View<int*>( "ivarindex_to_viewindex", fields_info.size() );
+        this->var_to_arrayindex = Kokkos::View<int*>( "varindex_to_viewindex", max_varindex+1 );
+        this->ivar_to_arrayindex = Kokkos::View<int*>( "ivar_to_viewindex", fields_info.size() );
         auto var_to_arrayindex_host = Kokkos::create_mirror_view( var_to_arrayindex );
-        auto ivar_to_arrayindex_host = Kokkos::create_mirror_view( ivar_to_arrayindex );
+        this->ivar_to_arrayindex_host = Kokkos::create_mirror_view( ivar_to_arrayindex );
         for(int i=0; i<var_to_arrayindex_host.size(); i++)
             var_to_arrayindex_host(i) = -1;
 
@@ -272,7 +272,7 @@ public:
     KOKKOS_INLINE_FUNCTION
     real_t& at_ivar( const ForeachCell::CellIndex& iCell, int ivar ) const
     {
-        return fields.at_ivar( iCell, get_index_from_ivar(ivar) );
+        return fields.at_ivar( iCell, get_index_from_ivar_device(ivar) );
     }
 
     KOKKOS_INLINE_FUNCTION
@@ -283,18 +283,24 @@ public:
     }
 
 private:
-    Kokkos::View<VarIndex*> var_to_arrayindex; // Index conversion for at()
+    Kokkos::View<int*> var_to_arrayindex; // Index conversion for at()
     Kokkos::View<int*> ivar_to_arrayindex; // Index conversion for at_ivar()
+    Kokkos::View<int*>::HostMirror ivar_to_arrayindex_host;
+
+    KOKKOS_INLINE_FUNCTION
+    int get_index_from_varindex(VarIndex var) const
+    {
+        return var_to_arrayindex(var);
+    }
 protected:
     KOKKOS_INLINE_FUNCTION
-    int get_index_from_ivar(int ivar) const
+    int get_index_from_ivar_device(int ivar) const
     {
         return ivar_to_arrayindex(ivar);
     }
-    KOKKOS_INLINE_FUNCTION
-    int get_index_from_varindex(VarIndex varindex) const
+    int get_index_from_ivar_host(int ivar) const
     {
-        return ivar_to_arrayindex(varindex);
+        return ivar_to_arrayindex_host(ivar);
     }
     FieldView_t fields;
 };

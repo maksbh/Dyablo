@@ -30,14 +30,14 @@ public :
     real_t& operator()( uint32_t iCell, int iVar, uint32_t iOct) const
     {
         DYABLO_ASSERT_KOKKOS_DEBUG(iVar<nbFields(), "iVar out of bounds");
-        return this->fields.U(iCell, this->get_index_from_ivar(iVar), iOct);
+        return this->fields.U(iCell, this->get_index_from_ivar_device(iVar), iOct);
     }
 
     KOKKOS_INLINE_FUNCTION
     const real_t& ghost_val( uint32_t iCell, int iVar, uint32_t iOct) const
     {
         DYABLO_ASSERT_KOKKOS_DEBUG(iVar<nbFields(), "iVar out of bounds");
-        return this->fields.Ughost(iCell, this->get_index_from_ivar(iVar), iOct);
+        return this->fields.Ughost(iCell, this->get_index_from_ivar_device(iVar), iOct);
     }
     
     id2index_t get_id2index()

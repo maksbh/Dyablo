@@ -29,7 +29,7 @@ public:
     {
       for(int i=0; i<U.nbFields(); i++)
       {
-        int iVar = U.get_index_from_ivar(i);
+        int iVar = U.get_index_from_ivar_host(i);
         auto U_subview      = Kokkos::subview( U.fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
         auto Ughost_subview = Kokkos::subview( U.fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
 
@@ -46,7 +46,7 @@ public:
     {
       for(int i=0; i<U.nbFields(); i++)
       {
-        int iVar = U.get_index_from_ivar(i);
+        int iVar = U.get_index_from_ivar_host(i);
         auto U_subview      = Kokkos::subview( U.fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
         auto Ughost_subview = Kokkos::subview( U.fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
 
