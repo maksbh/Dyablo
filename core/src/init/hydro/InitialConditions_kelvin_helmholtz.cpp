@@ -39,7 +39,7 @@ struct AnalyticalFormula_KelvinHelmholtz : public AnalyticalFormula_base_hydro{
     z1(configMap.getValue<real_t>("KH", "z1", 0.5)),
     z2(configMap.getValue<real_t>("KH", "z2", 1.5)),
     a(configMap.getValue<real_t>("KH", "a", 0.05)),
-    A(configMap.getValue<real_t>("KH", "A", 0.01)),
+    A(configMap.getValue<real_t>("KH", "Amp", 0.01)),
     sigma(configMap.getValue<real_t>("KH", "sigma", 0.2)),
     P0(configMap.getValue<real_t>("KH", "P0", 1.0)),
     uflow(configMap.getValue<real_t>("KH", "uflow", 1.0))
@@ -52,14 +52,14 @@ struct AnalyticalFormula_KelvinHelmholtz : public AnalyticalFormula_base_hydro{
   ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
     ConsHydroState res;
-    const real_t q1 = tanh((y-z1)/a);
-    const real_t q2 = tanh((y-z2)/a);
+    const real_t q1 = Kokkos::tanh((y-z1)/a);
+    const real_t q2 = Kokkos::tanh((y-z2)/a);
     const real_t s2 = sigma*sigma;
     const real_t dz1 = (y-z1)*(y-z1);
     const real_t dz2 = (y-z2)*(y-z2);
     const real_t rho = 1.0 + rho_fac*0.5*(q1 - q2);
-    const real_t u   = uflow*(q1 - q2 - 1.0);
-    const real_t v   = A*sin(2.0*M_PI*x)*(exp(-dz1/s2) + exp(-dz2/s2));
+    const real_t u   = uflow*(q1 - q2);
+    const real_t v   = A*Kokkos::sin(M_PI*x)*(Kokkos::exp(-dz1/s2) + Kokkos::exp(-dz2/s2));
     const real_t Ek  = rho*0.5*(u*u+v*v);
 
     res.rho   = rho;
