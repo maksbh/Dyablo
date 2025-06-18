@@ -84,21 +84,25 @@ public:
         });
     };
 
-    RefineCondition& refine_condition = *(this->refine_condition);
-    ScalarSimulationData scalar_data; // Empty scalardata
-    // Refine until level_max using a RefineConditions plugin
-    for (uint8_t level=level_min; level<level_max; ++level)
+    if( this->refine_condition )
     {
-        // Init fields for RefineConditions
-        fill_U();
+      RefineCondition& refine_condition = *(this->refine_condition);
+      ScalarSimulationData scalar_data; // Empty scalardata
+      // Refine until level_max using a RefineConditions plugin
+      for (uint8_t level=level_min; level<level_max; ++level)
+      {
+          // Init fields for RefineConditions
+          fill_U();
 
-        refine_condition.mark_cells(U, scalar_data);
-        
-        // Refine the mesh according to markers
-        pmesh.adapt();
-        // Load balance at each level to avoid excessive inbalance
-        pmesh.loadBalance();
+          refine_condition.mark_cells(U, scalar_data);
+          
+          // Refine the mesh according to markers
+          pmesh.adapt();
+          // Load balance at each level to avoid excessive inbalance
+          pmesh.loadBalance();
+      }
     }
+    pmesh.loadBalance();
 
     // Reallocate and fill U fields
     fill_U();

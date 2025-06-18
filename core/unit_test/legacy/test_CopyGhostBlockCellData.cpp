@@ -38,7 +38,7 @@ enum NEIGH_SIZE : uint8_t
   NEIGH_IS_SAME_SIZE = 2
 };
 
-struct AnalyticalFormula_implode_norefine : public AnalyticalFormula_base
+struct AnalyticalFormula_implode_norefine
 {
   int ndim;
   real_t xmin, xmax;
@@ -75,16 +75,46 @@ struct AnalyticalFormula_implode_norefine : public AnalyticalFormula_base
     debug = configMap.getValue<bool>("implode", "debug", false);
   }
 
-  KOKKOS_INLINE_FUNCTION
-  bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  struct State
   {
-      return false;
+      real_t rho = 0;
+      real_t e_tot = 0;
+      real_t rho_u = 0;
+      real_t rho_v = 0;
+      real_t rho_w = 0;
+  };
+
+  enum VarIndex : dyablo::VarIndex
+  {
+      Irho,
+      Ie_tot,
+      Irho_vx, Irho_vy, Irho_vz
+  };
+
+  std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo() const
+  {
+      return  {   {"rho",     VarIndex::Irho}, 
+                  {"e_tot",   VarIndex::Ie_tot},
+                  {"rho_vx",  VarIndex::Irho_vx}, // Unused but fields still need to be created
+                  {"rho_vy",  VarIndex::Irho_vy},
+                  {"rho_vz",  VarIndex::Irho_vz},
+              };
   }
 
   KOKKOS_INLINE_FUNCTION
-  ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  void setState( const UserData::FieldAccessor& Uout, const ForeachCell::CellIndex& iCell, const State& u ) const
   {
-    ConsHydroState res;
+      Uout.at(iCell, Irho) = u.rho;
+      Uout.at(iCell, Ie_tot) = u.e_tot;
+      Uout.at(iCell, Irho_vx) = u.rho_u;
+      Uout.at(iCell, Irho_vy) = u.rho_v;
+      Uout.at(iCell, Irho_vz) = u.rho_w;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  State value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  {
+    State res;
 
     // initialize
     bool tmp;
@@ -507,6 +537,7 @@ void run_test()
   configMap.getValue<int>("mesh", "ndim", ndim);
 
   GravityType gravity_type = configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE);
+  configMap.getValue<std::string>("amr", "markers_kernel", "none");
 
   // Setup Fieldmanager
   FieldManager fieldMgr;
