@@ -1,6 +1,6 @@
 #include "../InitialConditions_analytical.h"
-
-#include "../AnalyticalFormula_tools.h"
+#include "../hydro/AnalyticalFormula_base_hydro.hpp"
+#include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
 
 #include <Kokkos_Random.hpp>
 
@@ -17,7 +17,8 @@ namespace dyablo{
  * zmin -- top stable layer -- z1 -- convective layer -- z2 -- bottom stable layer -- zmax
  * 
  */
-struct AnalyticalFormula_tri_layer : public AnalyticalFormula_base{
+struct AnalyticalFormula_tri_layer : public AnalyticalFormula_base_hydro
+{
   using RNGPool = Kokkos::Random_XorShift64_Pool<>;
   using RNGType = RNGPool::generator_type;
 
@@ -60,18 +61,7 @@ struct AnalyticalFormula_tri_layer : public AnalyticalFormula_base{
   }
 
   KOKKOS_INLINE_FUNCTION
-  bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
-  {
-    real_t gamma0 = this->gamma0;
-    real_t smallr = this->smallr;
-    real_t smallp = this->smallp;
-    real_t error_max = this->error_max;
-    return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                  x, y, z, dx, dy, dz );
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+  State value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
     // d is the depth. y in 2D, z in 3D
     real_t d = (ndim == 2 ? y : z);
@@ -100,7 +90,7 @@ struct AnalyticalFormula_tri_layer : public AnalyticalFormula_base{
     const real_t p2   = p1 * pow(T2/T1, m1+1.0);
 
     // Top layer (stable)
-    PrimHydroState q;
+    HyperbolicPolicy_State_Hydro::PrimState q;
     real_t T;
     if (d <= z1) {
       T = T0 + theta2 * d;
@@ -130,8 +120,15 @@ struct AnalyticalFormula_tri_layer : public AnalyticalFormula_base{
     q.v   = 0.0;
     q.w   = 0.0;
 
-    ConsHydroState res = primToCons<3>(q, gamma0);
-    return res; 
+    HyperbolicPolicy_State_Hydro policy ({ndim, gamma0});
+    HyperbolicPolicy_State_Hydro::ConsState cons_res = policy.primToCons(q);
+    return {
+      cons_res.rho,
+      cons_res.e_tot,
+      cons_res.rho_u,
+      cons_res.rho_v,
+      cons_res.rho_w
+    };
   }
 };
 } // namespace dyablo

@@ -1,5 +1,5 @@
 #include "../InitialConditions_analytical.h"
-#include "../AnalyticalFormula_tools.h"
+#include "AnalyticalFormula_base_hydro.hpp"
 
 namespace dyablo{
 
@@ -8,7 +8,8 @@ namespace dyablo{
  * Based on Lax, Liu "Solution of Two-Dimensional Riemann Problems of Gas Dynamics by Positive Schemes"
  * 1998, SIAM Journal on Scientific Computing
  **/
-struct AnalyticalFormula_riemann2d : public AnalyticalFormula_base{
+struct AnalyticalFormula_riemann2d : public AnalyticalFormula_base_hydro
+{
   
   const int    ndim;
   const real_t gamma0;
@@ -34,17 +35,6 @@ struct AnalyticalFormula_riemann2d : public AnalyticalFormula_base{
   {
     DYABLO_ASSERT_HOST_RELEASE( test_case >= 0 && test_case < 19, 
       "There are 19 riemann test cases, you used riemann2d/test_case = " << test_case);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
-  {
-    real_t gamma0 = this->gamma0;
-    real_t smallr = this->smallr;
-    real_t smallp = this->smallp;
-    real_t error_max = this->error_max;
-    return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                  x, y, z, dx, dy, dz );
   }
 
   KOKKOS_INLINE_FUNCTION

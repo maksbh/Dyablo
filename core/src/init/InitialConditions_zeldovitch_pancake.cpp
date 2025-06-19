@@ -1,11 +1,13 @@
 #include "InitialConditions_analytical.h"
-#include "AnalyticalFormula_tools.h"
+#include "hydro/AnalyticalFormula_base_hydro.hpp"
+#include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
 
 #include "Cosmo.h"
 
 namespace dyablo{
 
-struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
+struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base_hydro
+{
   const int    ndim;
   const real_t gamma0;
   const real_t smallr;
@@ -93,22 +95,10 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
     this->vfact = (this->dplus_ratio * Lbox / (2*M_PI) * fomega(astart)*dladt(astart) * H0);
   }
 
-
   KOKKOS_INLINE_FUNCTION
-  bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
+  State value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
   {
-    const real_t gamma0 = this->gamma0;
-    const real_t smallr = this->smallr;
-    const real_t smallp = this->smallp;
-    const real_t error_max = this->error_max;
-    return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                  x, y, z, dx, dy, dz );
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
-  {
-    PrimHydroState res {};
+    HyperbolicPolicy_State_Hydro::PrimState res {};
 
     real_t A = this->dplus_ratio;
     auto newton_raphson_q = [&A](double x)
@@ -139,8 +129,15 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
     res.v   = 0.0;
     res.w   = 0.0;
 
-    ConsHydroState cons_res = primToCons<3>(res, gamma0);
-    return cons_res; 
+    HyperbolicPolicy_State_Hydro policy ({ndim, gamma0});
+    HyperbolicPolicy_State_Hydro::ConsState cons_res = policy.primToCons(res);
+    return {
+      cons_res.rho,
+      cons_res.e_tot,
+      cons_res.rho_u,
+      cons_res.rho_v,
+      cons_res.rho_w
+    }; 
   }
 };
 

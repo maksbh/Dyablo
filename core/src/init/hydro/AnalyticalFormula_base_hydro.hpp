@@ -7,7 +7,7 @@ namespace dyablo
 
 struct AnalyticalFormula_base_hydro
 {
-  struct State
+  struct ConsHydroState
   {
     real_t rho   = 0;
     real_t e_tot = 0;
@@ -15,6 +15,8 @@ struct AnalyticalFormula_base_hydro
     real_t rho_v = 0;
     real_t rho_w = 0;
   };
+
+  using State = ConsHydroState;
 
   enum VarIndex : dyablo::VarIndex
   {
