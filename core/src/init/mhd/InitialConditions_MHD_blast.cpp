@@ -103,4 +103,4 @@ struct AnalyticalFormula_MHD_blast : public AnalyticalFormula_base_MHD
 
 FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
                  dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast>, 
-                 "MHD_blast_glm");
+                 "MHD_blast");
