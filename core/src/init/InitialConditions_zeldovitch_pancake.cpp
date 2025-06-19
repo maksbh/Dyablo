@@ -1,6 +1,5 @@
 #include "InitialConditions_analytical.h"
 #include "hydro/AnalyticalFormula_base_hydro.hpp"
-#include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
 
 #include "Cosmo.h"
 
@@ -130,14 +129,8 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base_hydr
     res.w   = 0.0;
 
     HyperbolicPolicy_State_Hydro policy ({ndim, gamma0});
-    HyperbolicPolicy_State_Hydro::ConsState cons_res = policy.primToCons(res);
-    return {
-      cons_res.rho,
-      cons_res.e_tot,
-      cons_res.rho_u,
-      cons_res.rho_v,
-      cons_res.rho_w
-    }; 
+    State cons_res = policy.primToCons(res);
+    return cons_res;
   }
 };
 

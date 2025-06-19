@@ -1,6 +1,5 @@
 #include "../InitialConditions_analytical.h"
 #include "../hydro/AnalyticalFormula_base_hydro.hpp"
-#include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
 
 #include <Kokkos_Random.hpp>
 
@@ -121,14 +120,8 @@ struct AnalyticalFormula_tri_layer : public AnalyticalFormula_base_hydro
     q.w   = 0.0;
 
     HyperbolicPolicy_State_Hydro policy ({ndim, gamma0});
-    HyperbolicPolicy_State_Hydro::ConsState cons_res = policy.primToCons(q);
-    return {
-      cons_res.rho,
-      cons_res.e_tot,
-      cons_res.rho_u,
-      cons_res.rho_v,
-      cons_res.rho_w
-    };
+    State cons_res = policy.primToCons(q);
+    return cons_res;
   }
 };
 } // namespace dyablo

@@ -1,52 +1,26 @@
 #pragma once
 
 #include <vector>
+#include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
 
 namespace dyablo
 {
 
 struct AnalyticalFormula_base_hydro
 {
-  struct ConsHydroState
-  {
-    real_t rho   = 0;
-    real_t e_tot = 0;
-    real_t rho_u = 0;
-    real_t rho_v = 0;
-    real_t rho_w = 0;
-  };
-
+  using ConsHydroState = HyperbolicPolicy_State_Hydro::ConsState;
   using State = ConsHydroState;
-
-  enum VarIndex : dyablo::VarIndex
-  {
-    Irho,
-    Ie_tot,
-    Irho_vx,
-    Irho_vy,
-    Irho_vz
-  };
 
   std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo() const
   {
-    return {
-        {"rho"   , VarIndex::Irho},
-        {"e_tot" , VarIndex::Ie_tot},
-        {"rho_vx", VarIndex::Irho_vx},
-        {"rho_vy", VarIndex::Irho_vy},
-        {"rho_vz", VarIndex::Irho_vz},
-    };
+    return State::getFieldsInfo();
   }
 
   KOKKOS_INLINE_FUNCTION
   void setState(const UserData::FieldAccessor &Uout,
                 const ForeachCell::CellIndex &iCell, const State &u) const
   {
-    Uout.at(iCell, Irho)    = u.rho;
-    Uout.at(iCell, Ie_tot)  = u.e_tot;
-    Uout.at(iCell, Irho_vx) = u.rho_u;
-    Uout.at(iCell, Irho_vy) = u.rho_v;
-    Uout.at(iCell, Irho_vz) = u.rho_w;
+    HyperbolicPolicy_State_Hydro({3}).setConsState(Uout, iCell, u);
   }
 };
 
