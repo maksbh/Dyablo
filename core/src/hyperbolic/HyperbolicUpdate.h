@@ -1,7 +1,6 @@
 #pragma once
 
 #include "scheme/HyperbolicUpdate_base.h"
-#include "states/State_forward.h"
 
 namespace dyablo {
 

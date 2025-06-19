@@ -1,7 +1,6 @@
 #include "InitialConditions_analytical.h"
 
 #include "AnalyticalFormula_tools.h"
-#include "states/State_forward.h"
 #include "ionization/Ionization_utils.h"
 
 

@@ -14,7 +14,9 @@
 #include "io/IOManager.h"
 
 #include "foreach_cell/ForeachCell.h"
+#include "states/State_hydro.h"
 #include "boundary_conditions/BoundaryConditions.h"
+
 #include "enums.h"
 
 using CellIndex = dyablo::ForeachCell::CellIndex;

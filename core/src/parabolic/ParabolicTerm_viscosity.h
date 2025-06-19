@@ -1,8 +1,6 @@
 #pragma once
 
 #include "FieldManager.h"
-#include "RiemannSolvers.h"
-#include "hyperbolic/scheme/HyperbolicUpdate_utils.h"
 
 #include "foreach_cell/ForeachCell.h"
 #include "foreach_cell/ForeachCell_utils.h"
@@ -28,8 +26,7 @@ public:
   using ConsState = typename State::ConsState;
 
   ParabolicTerm_viscosity(ConfigMap &configMap)
-    : params(configMap),
-      mu_cst(configMap.getValue<real_t>("viscosity", "mu", 0.0)) {};
+    : mu_cst(configMap.getValue<real_t>("viscosity", "mu", 0.0)) {};
 
   template <int ndim>
   KOKKOS_INLINE_FUNCTION
@@ -226,7 +223,6 @@ public:
   }
 
 private:
-  RiemannParams params;
   real_t mu_cst;
 
 };

@@ -8,15 +8,11 @@
 #include "foreach_cell/ForeachCell.h"
 #include "foreach_cell/ForeachCell_utils.h"
 #include "utils_hydro.h"
-#include "RiemannSolvers.h"
 #include "utils/config/ConfigMap.h"
 
-#include "HyperbolicUpdate_utils.h"
-
-#include "states/State_forward.h"
 #include "mpi/GhostCommunicator.h"
 
-#include "boundary_conditions/BoundaryConditions.h"
+#include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
 
 #ifdef __CUDA_ARCH__
 #include "math_constants.h"

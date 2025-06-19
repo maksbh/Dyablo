@@ -23,6 +23,38 @@ using GlobalArray = ForeachCell::CellArray_global;
 using PatchArray = ForeachCell::CellArray_patch;
 using CellIndex = ForeachCell::CellIndex;
 
+/**
+ * @brief Computes the primitive variables at a given cell index in an array
+ *        and stores it in another array
+ * 
+ * @tparam ndim the number of dimensions
+ * @tparam Array_t the type of array passed to the method
+ * @tparam CellIndex the type of index passed to the method
+ * @param params the hydro parameters for the conversion
+ * @param Ugroup The array where the conservative variables are stored
+ * @param iCell_Ugroup the index where to look and where to store
+ * @param Qgroup the array where the primitive variables are written
+ * 
+ * @note Ugroup and Qgroup should have the same sizes and properties
+ */
+template< 
+  int ndim, 
+  typename State,
+  typename Array_t, 
+  typename CellIndex >
+KOKKOS_INLINE_FUNCTION
+void compute_primitives(real_t gamma0,   const Array_t& Ugroup, 
+                        const CellIndex& iCell_Ugroup, const Array_t& Qgroup)
+{
+  using ConsState = typename State::ConsState;
+  using PrimState = typename State::PrimState;
+
+  ConsState uLoc{};
+  getConservativeState<ndim>(Ugroup, iCell_Ugroup, uLoc);
+  PrimState qLoc = consToPrim<ndim>(uLoc, gamma0);
+  setPrimitiveState<ndim>(Qgroup, iCell_Ugroup, qLoc);
+}
+
 }// namespace
 }
 
@@ -47,7 +79,8 @@ public:
    : foreach_cell(foreach_cell),
      configMap(configMap),
      timers(timers),
-     term_type(term_type), 
+     term_type(term_type),
+     gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
      bc_manager(configMap) { 
 
      }
@@ -99,7 +132,6 @@ public:
     timers.get(kernel_name).start();
 
     BoundaryConditions bc_manager = this->bc_manager;
-    RiemannParams params{configMap};
 
     auto fields_info = parabolic_term.getFieldsInfo();
     UserData::FieldAccessor Uin = U.getAccessor( fields_info );
@@ -131,7 +163,7 @@ public:
       // 3- Convert to primitives
       patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
       { 
-        compute_primitives<ndim, State>(params, Ugroup, iCell_Ugroup, Qgroup);
+        compute_primitives<ndim, State>(gamma0, Ugroup, iCell_Ugroup, Qgroup);
       });
 
       // 4- Calculating rhs term and applying parabolic term
@@ -157,6 +189,7 @@ public:
   Timers      &timers;
 
   ParabolicTermType term_type;
+  real_t gamma0;
 
   BoundaryConditions bc_manager;
 };
