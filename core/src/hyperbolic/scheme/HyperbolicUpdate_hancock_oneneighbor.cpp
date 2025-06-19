@@ -185,7 +185,9 @@ public:
           PrimState q  = policy.getPrimState( Q, iCell );
           PrimState sx = policy.getPrimState( Slopes_x, iCell );
           PrimState sy = policy.getPrimState( Slopes_y, iCell );
-          PrimState sz = policy.getPrimState( Slopes_z, iCell );
+          PrimState sz;
+          if(ndim == 3)
+            sz = policy.getPrimState( Slopes_z, iCell );
           auto cell_size = cellmetadata.getCellSize(iCell);
           const real_t dtdx = dt/cell_size[IX];
           const real_t dtdy = dt/cell_size[IY];
@@ -242,7 +244,9 @@ public:
           PrimState qC  = policy.getPrimState( Q, iCell );
           PrimState sx = policy.getPrimState( Slopes_x, iCell );
           PrimState sy = policy.getPrimState( Slopes_y, iCell );
-          PrimState sz = policy.getPrimState( Slopes_z, iCell );
+          PrimState sz;
+          if(ndim == 3)
+            sz = policy.getPrimState( Slopes_z, iCell );
           auto cell_size = cellmetadata.getCellSize(iCell);
           const real_t dtdx = dt/cell_size[IX];
           const real_t dtdy = dt/cell_size[IY];
