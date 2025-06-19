@@ -1,8 +1,10 @@
 #include "../InitialConditions_analytical.h"
+#include "AnalyticalFormula_base_hydro.hpp"
 
 namespace dyablo{
 
-struct AnalyticalFormula_blast{
+struct AnalyticalFormula_blast : public AnalyticalFormula_base_hydro
+{
      // blast problem parameters
     const int ndim;
     const real_t blast_radius;
@@ -85,36 +87,6 @@ struct AnalyticalFormula_blast{
 
     //     return should_refine;
     // } 
-
-    struct State
-    {
-        real_t rho = 0;
-        real_t e_tot = 0;
-    };
-
-    enum VarIndex : dyablo::VarIndex
-    {
-        Irho,
-        Ie_tot,
-        Irho_vx, Irho_vy, Irho_vz
-    };
-
-    std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo() const
-    {
-        return  {   {"rho",     VarIndex::Irho}, 
-                    {"e_tot",   VarIndex::Ie_tot},
-                    {"rho_vx",  VarIndex::Irho_vx}, // Unused but fields still need to be created
-                    {"rho_vy",  VarIndex::Irho_vy},
-                    {"rho_vz",  VarIndex::Irho_vz},
-                };
-    }
-
-    KOKKOS_INLINE_FUNCTION
-    void setState( const UserData::FieldAccessor& Uout, const ForeachCell::CellIndex& iCell, const State& u ) const
-    {
-        Uout.at(iCell, Irho) = u.rho;
-        Uout.at(iCell, Ie_tot) = u.e_tot;
-    }
 
     KOKKOS_INLINE_FUNCTION
     State value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
