@@ -1,5 +1,5 @@
 #include "../InitialConditions_analytical.h"
-#include "../AnalyticalFormula_tools.h"
+#include "AnalyticalFormula_base_MHD.hpp"
 
 #include <Kokkos_Random.hpp>
 
@@ -11,7 +11,8 @@ namespace dyablo{
  * Rayleigh-Taylor instability test for MHD variables based on the description of the Athena code :
  * https://www.astro.princeton.edu/~jstone/Athena/tests/rt/rt.html
  **/
-struct AnalyticalFormula_MHD_RayleighTaylor : public AnalyticalFormula_base{
+struct AnalyticalFormula_MHD_RayleighTaylor : public AnalyticalFormula_base_MHD
+{
   using RNGPool = Kokkos::Random_XorShift64_Pool<>;
   using RNGType = RNGPool::generator_type;
 
@@ -61,20 +62,9 @@ struct AnalyticalFormula_MHD_RayleighTaylor : public AnalyticalFormula_base{
   }
 
   KOKKOS_INLINE_FUNCTION
-  bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
+  State value(real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz) const 
   {
-    real_t gamma0 = this->gamma0;
-    real_t smallr = this->smallr;
-    real_t smallp = this->smallp;
-    real_t error_max = this->error_max;
-    return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                  x, y, z, dx, dy, dz );
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  ConsGLMMHDState value(real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz) const 
-  {
-    ConsGLMMHDState res;
+    State res;
     // Overriding vertical direction
     z = (ndim == 2 ? y : z);
     real_t rho, P, u, v, w;
