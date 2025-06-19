@@ -30,9 +30,9 @@ struct HyperbolicPolicy_ConsGLMMHDState {
   {
     return  { {"rho",     VarIndex::Irho}, 
               {"e_tot",   VarIndex::Ie_tot},
-              {"rho_u",  VarIndex::Irho_vx},
-              {"rho_v",  VarIndex::Irho_vy},
-              {"rho_w",  VarIndex::Irho_vz},
+              {"rho_vx",  VarIndex::Irho_vx},
+              {"rho_vy",  VarIndex::Irho_vy},
+              {"rho_vz",  VarIndex::Irho_vz},
               {"Bx",  VarIndex::IBx},
               {"By",  VarIndex::IBy},
               {"Bz",  VarIndex::IBz},
