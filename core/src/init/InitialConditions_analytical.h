@@ -6,6 +6,8 @@
 
 #include "foreach_cell/ForeachCell.h"
 
+#include "mpi/GhostCommunicator.h"
+
 namespace dyablo{
 
 
@@ -82,6 +84,10 @@ public:
             auto val = analytical_formula.value( c[IX], c[IY], c[IZ], s[IX], s[IY], s[IZ] );
             analytical_formula.setState( Uout, iCell_U, val );
         });
+        
+        int ghost_count = 2;
+        GhostCommunicator ghost_comm(pmesh, U.getShape(), ghost_count);
+        ghost_comm.exchange_ghosts( Uout );
     };
 
     if( this->refine_condition )
