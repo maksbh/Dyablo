@@ -17,14 +17,17 @@ void apply_rad_chem( const ForeachCell::CellIndex& iCell_Uin,
                     bool apply_cooling, bool dynamic, real_t sigma_n_c, real_t sigma_e_c, real_t typical_energy)
 {
   
+  constexpr real_t PROTON_MASS_SI = Units::PROTON_MASS().convert_to( Units::kg() );
+  constexpr real_t KBOLTZ_SI = Units::KBOLTZ().convert_to(Units::J() / Units::K());
+
   real_t dtSI = dt*tstar*(aexp*aexp); // Timestep in s
   real_t dxSI = dx*aexp; // dx in m
-  real_t nstar = rhostar/Units::PROTON_MASS;
+  real_t nstar = rhostar/PROTON_MASS_SI;
 
    // Local Gaz density
   real_t rho = Uout.at(iCell_Uin, VarIndex_Chem::Irho);
   real_t rhoSI = rho*rhostar/(aexp*aexp*aexp); // Physical gas density in kg/m3. We expect to have rhoSI = 1e3*mass_proton 
-  real_t nHSI = rhoSI/Units::PROTON_MASS; // Physical atom number density in atoms/m3
+  real_t nHSI = rhoSI/PROTON_MASS_SI; // Physical atom number density in atoms/m3
 
   // Local Photon number Density
   real_t Norg = Uout.at(iCell_Uin, VarIndex_Chem::Ie_rad);
@@ -56,7 +59,7 @@ void apply_rad_chem( const ForeachCell::CellIndex& iCell_Uin,
   real_t temp_SI = Uout.at(iCell_Uin, VarIndex_Chem::Itemp);
   // In case of dynamic mode, we need to recompute the temperature related to the e_tot and rho
   if(dynamic)
-    temp_SI = pressure_SI /( (gamma0 - 1.0) * 1.5 * nHSI*(1+x) * Units::KBOLTZ);
+    temp_SI = pressure_SI /( (gamma0 - 1.0) * 1.5 * nHSI*(1+x) * KBOLTZ_SI);
 
   real_t temp_new_SI = temp_SI;
   real_t e_tot_new = e_tot;
@@ -110,11 +113,11 @@ void apply_rad_chem( const ForeachCell::CellIndex& iCell_Uin,
     // Compute cooling and heating effects and derive new temperature
     const real_t c_rate = cooling_rate_density(temp_SI, nHSI, xnew);
     const real_t h_rate = heating_rate(nHSI, xnew, NSI, sigma_n_c, sigma_e_c, typical_energy);  // here we use the non-updated NSI value
-    const real_t coef = 2. * (h_rate - c_rate) * dtSI / (3.0 * nHSI * (1.0 + xnew) * Units::KBOLTZ);
+    const real_t coef = 2. * (h_rate - c_rate) * dtSI / (3.0 * nHSI * (1.0 + xnew) * KBOLTZ_SI);
     temp_new_SI = FMAX((coef + temp_SI) / (1.0 + xnew - x), 10.0);
 
     // Update e_tot value
-    real_t pressure_new_SI = (gamma0 - 1.0) * 1.5 * nHSI*(1+xnew) * Units::KBOLTZ * temp_new_SI;
+    real_t pressure_new_SI = (gamma0 - 1.0) * 1.5 * nHSI*(1+xnew) * KBOLTZ_SI * temp_new_SI;
     real_t pressure_new = pressure_new_SI / pstar * (aexp*aexp*aexp*aexp*aexp);
     e_tot_new = e_cin + pressure_new/(gamma0-1.0);
   }

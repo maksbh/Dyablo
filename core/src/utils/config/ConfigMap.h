@@ -13,6 +13,7 @@
 #include "utils/mpi/GlobalMpiSession.h"
 #include "utils/config/inih/ini.h"
 #include "utils/misc/Dyablo_assert.h"
+#include "utils/units/UnitParser.hpp"
 #include "enums.h"
 #include "named_enum.h"
 #include <cassert>
@@ -69,6 +70,10 @@ struct convert_to_t
         }
         DYABLO_ASSERT_HOST_RELEASE( false, sst.str() );
       }
+    }
+    else if constexpr ( dyablo::Units::is_unit<T> )
+    {
+      return dyablo::Units::parse_unit<T>(str);
     }
     else
     {
@@ -172,6 +177,16 @@ struct to_string_t<std::vector<T>>
   }
 };
 
+template< int... Dims >
+struct to_string_t<dyablo::Units::Unit<Dims...>>
+{
+  static std::string convert( const dyablo::Units::Unit<Dims...>& u )
+  {
+    real_t u_code = u.convert_to( dyablo::Units::code_units().getUnit<dyablo::Units::Unit<Dims...>>() );
+    return to_string_t<real_t>::convert( u_code );
+  }
+};
+
 template< typename T >
 std::string to_string( const T& v )
 {
@@ -198,6 +213,8 @@ public:
 
     DYABLO_ASSERT_HOST_RELEASE( error == 0, "Error in .ini file line " << error );
     this->print_config = this->getValue<bool>( "ini", "print_config", false );
+    this->convert_units = this->getValue<bool>( "ini", "convert_units", false );
+
   }
 
   ConfigMap( ConfigMap&& ) = default;
@@ -305,14 +322,15 @@ public:
     name = tolower(name);
     value_container& val = _values[section][name];
     val.used = true;
-    T res;
+    std::unique_ptr<T> res_ptr;
     try {        
-      res = Impl::convert_to<T>(val.value);
+      res_ptr = std::make_unique<T>(Impl::convert_to<T>(val.value));
     }
     catch (const std::exception& e)
     {
       DYABLO_ASSERT_HOST_RELEASE( false, "Error while parsing .ini " << section << "/" << name << " -- " << e.what())
     }
+    T& res = *res_ptr;    
 
     if( print_config )
     {
@@ -330,6 +348,120 @@ public:
     }
 
     return res;
+  }
+
+  /// Implementation details
+  template<typename Unit_t, typename F>
+  real_t getValue_in_unit_aux(std::string section, std::string name, const F& unit)
+  {
+    bool is_present = hasValue(section, name);
+    DYABLO_ASSERT_HOST_RELEASE( is_present, "Error while parsing .ini " << section << "/" << name << " -- Value not found and no default was provided." )
+    
+    real_t value;
+    try{
+      value = this->getValue<real_t>(section, name);
+    }
+    catch(...)
+    {
+      Unit_t value_u = this->getValue<Unit_t>(section, name);
+      //unit is deduced here to avoid triggering "code units not set" when raw float is given in getValue_in_code_unit
+      value = value_u.convert_to( unit() ); 
+
+      if( this->convert_units )
+      {
+        section = tolower(section);
+        name = tolower(name);
+        value_container& val = _values.at(section).at(name);
+        val.value = Impl::to_string( value );
+      }
+    }
+    return value;    
+  }
+
+  /**
+   * Read a floating point value from configMap corresponding to 
+   * ```
+   * [section]
+   * name=<value>
+   * ```
+   * and convert it to the specified unit.
+   * 
+   * Value can either be :
+   * - a raw floating point value : the value is supposed to already be in the specified unit, 
+   *    the string is parsed using getValue<real_t>()
+   * - a value with a unit string (e.g. "10 km/s") : the value is then parsed using getValue<Unit_t>()
+   *    and then converted to the specified unit ( `getValue<Unit_t>().convert_to(unit)` )
+   * 
+   * Case is ignored in section and name.
+   * If parameter is not present, it is added to the configmap
+   * Throws std::runtime_error if value cannot be parsed 
+   * or if there is still something left in <value> after parsing
+   * ( e.g if "2.5" is parsed as integer, ".5" will remain )
+   * 
+   * Note : getValue functions can be called for different types with the same section/name. 
+   * This is not recommended and may have unpredictable beahavior (especially concerning rounding errors)
+   **/
+  template<typename Unit_t>
+  real_t getValue_in_unit(std::string section, std::string name, const Unit_t& unit, const std::string& default_value_str)
+  {
+    section = tolower(section);
+    name = tolower(name);
+
+    if( !hasValue(section, name) )
+    {
+      _values[section][name].value = default_value_str;
+    }
+
+    return getValue_in_unit<Unit_t>(section, name, unit);
+  }
+
+  /// Same as getValue_in_unit(section, name, unit, default_str) but default_value is converted first
+  template<typename Unit_t>
+  real_t getValue_in_unit(std::string section, std::string name, const Unit_t& unit, real_t default_value)
+  {
+    section = tolower(section);
+    name = tolower(name);
+
+    return getValue_in_unit<Unit_t>(section, name, unit, Impl::to_string(default_value));
+  }
+
+  /// Same as getValue_in_unit(section, name, unit, default) but value must exist
+  template<typename Unit_t>
+  real_t getValue_in_unit(std::string section, std::string name, const Unit_t& unit)
+  {
+    return getValue_in_unit_aux<Unit_t>(section, name, [&](){return unit;});
+  }
+
+  /// Same as getValue_in_code_unit(section, name, default) but value must exist
+  template<typename Unit_t>
+  real_t getValue_in_code_unit(std::string section, std::string name)
+  {
+    return getValue_in_unit_aux<Unit_t>(section, name, [&](){return dyablo::Units::code_units().getUnit<Unit_t>();});
+  }
+
+  /// Same as getValue_in_unit(section, name, unit, default) but `unit` is the code unit corresponding to Unit_t
+  template<typename Unit_t>
+  real_t getValue_in_code_unit(std::string section, std::string name, const std::string& default_value_str)
+  {
+    section = tolower(section);
+    name = tolower(name);
+
+    if( !hasValue(section, name) )
+    {
+      _values[section][name].value = default_value_str;
+    }
+
+    return getValue_in_code_unit<Unit_t>(section, name);
+  }
+
+  /// Same as getValue_in_code_unit(section, name, default_str) but default_value is converted to string first
+  template<typename Unit_t>
+  real_t getValue_in_code_unit(std::string section, std::string name, real_t default_value)
+  {
+    section = tolower(section);
+    name = tolower(name);
+
+    return getValue_in_code_unit<Unit_t>(section, name, Impl::to_string(default_value));
   }
 
   bool hasValue( std::string section, std::string name )
@@ -384,6 +516,7 @@ protected:
   };
 
   bool print_config;
+  bool convert_units;
 
   std::map<std::string, std::map< std::string, value_container> > _values;
   static int valueHandler( void* user, const char* section_cstr, const char* name_cstr,

@@ -12,3 +12,6 @@
 	path = external/gtest
 	url = https://github.com/google/googletest.git
 	branch = release-1.11.0
+[submodule "external/units"]
+	path = external/units
+	url = https://github.com/LLNL/units.git

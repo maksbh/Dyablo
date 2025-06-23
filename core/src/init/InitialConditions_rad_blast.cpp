@@ -46,16 +46,15 @@ struct AnalyticalFormula_rad_blast : public AnalyticalFormula_base{
         xe_start(configMap.getValue<real_t>("rad", "xe_start", 1.2e-3)),
         zre_start(configMap.getValue<real_t>("ionization", "zre_start", -1000.0))
     {
-
-        using namespace Units;
+        constexpr real_t SPEEDOFLIGHT_SI = Units::SPEEDOFLIGHT().convert_to( Units::m()/Units::s() );
 
         real_t omegam = 0.0;
-        real_t rstar = box_size * (Kilo * parsec) ; // box size in m 
+        real_t rstar = (box_size * Units::kpc()).convert_to( Units::m() ) ; // box size in m 
         real_t dx = rstar/ (pow(2, levelMin) * bx); // Cell size (m)
-        real_t tstar = 1.0 * Mega * 365.0*24.0*3600.0; // sec
+        real_t tstar = (Units::Myr()).convert_to(Units::s()); // sec
         real_t vstar = rstar/tstar; //m/s
-        real_t ctilde = clight_fraction * SPEEDOFLIGHT / vstar;
-        rhostar = 1e3 * PROTON_MASS; // 1000 atomes/m3
+        real_t ctilde = (clight_fraction * Units::SPEEDOFLIGHT() / vstar).convert_to( Units::m()/Units::s() );
+        rhostar = (1000 * Units::PROTON_MASS() / Units::m3()).convert_to(Units::kg()/Units::m3()); // 1000 atomes/m3
         pstar = rhostar * vstar * vstar;
 
         // Compute sigma_n, sigma_e and typical energy
@@ -67,8 +66,8 @@ struct AnalyticalFormula_rad_blast : public AnalyticalFormula_base{
         configMap.getValue<real_t>( "cosmology", "rhostar", rhostar );
         configMap.getValue<real_t>( "cosmology", "tstar", tstar );
         configMap.getValue<real_t>( "cosmology", "astart", 1.0 );
-        configMap.getValue<real_t>( "ionization", "sigma_n_c", s.sn * clight_fraction * SPEEDOFLIGHT );
-        configMap.getValue<real_t>( "ionization", "sigma_e_c", s.se * clight_fraction * SPEEDOFLIGHT );
+        configMap.getValue<real_t>( "ionization", "sigma_n_c", s.sn * clight_fraction * SPEEDOFLIGHT_SI );
+        configMap.getValue<real_t>( "ionization", "sigma_e_c", s.se * clight_fraction * SPEEDOFLIGHT_SI );
         configMap.getValue<real_t>( "ionization", "typical_energy", s.etyp);
 
         if(rad_type==BUNNY)
@@ -92,11 +91,9 @@ struct AnalyticalFormula_rad_blast : public AnalyticalFormula_base{
     KOKKOS_INLINE_FUNCTION
     ConsState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
     {        
-        using namespace Units;
-
         ConsState res{};
 
-        real_t temp = this->temperature * Kelvin;
+        auto temp = this->temperature * Units::Kelvin();
 
         if(rad_type==BUNNY){
 
@@ -139,9 +136,9 @@ struct AnalyticalFormula_rad_blast : public AnalyticalFormula_base{
             res.rho_u = 0.0;
             res.rho_v = 0.0;
             res.rho_w = 0.0;
-            res.rho = 1e3 * PROTON_MASS / rhostar;
+            res.rho = (1000 * Units::PROTON_MASS()/Units::m3()).convert_to(Units::kg()/Units::m3()) / rhostar ;
 
-            real_t p_0 = (gamma0 - 1.0) * 1.5 * 1e3 * KBOLTZ * temp / pstar;
+            real_t p_0 = ((gamma0 - 1.0) * 1.5 * 1e3 * Units::KBOLTZ() * temp).convert_to(Units::J()) / pstar;
             res.e_tot = p_0/(gamma0-1.0);
         }
 
@@ -150,7 +147,7 @@ struct AnalyticalFormula_rad_blast : public AnalyticalFormula_base{
         res.fz_rad = 0.0;
         res.xe = this->xe_start;
         res.zre = this->zre_start;
-        res.temp = temp;
+        res.temp = temp.convert_to(Units::Kelvin());
         
         return res;
 

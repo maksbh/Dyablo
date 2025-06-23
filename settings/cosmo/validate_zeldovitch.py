@@ -6,13 +6,19 @@ from scipy.optimize import newton
 from scipy import integrate
 import scipy.constants as cst
 import h5py
+from configparser import ConfigParser
 
 xmf_filename = sys.argv[1] #"test_zeldovitch_main.xmf"
 target_precision = float(sys.argv[2])
 png_filename = sys.argv[3]
+if( len(sys.argv) >= 5 ):
+  ini_filename = sys.argv[4]
+else:
+  ini_filename="last.ini"
 
 print("Validate Zeldovitch")
 print(f'XMF filename : {xmf_filename}')
+print(f'ini filename : {ini_filename}')
 print(f'Target Precision : {target_precision}')
 print(f'PNG output filename : {png_filename}')
 
@@ -28,7 +34,7 @@ def ddplus(a, om, ov):
 
 def dplus(a,omegam,omegav):
     eta = np.sqrt(omegam/a+omegav*a*a+1.0-omegam-omegav)
-    return eta/a*integrate.romberg(lambda a : ddplus(a, omegam, omegav), 0., a)
+    return eta/a*integrate.quad(lambda a : ddplus(a, omegam, omegav), 0., a)[0]
 
 #=======================================================
 
@@ -50,17 +56,13 @@ class zeldovitch_analytical:
   def __init__(self, across, asnap, omegam, omegav, omegab, G, H0, Lbox ):
     
     rhoc = 3 * H0**2 / (8 * np.pi * G)
-    rhostar = omegam * rhoc
-    tstar = 2.0 / H0 / np.sqrt(omegam)
-    rstar = Lbox 
-    vstar = rstar / tstar
 
-    self.rho_fact = omegab * rhoc / rhostar
+    self.rho_fact = omegab * rhoc
     self.dplus_ratio = dplus(asnap ,omegam,omegav) / dplus(across ,omegam,omegav)
-    self.vfact = (self.dplus_ratio * Lbox / (2*np.pi) * fomega(asnap ,omegam,omegav)*dladt(asnap ,omegam,omegav) * H0) / vstar
+    self.vfact = (self.dplus_ratio * Lbox / (2*np.pi) * fomega(asnap ,omegam,omegav)*dladt(asnap ,omegam,omegav) * H0)
 
     self.qgrid = np.linspace(0,1,100000)
-    self.xgrid = (self.qgrid + self.dplus_ratio/(2*np.pi) * Lbox * np.sin(2*np.pi*self.qgrid)/rstar)
+    self.xgrid = (self.qgrid + self.dplus_ratio/(2*np.pi) * np.sin(2*np.pi*self.qgrid))*Lbox
 
   def value( self, x ): 
     q = np.interp(x, self.xgrid, self.qgrid)
@@ -68,20 +70,24 @@ class zeldovitch_analytical:
     rho = self.rho_fact/( 1 + self.dplus_ratio * np.cos(2*np.pi*q) )
     vx = self.vfact * np.sin(2*np.pi*q)
     return (rho,vx)
-    
-    
+
+ini_file = ConfigParser(inline_comment_prefixes=('#',';'))
+ini_file.read(ini_filename)
+
 # Physics
-omegam=0.3
-omegav=0.7
-omegab=0.049
+omegam=ini_file.getfloat("cosmology","omegam")
+omegav=ini_file.getfloat("cosmology","omegav")
+omegab=ini_file.getfloat("cosmology","omegab")
 # G = cst.G
 # H0 = 2.1753246753246754e-18 
 # Lbox = 3.08e23
-G = 1
-H0 = 1
-Lbox = 1
-across=0.16666666 #crossing expansion factor
-asnap=0.16666666 #crossing expansion factor
+G = ini_file.getfloat("gravity","4_pi_G") / (4*np.pi)
+H0 = ini_file.getfloat("cosmology","H0")
+Lbox = ini_file.getfloat("mesh","xmax") - ini_file.getfloat("mesh","xmin")
+if(ini_file.has_option("zeldovitch_pancake","across")):
+  across = ini_file.getfloat("zeldovitch_pancake","across") #crossing expansion factor
+else:
+  across = 0.16666666
 
 # Open output file
 reader = pyablo.XdmfReader()
@@ -91,6 +97,10 @@ snap = reader.readSnapshot(series[-1])
 fields_xmf_filename = series[-1]
 hdf5_filename = fields_xmf_filename[0:-3]+"h5"
 particles_h5_filename = hdf5_filename[0:10] + "_particles_particles" + hdf5_filename[10:]
+
+h5_fields = h5py.File(hdf5_filename, 'r')
+asnap = h5_fields['scalar_data'].attrs['aexp']
+h5_fields.close()
 
 NCells = snap.getNCells()
 ids = np.arange( 0, NCells )
@@ -128,10 +138,9 @@ analytical_part = np.asarray([ formula.value( x ) for x in particle_px ])
 expected_upart = np.asarray(analytical_part[:,1])
 
 # Computing L1 norm
-L1_rho   = np.linalg.norm(rho - expected_rho, ord=1)   / NCells
-L1_u   = np.linalg.norm(u - expected_u, ord=1)   / NCells
-L1_upart = np.linalg.norm(particle_vx - expected_upart, ord=1) / particle_vx.size
-
+L1_rho   = np.linalg.norm(rho - expected_rho, ord=1)   / np.linalg.norm(expected_rho, ord=1)
+L1_u   = np.linalg.norm(u - expected_u, ord=1)   / np.linalg.norm(expected_u, ord=1)
+L1_upart = np.linalg.norm(particle_vx - expected_upart, ord=1) / np.linalg.norm(expected_upart, ord=1)
 print( f'Cells Velocity; L1 error = {L1_u:.4}' )
 print( f'Particles Velocity; L1 error = {L1_upart:.4}' )
 
