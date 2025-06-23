@@ -85,7 +85,7 @@ public:
             analytical_formula.setState( Uout, iCell_U, val );
         });
         
-        int ghost_count = 2;
+        int ghost_count = std::min( {U.getShape().bx, U.getShape().by, (uint32_t)4} );
         GhostCommunicator ghost_comm(pmesh, U.getShape(), ghost_count);
         ghost_comm.exchange_ghosts( Uout );
     };
