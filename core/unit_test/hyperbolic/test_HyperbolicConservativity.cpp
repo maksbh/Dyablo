@@ -19,9 +19,7 @@
 #include "compute_dt/Compute_dt.h"
 #include "init/InitialConditions.h"
 #include "hyperbolic/HyperbolicUpdate.h"
-#include "utils_hydro.h"
 #include "io/IOManager.h"
-#include "states/State_hydro.h"
 #include "mpi/GhostCommunicator.h"
 using blockSize_t    = Kokkos::Array<uint32_t, 3>;
 
@@ -81,15 +79,11 @@ struct DiagosticsFunctor {
       real_t dz = cell_size[IZ];
       real_t dV = dx*dy*(ndim==3 ? dz : 1.0);
       
-      ConsHydroState uLoc{};
-      uLoc.rho = U.at(iCell,ID);
-      uLoc.e_tot = U.at(iCell,IE);
-      uLoc.rho_u = U.at(iCell,IU);
-      uLoc.rho_v = U.at(iCell,IV);
-      uLoc.rho_w = (ndim==2)? 0 : U.at(iCell, IW);
+      real_t rho = U.at(iCell,ID);
+      real_t e_tot = U.at(iCell,IE);
 
-      mass   += dV * uLoc.rho;
-      energy += dV * uLoc.e_tot;
+      mass   += dV * rho;
+      energy += dV * e_tot;
 
     }, Kokkos::Sum<real_t>(mass), Kokkos::Sum<real_t>(energy) );
 
