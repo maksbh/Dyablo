@@ -21,6 +21,7 @@ class AnalyticalFormula_KelvinHelmholtz;
 class AnalyticalFormula_RayleighTaylor;
 class AnalyticalFormula_sod;
 class AnalyticalFormula_Zeldovitch_pancake;
+class InitialConditions_zeldovitch_particles;
 class AnalyticalFormula_double_mach;
 
 // MHD
@@ -73,6 +74,7 @@ bool dyablo::InitialConditionsFactory::init()
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_RayleighTaylor> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_sod> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_Zeldovitch_pancake> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_zeldovitch_particles );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_rad_blast> );
 
   DECLARE_REGISTERED( dyablo::InitialConditions_grafic_fields );

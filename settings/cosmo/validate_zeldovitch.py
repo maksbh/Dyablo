@@ -105,18 +105,21 @@ h5_fields.close()
 NCells = snap.getNCells()
 ids = np.arange( 0, NCells )
 
+gas_enabled = snap.hasAttribute('rho_vx')
+
 # Load fields
 px = np.array(snap.getCellsCenter( ids ))[:,0]
-rho = np.asarray( snap.readAllFloat('rho') )
-rho_u = np.asarray( snap.readAllFloat('rho_vx') )
+rho = np.asarray( snap.readAllFloat('rho') )  
 
 ## Sorting is only needed for plot
 sort_order = np.argsort( px )
 px = px[sort_order]
 rho = rho[sort_order]
-rho_u = rho_u[sort_order]
 
-u = rho_u/rho
+if(gas_enabled):
+  rho_u = np.asarray( snap.readAllFloat('rho_vx') )
+  rho_u = rho_u[sort_order]
+  u = rho_u/rho
 
 fpart = h5py.File(particles_h5_filename, 'r')
 
@@ -138,10 +141,14 @@ analytical_part = np.asarray([ formula.value( x ) for x in particle_px ])
 expected_upart = np.asarray(analytical_part[:,1])
 
 # Computing L1 norm
-L1_rho   = np.linalg.norm(rho - expected_rho, ord=1)   / np.linalg.norm(expected_rho, ord=1)
-L1_u   = np.linalg.norm(u - expected_u, ord=1)   / np.linalg.norm(expected_u, ord=1)
+if(gas_enabled):
+  L1_rho   = np.linalg.norm(rho - expected_rho, ord=1)   / np.linalg.norm(expected_rho, ord=1)
+  L1_u   = np.linalg.norm(u - expected_u, ord=1)   / np.linalg.norm(expected_u, ord=1)
+  print( f'Cells Velocity; L1 error = {L1_u:.4}' )
+else:
+  L1_rho = np.linalg.norm(rho - expected_rho, ord=1)
+
 L1_upart = np.linalg.norm(particle_vx - expected_upart, ord=1) / np.linalg.norm(expected_upart, ord=1)
-print( f'Cells Velocity; L1 error = {L1_u:.4}' )
 print( f'Particles Velocity; L1 error = {L1_upart:.4}' )
 
 fig, ax = plt.subplots(2, 1, figsize=(7, 7))
@@ -151,7 +158,8 @@ ax[0].set_title(f'Density; L1 error = {L1_rho:.4}')
 ax[0].set_xlabel('x')
 ax[0].set_ylabel(r'$\rho$')
 ax[1].plot(particle_px, expected_upart, '--', label = "Expected")
-ax[1].plot(px, u, '+', label = f'Cells (L1 error = {L1_u:.4})')
+if(gas_enabled):
+  ax[1].plot(px, u, '+', label = f'Cells (L1 error = {L1_u:.4})')
 ax[1].plot(particle_px, particle_vx, '+', label = f'Particles (L1 error = {L1_upart:.4})')
 ax[1].set_title(f'Velocity')
 ax[1].set_xlabel('x')
@@ -163,7 +171,7 @@ plt.tight_layout()
 plt.savefig(f'{png_filename}')
 print( f'Exported {png_filename}' )
 
-if( L1_u > target_precision ):
+if( gas_enabled and L1_u > target_precision ):
   print( f'Precision target not met {L1_u:.4} > {target_precision:.4}'  )
   exit(1)
 

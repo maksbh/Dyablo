@@ -6,7 +6,6 @@
 namespace dyablo{
 
 struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
-  
   const int    ndim;
   const real_t gamma0;
   const real_t smallr;
@@ -21,6 +20,14 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
   real_t dplus_ratio;
   real_t vfact;
 
+  KOKKOS_INLINE_FUNCTION
+  static int nrun_()
+  {
+    static int res = 0;
+    return res++;
+  }
+  int nrun; 
+
   AnalyticalFormula_Zeldovitch_pancake( ConfigMap& configMap ) : 
     ndim(configMap.getValue<int>("mesh", "ndim", 2)),
     gamma0(configMap.getValue<real_t>("hydro","gamma0", 1.4)),
@@ -32,7 +39,8 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
     xmax( configMap.getValue<real_t>("mesh","xmax", 1) ),
     omegab(configMap.getValue<real_t>("cosmology","omegab", 0.049)),
     omegam(configMap.getValue<real_t>("cosmology","omegam", 0.3)),
-    omegav(configMap.getValue<real_t>("cosmology","omegav", 0.7))
+    omegav(configMap.getValue<real_t>("cosmology","omegav", 0.7)),
+    nrun( nrun_() )
   {
     DYABLO_ASSERT_HOST_RELEASE(ndim == 3, "Initial conditions only for 3D");
 
@@ -119,7 +127,11 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
       return q1;
     };
 
-    real_t q = newton_raphson_q(x/(xmax-xmin));
+    real_t q;
+    if(nrun == 1)
+      q = newton_raphson_q(x/(xmax-xmin));
+    else
+      q = x/(xmax-xmin);
 
     res.rho = this->rho_fact/( 1 + this->dplus_ratio * cos(2*M_PI*q) );
     res.p   = this->smallp;
@@ -131,6 +143,7 @@ struct AnalyticalFormula_Zeldovitch_pancake : public AnalyticalFormula_base{
     return cons_res; 
   }
 };
+
 } // namespace dyablo
 
 FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
