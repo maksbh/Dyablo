@@ -1,5 +1,3 @@
-#include "states/State_hydro.h"
-
 #include "hyperbolic/policy/HyperbolicPolicy_GLMMHD.h"
 
 #include "hyperbolic/scheme/Hyperbolic_RK2.h"

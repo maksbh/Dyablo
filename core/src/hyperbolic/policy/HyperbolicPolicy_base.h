@@ -15,7 +15,7 @@ namespace dyablo{
 template< typename HyperbolicPolicy_impl >
 class HyperbolicPolicy_base
 {
-private:
+protected:
   HyperbolicPolicy_impl impl;
 
 public:

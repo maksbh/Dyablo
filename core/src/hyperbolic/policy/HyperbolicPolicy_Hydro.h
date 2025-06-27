@@ -20,6 +20,15 @@ struct HyperbolicPolicy_ConsHydroState {
     Irho_vz
   }; 
 
+  static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
+  {
+    return  { {"rho",     VarIndex::Irho}, 
+              {"e_tot",   VarIndex::Ie_tot},
+              {"rho_vx",  VarIndex::Irho_vx},
+              {"rho_vy",  VarIndex::Irho_vy},
+              {"rho_vz",  VarIndex::Irho_vz} };
+  }
+
   static FieldManager getFieldManager()
   {
     return FieldManager( {VarIndex::Irho, VarIndex::Ie_tot, VarIndex::Irho_vx, VarIndex::Irho_vy, VarIndex::Irho_vz } );
@@ -93,7 +102,7 @@ struct HyperbolicPolicy_Hydro_Params
 
 class HyperbolicPolicy_State_Hydro
 {
-private:
+protected:
   int ndim;
   real_t gamma0;
 
@@ -103,6 +112,7 @@ public:
   using PrimState = HyperbolicPolicy_PrimHydroState;
   using ConsState = HyperbolicPolicy_ConsHydroState;
 
+  KOKKOS_INLINE_FUNCTION
   HyperbolicPolicy_State_Hydro( const HyperbolicPolicy_Hydro_Params& params )
   : ndim(params.ndim),
     gamma0(params.gamma0)

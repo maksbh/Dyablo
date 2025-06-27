@@ -2,10 +2,6 @@
 
 #include "kokkos_shared.h"
 
-#include "BoundaryConditions.h"
-
-#include "RiemannSolvers.h"
-
 namespace dyablo {
 namespace {
   using CellIndex        = typename ForeachCell::CellIndex;
@@ -16,7 +12,6 @@ class BoundaryConditions {
 public:
   
   BoundaryConditions(ConfigMap &configMap) :
-      params(configMap),
       bc_min{configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_ABSORBING),
              configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_ABSORBING),
              configMap.getValue<BoundaryConditionType>("mesh","boundary_type_zmin", BC_ABSORBING)},
@@ -197,9 +192,6 @@ public:
                                   const bool                      min_bound) const {
     return flux_in;
   }
-
-  /** Attributes **/
-  RiemannParams params;
 
   BoundaryConditionType bc_min[3], bc_max[3];
   real_t xmin, xmax;

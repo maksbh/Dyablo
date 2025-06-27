@@ -1,6 +1,5 @@
 #include "../InitialConditions_analytical.h"
-#include "../AnalyticalFormula_tools.h"
-#include "states/State_forward.h"
+#include "AnalyticalFormula_base_MHD.hpp"
 
 namespace dyablo{
 
@@ -9,11 +8,8 @@ namespace dyablo{
  * Based on Orszag-Tang 1979 "Small-scale structure of two-dimensional magnetohydrodynamic turbulence"
  * Journal of Fluid Mechanics, 1979. Vol 90 pp 128-143
  **/
-template<typename State>
-struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base{
-  using ConsState = typename State::ConsState;
-  using PrimState = typename State::PrimState;
-  
+struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base_MHD
+{  
   const int    ndim;
   const real_t gamma0;
   const real_t smallr;
@@ -32,17 +28,8 @@ struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base{
     DYABLO_ASSERT_HOST_RELEASE(ndim == 2, "Initial conditions only for 2D");
   }
 
-
-  KOKKOS_INLINE_FUNCTION
-  bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
-  {
-    const real_t gamma0 = this->gamma0;
-    const real_t smallr = this->smallr;
-    const real_t smallp = this->smallp;
-    const real_t error_max = this->error_max;
-    return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                  x, y, z, dx, dy, dz );
-  }
+  using ConsState = HyperbolicPolicy_State_GLMMHD::ConsState;
+  using PrimState = HyperbolicPolicy_State_GLMMHD::PrimState;
 
   KOKKOS_INLINE_FUNCTION
   ConsState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
@@ -64,21 +51,16 @@ struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base{
     res.Bx  = Bx;
     res.By  = By;
     res.Bz  = 0.0;
-    
-    if constexpr (std::is_same_v<PrimState, PrimGLMMHDState>) {
-      res.psi = 0.0;
-    }
-    ConsState cons_res = primToCons<3>(res, gamma0);
+    res.psi = 0.0;
+
+    HyperbolicPolicy_State_GLMMHD policy ({ndim});
+    ConsState cons_res = policy.primToCons(res);
     return cons_res; 
   }
 };
 } // namespace dyablo
 
 FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
-                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang<dyablo::MHDState>>, 
-                 "orszag_tang");
-
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
-                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang<dyablo::GLMMHDState>>, 
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang>, 
                  "orszag_tang_glm");
 

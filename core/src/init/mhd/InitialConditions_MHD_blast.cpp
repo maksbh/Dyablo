@@ -1,14 +1,10 @@
 #include "../InitialConditions_analytical.h"
-#include "../AnalyticalFormula_tools.h"
-#include "states/State_forward.h"
+#include "AnalyticalFormula_base_MHD.hpp"
 
 namespace dyablo{
 
-template <typename State>
-struct AnalyticalFormula_MHD_blast : public AnalyticalFormula_base{
-    using PrimState = typename State::PrimState;
-    using ConsState = typename State::ConsState;
-
+struct AnalyticalFormula_MHD_blast : public AnalyticalFormula_base_MHD
+{
      // blast problem parameters
     const int ndim;
     const real_t blast_radius;
@@ -57,16 +53,7 @@ struct AnalyticalFormula_MHD_blast : public AnalyticalFormula_base{
         smallp ( smallc*smallc / gamma0 )
     {}
 
-    KOKKOS_INLINE_FUNCTION
-    bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
-    {
-        const real_t gamma0 = this->gamma0;
-        const real_t smallr = this->smallr;
-        const real_t smallp = this->smallp;
-        const real_t error_max = this->error_max;
-        return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                      x, y, z, dx, dy, dz );
-    }
+    using ConsState = State;
 
     KOKKOS_INLINE_FUNCTION
     ConsState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
@@ -115,9 +102,5 @@ struct AnalyticalFormula_MHD_blast : public AnalyticalFormula_base{
 } // namespace dyablo
 
 FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
-                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast<dyablo::MHDState>>, 
+                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast>, 
                  "MHD_blast");
-
-FACTORY_REGISTER(dyablo::InitialConditionsFactory, 
-                 dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast<dyablo::GLMMHDState>>, 
-                 "MHD_blast_glm");

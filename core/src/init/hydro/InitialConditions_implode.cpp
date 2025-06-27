@@ -1,5 +1,5 @@
 #include "../InitialConditions_analytical.h"
-#include "../AnalyticalFormula_tools.h"
+#include "AnalyticalFormula_base_hydro.hpp"
 
 namespace dyablo{
 
@@ -8,7 +8,8 @@ namespace dyablo{
  * Based on Liska, Wendroff "Comparison of Several Difference Schemes on 1D and 2D Test Problems 
  * for the Euler Equations", 2003, SIAM journal on Scientific Computing
  **/
-struct AnalyticalFormula_implode : public AnalyticalFormula_base{
+struct AnalyticalFormula_implode : public AnalyticalFormula_base_hydro
+{
   
   const int    ndim;
   const real_t gamma0;
@@ -40,18 +41,6 @@ struct AnalyticalFormula_implode : public AnalyticalFormula_base{
     rho_out(configMap.getValue<real_t>("implode", "rho_out", 1.0))
   {
     DYABLO_ASSERT_HOST_RELEASE(ndim == 2, "Initial conditions only for 2D");
-  }
-
-
-  KOKKOS_INLINE_FUNCTION
-  bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
-  {
-    real_t gamma0 = this->gamma0;
-    real_t smallr = this->smallr;
-    real_t smallp = this->smallp;
-    real_t error_max = this->error_max;
-    return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                 x, y, z, dx, dy, dz );
   }
 
   KOKKOS_INLINE_FUNCTION

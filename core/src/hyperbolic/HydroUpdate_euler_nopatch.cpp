@@ -1,5 +1,3 @@
-#include "states/State_hydro.h"
-
 #include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
 
 #include "hyperbolic/scheme/Hyperbolic_euler_nopatch.h"

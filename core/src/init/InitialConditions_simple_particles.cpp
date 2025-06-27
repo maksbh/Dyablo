@@ -4,8 +4,6 @@
 #include "foreach_cell/ForeachCell.h"
 #include "particles/ForeachParticle.h"
 
-#include "states/State_forward.h"
-
 namespace dyablo{
 
 class InitialConditions_simple_particles : public InitialConditions{ 

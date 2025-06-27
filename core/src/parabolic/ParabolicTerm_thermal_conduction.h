@@ -2,11 +2,11 @@
 
 #include "UserData.h"
 #include "FieldManager.h"
-#include "RiemannSolvers.h"
 
 #include "foreach_cell/ForeachCell.h"
 #include "foreach_cell/ForeachCell_utils.h"
 
+#include "states/State_hydro.h"
 #include "boundary_conditions/BoundaryConditions.h"
 #include "utils/config/named_enum.h"
 
@@ -55,8 +55,8 @@ public:
   using ConsState = typename State::ConsState;
 
   ParabolicTerm_thermal_conduction(ConfigMap &configMap)
-    : params(configMap),
-      bc_manager(configMap),
+    : bc_manager(configMap),
+      gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
       kappa_cst(configMap.getValue<real_t>("thermal_conduction", "kappa", 0.0)),
       diffusivity_mode(configMap.getValue<DiffusivityMode>("thermal_conduction", "diffusivity_mode", DM_CONSTANT))
       {
@@ -190,7 +190,7 @@ public:
             {
               ConsHydroState uL;
               getConservativeState<ndim>(Uin, iCell_neighbor, uL);
-              PrimHydroState qL = consToPrim<ndim>(uL, params.gamma0);
+              PrimHydroState qL = consToPrim<ndim>(uL, gamma0);
               const real_t TL = compute_temperature(qL);
 
               auto pos = cellmetadata.getCellCenter(iCell_neighbor);
@@ -223,7 +223,7 @@ public:
             {
               ConsHydroState uR;
               getConservativeState<ndim>(Uin, iCell_neighbor, uR);
-              PrimHydroState qR = consToPrim<ndim>(uR, params.gamma0);
+              PrimHydroState qR = consToPrim<ndim>(uR, gamma0);
               const real_t TR = compute_temperature(qR);
 
               auto pos = cellmetadata.getCellCenter(iCell_neighbor);
@@ -256,9 +256,9 @@ public:
   }
 
 private:
-  RiemannParams params;
   BoundaryConditions bc_manager;
 
+  real_t gamma0;
   real_t kappa_cst;
   DiffusivityMode diffusivity_mode;
   KappaMode kappa_mode;

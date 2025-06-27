@@ -1,10 +1,10 @@
 #pragma once
 
 #include "init/InitialConditions_base.h"
-#include "states/State_forward.h"
 
 namespace dyablo{
 
+class InitialConditions_zeroinit;
 
 template< typename AnalyticalFormula >
 class InitialConditions_analytical;
@@ -25,9 +25,9 @@ class InitialConditions_zeldovitch_particles;
 class AnalyticalFormula_double_mach;
 
 // MHD
-template<typename State> class AnalyticalFormula_OrszagTang;
-template<typename State> class AnalyticalFormula_MHD_blast;
-template<typename State> class AnalyticalFormula_MHD_rotor;
+class AnalyticalFormula_OrszagTang;
+class AnalyticalFormula_MHD_blast;
+class AnalyticalFormula_MHD_rotor;
 class AnalyticalFormula_MHD_RayleighTaylor;
 
 // Particles
@@ -50,6 +50,8 @@ class AnalyticalFormula_tri_layer;
 template<>
 bool dyablo::InitialConditionsFactory::init()
 {
+  DECLARE_REGISTERED( dyablo::InitialConditions_zeroinit);
+
 #ifdef DYABLO_USE_HDF5
   DECLARE_REGISTERED( dyablo::InitialConditions_restart );
   DECLARE_REGISTERED( dyablo::InitialConditions_tiled_restart );
@@ -65,17 +67,14 @@ bool dyablo::InitialConditionsFactory::init()
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_RayleighTaylor> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_double_mach> );
 
-  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang<dyablo::MHDState> > );
-  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang<dyablo::GLMMHDState> > );
-  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast<dyablo::MHDState>> );
-  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast<dyablo::GLMMHDState>> );
-  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor<dyablo::MHDState>> );
-  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor<dyablo::GLMMHDState>> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang > );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_blast> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_RayleighTaylor> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_sod> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_Zeldovitch_pancake> );
   DECLARE_REGISTERED( dyablo::InitialConditions_zeldovitch_particles );
-  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_rad_blast> );
+  //DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_rad_blast> );
 
   DECLARE_REGISTERED( dyablo::InitialConditions_grafic_fields );
 

@@ -26,6 +26,20 @@ struct HyperbolicPolicy_ConsGLMMHDState {
     Ipsi
   }; 
 
+  static std::vector<UserData::FieldAccessor::FieldInfo> getFieldsInfo()
+  {
+    return  { {"rho",     VarIndex::Irho}, 
+              {"e_tot",   VarIndex::Ie_tot},
+              {"rho_vx",  VarIndex::Irho_vx},
+              {"rho_vy",  VarIndex::Irho_vy},
+              {"rho_vz",  VarIndex::Irho_vz},
+              {"Bx",  VarIndex::IBx},
+              {"By",  VarIndex::IBy},
+              {"Bz",  VarIndex::IBz},
+              {"psi",  VarIndex::Ipsi},
+            };
+  }
+
   static FieldManager getFieldManager()
   {
     return FieldManager( {VarIndex::Irho, VarIndex::Ie_tot, VarIndex::Irho_vx, VarIndex::Irho_vy, VarIndex::Irho_vz, VarIndex::IBx, VarIndex::IBy, VarIndex::IBz, VarIndex::Ipsi } );
@@ -162,6 +176,7 @@ public:
   using PrimState = HyperbolicPolicy_PrimGLMMHDState;
   using ConsState = HyperbolicPolicy_ConsGLMMHDState;
 
+  KOKKOS_INLINE_FUNCTION
   HyperbolicPolicy_State_GLMMHD( const HyperbolicPolicy_GLMMHD_Params& params )
   : ndim(params.ndim),
     gamma0(params.gamma0)

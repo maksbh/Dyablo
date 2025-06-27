@@ -1,9 +1,10 @@
 #include "../InitialConditions_analytical.h"
-#include "../AnalyticalFormula_tools.h"
+#include "AnalyticalFormula_base_hydro.hpp"
 
 namespace dyablo{
 
-struct AnalyticalFormula_blast : public AnalyticalFormula_base{
+struct AnalyticalFormula_blast : public AnalyticalFormula_base_hydro
+{
      // blast problem parameters
     const int ndim;
     const real_t blast_radius;
@@ -48,17 +49,6 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
         smallp ( smallc*smallc / gamma0 )
     {}
 
-    KOKKOS_INLINE_FUNCTION
-    bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
-    {
-        real_t gamma0 = this->gamma0;
-        real_t smallr = this->smallr;
-        real_t smallp = this->smallp;
-        real_t error_max = this->error_max;
-        return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                      x, y, z, dx, dy, dz );
-    }
-
     // Geometrical version
     // KOKKOS_INLINE_FUNCTION
     // bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
@@ -99,7 +89,7 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
     // } 
 
     KOKKOS_INLINE_FUNCTION
-    ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
+    State value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const
     {
         // Quadrant size
         real_t qsx = 1.0 / this->blast_nx;
@@ -119,7 +109,7 @@ struct AnalyticalFormula_blast : public AnalyticalFormula_base{
         real_t r2 = (x-qcx)*(x-qcx) + (y-qcy)*(y-qcy);
         if( this->ndim == 3 ) r2 += (z-qcz)*(z-qcz);
         
-        ConsHydroState res;
+        State res;
 
         if (r2 < radius*radius) {
             res.rho = blast_density_in;

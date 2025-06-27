@@ -1,5 +1,5 @@
 #include "../InitialConditions_analytical.h"
-#include "../AnalyticalFormula_tools.h"
+#include "AnalyticalFormula_base_hydro.hpp"
 
 #include <Kokkos_Random.hpp>
 
@@ -11,7 +11,8 @@ namespace dyablo{
  * Based on the description of the Athena code :
  * https://www.astro.princeton.edu/~jstone/Athena/tests/rt/rt.html
  **/
-struct AnalyticalFormula_RayleighTaylor : public AnalyticalFormula_base{
+struct AnalyticalFormula_RayleighTaylor : public AnalyticalFormula_base_hydro
+{
   using RNGPool = Kokkos::Random_XorShift64_Pool<>;
   using RNGType = RNGPool::generator_type;
 
@@ -54,17 +55,6 @@ struct AnalyticalFormula_RayleighTaylor : public AnalyticalFormula_base{
 
     gz = (ndim == 2 ? configMap.getValue<real_t>("gravity", "gy", -0.1)
                     : configMap.getValue<real_t>("gravity", "gz", -0.1));
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
-  {
-    real_t gamma0 = this->gamma0;
-    real_t smallr = this->smallr;
-    real_t smallp = this->smallp;
-    real_t error_max = this->error_max;
-    return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                  x, y, z, dx, dy, dz );
   }
 
   KOKKOS_INLINE_FUNCTION

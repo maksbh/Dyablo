@@ -1,5 +1,5 @@
 #include "../InitialConditions_analytical.h"
-#include "../AnalyticalFormula_tools.h"
+#include "AnalyticalFormula_base_hydro.hpp"
 
 namespace dyablo{
 
@@ -8,7 +8,7 @@ namespace dyablo{
  * Based on Lecoanet et al "A validated non-linear kelvin-helmholtz benchmark for numerical 
  * hydrodynamics", 2016, Monthly Notices of the Royal Astronomy Society
  **/
-struct AnalyticalFormula_KelvinHelmholtz : public AnalyticalFormula_base{
+struct AnalyticalFormula_KelvinHelmholtz : public AnalyticalFormula_base_hydro{
   
   const int    ndim;
   const real_t gamma0;
@@ -47,16 +47,6 @@ struct AnalyticalFormula_KelvinHelmholtz : public AnalyticalFormula_base{
     DYABLO_ASSERT_HOST_RELEASE(ndim == 2, "Initial conditions only for 2D");
   }
 
-  KOKKOS_INLINE_FUNCTION
-  bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
-  {
-    real_t gamma0 = this->gamma0;
-    real_t smallr = this->smallr;
-    real_t smallp = this->smallp;
-    real_t error_max = this->error_max;
-    return AnalyticalFormula_tools::auto_refine( *this, gamma0, smallr, smallp, error_max,
-                                                 x, y, z, dx, dy, dz );
-  }
 
   KOKKOS_INLINE_FUNCTION
   ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const

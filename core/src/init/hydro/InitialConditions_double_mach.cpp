@@ -1,5 +1,5 @@
 #include "../InitialConditions_analytical.h"
-#include "../AnalyticalFormula_tools.h"
+#include "AnalyticalFormula_base_hydro.hpp"
 
 namespace dyablo{
 
@@ -7,7 +7,8 @@ namespace dyablo{
  * Double Mach reflection
  * Based on Vevek 2019: https://dr.ntu.edu.sg/bitstream/10356/81953/1/On%20alternative%20setups%20of%20the%20double%20Mach%20reflection%20problem.pdf
  **/
-struct AnalyticalFormula_double_mach : public AnalyticalFormula_base{
+struct AnalyticalFormula_double_mach : public AnalyticalFormula_base_hydro
+{
   const real_t gamma0;
 
   const real_t x0;                         // Initial position of the interface
@@ -27,13 +28,12 @@ struct AnalyticalFormula_double_mach : public AnalyticalFormula_base{
     pre_p(configMap.getValue<real_t>("double_mach", "p_right", 1.0))
   {}
 
-
-  KOKKOS_INLINE_FUNCTION
-  bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
-  {
-    real_t xs = x0 + y / tan(alpha);
-    return x-0.5*dx < xs && x+0.5*dx > xs;
-  }
+  // KOKKOS_INLINE_FUNCTION
+  // bool need_refine( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const 
+  // {
+  //   real_t xs = x0 + y / tan(alpha);
+  //   return x-0.5*dx < xs && x+0.5*dx > xs;
+  // }
 
   KOKKOS_INLINE_FUNCTION
   ConsHydroState value( real_t x, real_t y, real_t z, real_t dx, real_t dy, real_t dz ) const

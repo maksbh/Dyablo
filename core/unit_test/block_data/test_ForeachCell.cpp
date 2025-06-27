@@ -9,8 +9,6 @@
 #include "foreach_cell/ForeachCell.h"
 #include "foreach_cell/ForeachCell_utils.h"
 
-#include "states/State_Nd.h"
-
 namespace dyablo
 {
 
@@ -126,16 +124,17 @@ void run_test()
     auto append_offset = [&]( ForeachCell::CellIndex::offset_t offset )
     {
       ForeachCell::CellIndex iCell_n = iCell.getNeighbor_ghost( offset, U );
-      StateNd<3> offset_real = {(real_t)offset[IX], (real_t)offset[IY], (real_t)offset[IZ]};
 
       // Res will be center of same-size virtual neighbor
-      StateNd<3> res = {}; // StateNd to use arithmetic operators
+      Kokkos::Array<real_t, 3> res = {};
       if( iCell_n.is_boundary() )
       {
         // Compute neighbor position from local cell position
         auto pos = cells.getCellCenter(iCell);
         auto size = cells.getCellSize(iCell);
-        res = pos + size*offset_real;
+        res[IX] = pos[IX] + size[IX]*offset[IX];
+        res[IY] = pos[IY] + size[IY]*offset[IY];
+        res[IZ] = pos[IZ] + size[IZ]*offset[IZ];
       }
       else
       {
@@ -154,10 +153,14 @@ void run_test()
           {
             auto pos = cells.getCellCenter(iCell_sn);
             auto size = cells.getCellSize(iCell_sn);
-            res += pos + offset_real*size*0.5;
+            res[IX] += pos[IX] + offset[IX]*size[IX]*0.5;
+            res[IY] += pos[IY] + offset[IY]*size[IY]*0.5;
+            res[IZ] += pos[IZ] + offset[IZ]*size[IZ]*0.5;
           });
 
-          res /= n_smaller_neighbors;
+          res[IX] /= n_smaller_neighbors;
+          res[IY] /= n_smaller_neighbors;
+          res[IZ] /= n_smaller_neighbors;
         }
         else if( iCell_n.level_diff() == 1 )
         {
@@ -165,13 +168,15 @@ void run_test()
           auto pos_n = cells.getCellCenter(iCell_n);
           auto size_n = cells.getCellSize(iCell_n);
           // Select the same-size virtual neighbor among biger cell's sectors
-          StateNd<3> offset_quadrant;
+          Kokkos::Array<real_t,3> offset_quadrant;
           offset_quadrant[IX] = pos_n[IX] > pos_c[IX] ? -1. : +1.;
           offset_quadrant[IY] = pos_n[IY] > pos_c[IY] ? -1. : +1.;
           if( ndim == 3 )
             offset_quadrant[IZ] = pos_n[IZ] > pos_c[IZ] ? -1. : +1.;
 
-          res = pos_n + offset_quadrant * size_n / 4;            
+          res[IX] = pos_n[IX] + offset_quadrant[IX] * size_n[IX] / 4;            
+          res[IY] = pos_n[IY] + offset_quadrant[IY] * size_n[IY] / 4;            
+          res[IZ] = pos_n[IZ] + offset_quadrant[IZ] * size_n[IZ] / 4;            
         }
       }        
 
