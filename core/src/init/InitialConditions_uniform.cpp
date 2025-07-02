@@ -4,19 +4,27 @@ namespace dyablo{
 
 class InitialConditions_uniform : public InitialConditions
 {
-public:
+protected:
     ForeachCell& foreach_cell;
     std::vector<std::string> fields;
     std::vector<real_t> values;
 
+    /// Simple Constructor to build deriverd InitialConditions with static values with static fields and values
+    InitialConditions_uniform(ForeachCell& foreach_cell)
+    : foreach_cell(foreach_cell)
+    {}
+
+public:
     InitialConditions_uniform(
         ConfigMap& configMap, 
         ForeachCell& foreach_cell,  
         Timers& timers )
-        :   foreach_cell(foreach_cell),
-            fields( configMap.getValue<std::vector<std::string>>( "InitialConditions_uniform", "fields" ) ),
-            values( configMap.getValue<std::vector<real_t>>( "InitialConditions_uniform", "values" ) )
-    {}
+        :  InitialConditions_uniform(foreach_cell)
+    {
+        this->fields = configMap.getValue<std::vector<std::string>>( "InitialConditions_uniform", "fields" );
+        this->values = configMap.getValue<std::vector<real_t>>( "InitialConditions_uniform", "values" );
+    }
+
 
     void init( UserData& U )
     {
@@ -55,6 +63,21 @@ public:
         });
     }
 };
+
+/* Example of a derived class using custom fields and values
+class InitialConditions_zeroinit : public InitialConditions_uniform
+{
+    InitialConditions_zeroinit(
+        ConfigMap& configMap, 
+        ForeachCell& foreach_cell,  
+        Timers& timers )
+        :  InitialConditions_uniform(foreach_cell)
+    {
+        this->fields = configMap.getValue<std::vector<std::string>>( "InitialConditions_zeroinit", "fields" );
+        this->values = std::vector<real_t>( this->fields.size() );
+    }
+};
+*/
 
 } // namespace dyablo
 
