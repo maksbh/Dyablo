@@ -39,7 +39,6 @@ set( core_src
 )
 
 set( ic_src
-    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_zeroinit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_uniform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_blast.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/hydro/InitialConditions_implode.cpp
