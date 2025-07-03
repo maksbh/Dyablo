@@ -67,3 +67,11 @@ configure_file(../../settings/cosmo/visu_zeldovitch.pvsm visu_zeldovitch.pvsm CO
 
 # Zeldovitch grafic test
 configure_file(../../settings/cosmo/zeldovitch_grafic.ini test_zeldovitch_grafic.ini COPYONLY)
+
+# Kelvin-Helmholtz cell-based
+configure_file(test_kelvin_helmholtz.ini test_kelvin_helmholtz.ini COPYONLY)
+configure_file(visu_kelvin_helmholtz.pvsm visu_kelvin_helmholtz.pvsm COPYONLY)
+
+# Kelvin-Helmholtz block-based
+configure_file(test_kelvin_helmholtz_block.ini test_kelvin_helmholtz_block.ini COPYONLY)
+configure_file(visu_kelvin_helmholtz_block.pvsm visu_kelvin_helmholtz_block.pvsm COPYONLY)
