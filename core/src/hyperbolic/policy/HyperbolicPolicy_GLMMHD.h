@@ -562,7 +562,7 @@ private:
       res.By    = q.By*q.u - q.Bx*q.v;
       res.Bz    = q.Bz*q.u - q.Bx*q.w;
       res.e_tot = (e_tot + q.p) * q.u - q.Bx*(q.Bx*q.u+q.By*q.v+q.Bz*q.w);
-      res.psi   = sqrt(c_h) * Bx; // Warning : Bx not q.Bx !!!
+      res.psi   = c_h*c_h*Bx; // Warning : Bx not q.Bx !!!
       
       return res;
     };
