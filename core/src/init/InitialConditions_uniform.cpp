@@ -28,7 +28,7 @@ public:
 
     void init( UserData& U )
     {
-        DYABLO_ASSERT_HOST_RELEASE( values.size() > fields.size(), "InitialConditions_uniform : too many fields, not enough values" );
+        DYABLO_ASSERT_HOST_RELEASE( values.size() >= fields.size(), "InitialConditions_uniform : too many fields, not enough values" );
 
         std::vector<UserData::FieldAccessor::FieldInfo> fields_info;
         std::set<std::string> new_fields;
