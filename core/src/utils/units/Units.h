@@ -292,6 +292,8 @@ using Temperature   = Unit<0,0,0,0,1>;
 using Mol           = Unit<0,0,0,0,0,1>;
 using LuminousIntensity= Unit<0,0,0,0,0,0,1>;
 
+using Area          = decltype( m2() );
+using Volume        = decltype( m3() );
 using Velocity      = decltype( m()/s() );
 using Acceleration  = decltype( m()/s2() );
 using Density       = decltype( kg()/m3() );
