@@ -53,7 +53,7 @@ struct AnalyticalFormula_OrszagTang : public AnalyticalFormula_base_MHD
     res.Bz  = 0.0;
     res.psi = 0.0;
 
-    HyperbolicPolicy_State_GLMMHD policy ({ndim});
+    HyperbolicPolicy_State_GLMMHD policy ({ndim, gamma0});
     ConsState cons_res = policy.primToCons(res);
     return cons_res; 
   }
