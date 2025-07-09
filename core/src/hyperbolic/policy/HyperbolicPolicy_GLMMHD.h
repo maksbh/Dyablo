@@ -848,10 +848,8 @@ public:
     offset_t  offset;    
     iCell_boundary.getBoundaryPosAndOffset(iCell_ref, offset);
 
-    ConsState u_in = policy.getConsState( U, iCell_ref );
-    PrimState q_in = policy.consToPrim(u_in);
+    PrimState q_in = q_in_reconstructed;
 
-    
     bool dir_IX = offset[IX] == -1 || offset[IX] == 1;
     bool dir_IY = offset[IY] == -1 || offset[IY] == 1;
     bool dir_IZ = offset[IZ] == -1 || offset[IZ] == 1;
@@ -876,11 +874,10 @@ public:
                               || (offset[dir] < 0 && bcmag_min[dir] == BCMAG_PERFECT_CONDUCTOR);
     bool mag_normal_field      = (offset[dir] > 0 && bcmag_max[dir] == BCMAG_NORMAL_FIELD)
                               || (offset[dir] < 0 && bcmag_min[dir] == BCMAG_NORMAL_FIELD);
-     
-    real_t v_in[3] = {q_in.u, q_in.v, q_in.w};
-    real_t v_normal = v_in[dir];
 
-    ConsState flux_out {};
+    ConsState flux_hydro{}, flux_mhd{}, flux_glm{};
+    PrimState q_out = q_in;
+
     /**
      * In the reflecting case, the values in the "ghosts" are supposed to be reflecting the
      * ones inside the domain, hence reconstruction yields u_norm = 0 at the boundary, simplifying
@@ -888,26 +885,21 @@ public:
      */
     if( reflecting )
     {
-      flux_out.rho_u = ((dir==IX) ? q_in.p : 0);
-      flux_out.rho_v = ((dir==IY) ? q_in.p : 0);
-      flux_out.rho_w = ((dir==IZ) ? q_in.p : 0);
+      q_out.u = (dir == IX ? 0.0 : q_in.u);
+      q_out.v = (dir == IY ? 0.0 : q_in.v);
+      q_out.w = (dir == IZ ? 0.0 : q_in.w);
+
+      q_out.Bx = (dir == IX ? 0.0 : q_in.Bx);
+      q_out.By = (dir == IY ? 0.0 : q_in.By);
+      q_out.Bz = (dir == IZ ? 0.0 : q_in.Bz);
     }
     /**
      * In the absorbing case, the values in the ghosts are supposed to be interpolated from the ones 
      * inside the domain to provide a null gradient through the boundary. Hence we can take the
      * reconstructed value at the boundary as the riemann-problem solution.
      */
-    else if( absorbing )
-    {
-      real_t f_rho = q_in.rho*v_normal;
 
-      flux_out.rho = f_rho;
-      flux_out.rho_u = f_rho*q_in.u + ((dir==IX) ? q_in.p : 0);
-      flux_out.rho_v = f_rho*q_in.v + ((dir==IY) ? q_in.p : 0);
-      flux_out.rho_w = f_rho*q_in.w + ((dir==IZ) ? q_in.p : 0);
-      flux_out.e_tot = (q_in.p + u_in.e_tot) * v_normal;
-    }
-
+    else if( absorbing ) {} // Nothing to do, q_out = q_in already.
 
     /**
      * Magnetic boundaries
@@ -916,26 +908,73 @@ public:
      */
     if ( mag_perfect_conductor )
     {
-      const real_t c_h = rparams.c_h / scalar_data.dt;
-      const real_t Bx  = 0.5 * q_in.Bx - 0.5 / c_h * (rparams.psi_out - q_in.psi);
-      flux_out.Bx  = 0.5*(q_in.psi + rparams.psi_out); // Should that be 0 ?
-      flux_out.By  = q_in.By * q_in.u;
-      flux_out.Bz  = q_in.Bz * q_in.u;
-      flux_out.psi = c_h*c_h*Bx;
+      q_out.Bx = (dir == IX ? 0.0 : q_in.Bx);
+      q_out.By = (dir == IY ? 0.0 : q_in.By);
+      q_out.Bz = (dir == IZ ? 0.0 : q_in.Bz);
     }
     /**
      * Normal field : Bx=By=0
      */
     else if ( mag_normal_field )
     {
-      const real_t c_h = rparams.c_h / scalar_data.dt;
-      const real_t Bx  = q_in.Bx - 0.5 / c_h * (rparams.psi_out - q_in.psi); // 0.5 * (2*Bx)
-      flux_out.Bx  = 0.5*(q_in.psi + rparams.psi_out) - c_h * 0.5 * q_in.Bx;
-      flux_out.By  = q_in.By * q_in.u;
-      flux_out.Bz  = q_in.Bz * q_in.u;
-      flux_out.psi = c_h*c_h*Bx;
+      q_out.Bx = (dir == IX ? q_in.Bx : 0.0);
+      q_out.By = (dir == IY ? q_in.By : 0.0);
+      q_out.Bz = (dir == IZ ? q_in.Bz : 0.0);
     }
 
+    /**
+     * Now that we have corrected the magnetic field and the velocity according to the boundary conditions,
+     * we must ensure that the energy follows the changes.
+     */
+
+    ConsState u_out = policy.primToCons(q_out);
+    
+    const real_t v_out [3] {q_out.u, q_out.v, q_out.w};
+    const real_t v_normal = v_out[dir];
+    const real_t Ek = 0.5 * q_out.rho * (v_out[IX]*v_out[IX] + v_out[IY]*v_out[IY] + v_out[IZ]*v_out[IZ]);
+
+    const real_t Bx = u_out.Bx, By = u_out.By, Bz = u_out.Bz;
+    const real_t B_out [3] {Bx, By, Bz};
+    const real_t B_normal = B_out[dir];
+    const real_t B2 = Bx*Bx + By*By + Bz*Bz;
+
+    const real_t p_gas = (u_out.e_tot - Ek - 0.5*B2) * (rparams.gamma0 - 1.0);
+    
+    // We first compute the hydro flux
+    flux_hydro.rho = u_out.rho*v_normal;
+    flux_hydro.rho_u = u_out.rho_u*v_normal + ((dir==IX) ? p_gas : 0.0);
+    flux_hydro.rho_v = u_out.rho_v*v_normal + ((dir==IY) ? p_gas : 0.0);
+    flux_hydro.rho_w = u_out.rho_w*v_normal + ((dir==IZ) ? p_gas : 0.0);
+
+    // Now that the magnetic field is calculated we compute the flux
+
+    const real_t udotB = Bx*v_out[IX] + By*v_out[IY] + Bz*v_out[IZ];
+    const real_t c_h = rparams.c_h / scalar_data.dt;
+    
+    // Calculating modifying total pressure accouting for magnetic pressure
+    const real_t pmag = 0.5 * B2;
+    
+    // Magnetic flux
+    flux_mhd.Bx  = Bx*v_normal - B_normal*v_out[IX];
+    flux_mhd.By  = By*v_normal - B_normal*v_out[IY];
+    flux_mhd.Bz  = Bz*v_normal - B_normal*v_out[IZ];
+    
+    // Modification of the hydro flux
+    flux_mhd.rho_u = -B_normal * Bx + (dir == IX ? pmag : 0.0);
+    flux_mhd.rho_v = -B_normal * By + (dir == IY ? pmag : 0.0);
+    flux_mhd.rho_w = -B_normal * Bz + (dir == IZ ? pmag : 0.0);
+    
+    flux_mhd.e_tot = (u_out.e_tot + p_gas + pmag) * v_normal - B_normal * udotB;
+
+    // GLM flux
+    const real_t psi_m = q_in.psi;
+    const real_t B_m   = B_normal;
+    flux_glm.Bx = (dir == IX ? psi_m : 0.0);
+    flux_glm.By = (dir == IY ? psi_m : 0.0);
+    flux_glm.Bz = (dir == IZ ? psi_m : 0.0);
+    flux_glm.psi = c_h*c_h*B_m;
+
+    const ConsState flux_out = flux_hydro + flux_mhd + flux_glm;
     return flux_out;
   }
 };
