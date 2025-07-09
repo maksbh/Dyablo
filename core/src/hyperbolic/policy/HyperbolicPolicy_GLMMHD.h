@@ -645,6 +645,8 @@ private:
 
   Kokkos::Array<BoundaryConditionType, 3> bc_min, bc_max;
   Kokkos::Array<MagneticBoundaryConditionType, 3> bcmag_min, bcmag_max;
+  Kokkos::Array<real_t, 9> bcmag_min_val, bcmag_max_val;
+
   struct Rparams {
     real_t gamma0;
     real_t smallr;
@@ -666,6 +668,7 @@ public:
   {
     Kokkos::Array<BoundaryConditionType, 3> bc_min, bc_max;
     Kokkos::Array<MagneticBoundaryConditionType, 3> bcmag_min, bcmag_max;
+    Kokkos::Array<real_t, 9> bcmag_min_val, bcmag_max_val;
     Rparams rparams;
   };
 
@@ -722,6 +725,32 @@ public:
         configMap.getValue<MagneticBoundaryConditionType>("mesh","magnetic_boundary_type_ymax", BCMAG_SAME_AS_HYDRO),
         configMap.getValue<MagneticBoundaryConditionType>("mesh","magnetic_boundary_type_zmax", BCMAG_SAME_AS_HYDRO)
       },
+      .bcmag_min_val = {
+        {
+          configMap.getValue<real_t>("mesh","Bx_xmin", 0.0),
+          configMap.getValue<real_t>("mesh","By_xmin", 0.0),
+          configMap.getValue<real_t>("mesh","Bz_xmin", 0.0),
+          configMap.getValue<real_t>("mesh","Bx_ymin", 0.0),
+          configMap.getValue<real_t>("mesh","By_ymin", 0.0),
+          configMap.getValue<real_t>("mesh","Bz_ymin", 0.0),
+          configMap.getValue<real_t>("mesh","Bx_zmin", 0.0),
+          configMap.getValue<real_t>("mesh","By_zmin", 0.0),
+          configMap.getValue<real_t>("mesh","Bz_zmin", 0.0)
+        }
+      },
+      .bcmag_max_val = {
+        {
+          configMap.getValue<real_t>("mesh","Bx_xmax", 0.0),
+          configMap.getValue<real_t>("mesh","By_xmax", 0.0),
+          configMap.getValue<real_t>("mesh","Bz_xmax", 0.0),
+          configMap.getValue<real_t>("mesh","Bx_ymax", 0.0),
+          configMap.getValue<real_t>("mesh","By_ymax", 0.0),
+          configMap.getValue<real_t>("mesh","Bz_ymax", 0.0),
+          configMap.getValue<real_t>("mesh","Bx_zmax", 0.0),
+          configMap.getValue<real_t>("mesh","By_zmax", 0.0),
+          configMap.getValue<real_t>("mesh","Bz_zmax", 0.0)
+        }
+      },
       .rparams = {
         configMap.getValue<real_t>("hydro", "gamma0", 1.4),
         configMap.getValue<real_t>("hydro", "smallr", 1e-10),
@@ -736,6 +765,7 @@ public:
   HyperbolicPolicy_BoundaryConditions_GLMMHD( const Params& params, const ScalarSimulationData& scalar_data_dict )
   : bc_min(params.bc_min), bc_max(params.bc_max), 
     bcmag_min(params.bcmag_min), bcmag_max(params.bcmag_min),
+    bcmag_min_val(params.bcmag_min_val), bcmag_max_val(params.bcmag_max_val),
     rparams(params.rparams),
     scalar_data( {scalar_data_dict.get<real_t>("dt")} )
   {}
@@ -831,6 +861,27 @@ public:
       res = policy.primToCons(q);
     }
 
+    if (  (offset[IX] > 0 && bcmag_max[IX] == BCMAG_FIXED_VALUE) 
+       || (offset[IY] > 0 && bcmag_max[IY] == BCMAG_FIXED_VALUE)
+       || (offset[IZ] > 0 && bcmag_max[IZ] == BCMAG_FIXED_VALUE)) {
+      PrimState q = policy.consToPrim(res);
+      ComponentIndex3D dir = (offset[IX] > 0 ? IX : offset[IY] > 0 ? IY : IZ);
+      q.Bx = bcmag_max_val[dir*3+IX];
+      q.By = bcmag_max_val[dir*3+IY];
+      q.Bz = bcmag_max_val[dir*3+IZ];
+      res = policy.primToCons(q);
+    }
+    else if (  (offset[IX] < 0 && bcmag_min[IX] == BCMAG_FIXED_VALUE) 
+            || (offset[IY] < 0 && bcmag_min[IY] == BCMAG_FIXED_VALUE)
+            || (offset[IZ] < 0 && bcmag_min[IZ] == BCMAG_FIXED_VALUE)) {
+      ComponentIndex3D dir = (offset[IX] < 0 ? IX : offset[IY] > 0 ? IY : IZ);
+      PrimState q = policy.consToPrim(res);
+      q.Bx = bcmag_min_val[dir*3+IX];
+      q.By = bcmag_min_val[dir*3+IY];
+      q.Bz = bcmag_min_val[dir*3+IZ];
+      res = policy.primToCons(q);
+    }
+
     res.psi = rparams.psi_out;
 
     return res;
@@ -874,6 +925,8 @@ public:
                               || (offset[dir] < 0 && bcmag_min[dir] == BCMAG_PERFECT_CONDUCTOR);
     bool mag_normal_field      = (offset[dir] > 0 && bcmag_max[dir] == BCMAG_NORMAL_FIELD)
                               || (offset[dir] < 0 && bcmag_min[dir] == BCMAG_NORMAL_FIELD);
+    bool mag_fixed_value       = (offset[dir] > 0 && bcmag_max[dir] == BCMAG_FIXED_VALUE)
+                              || (offset[dir] < 0 && bcmag_min[dir] == BCMAG_FIXED_VALUE);
 
     ConsState flux_hydro{}, flux_mhd{}, flux_glm{};
     PrimState q_out = q_in;
@@ -920,6 +973,22 @@ public:
       q_out.Bx = (dir == IX ? q_in.Bx : 0.0);
       q_out.By = (dir == IY ? q_in.By : 0.0);
       q_out.Bz = (dir == IZ ? q_in.Bz : 0.0);
+    }
+    /**
+     * Fixed value
+     */
+    else if ( mag_fixed_value )
+    {
+      if (offset[dir] > 0) {
+        q_out.Bx = bcmag_max_val[dir*3+IX];
+        q_out.By = bcmag_max_val[dir*3+IY];
+        q_out.Bz = bcmag_max_val[dir*3+IZ];
+      }
+      else {
+        q_out.Bx = bcmag_min_val[dir*3+IX];
+        q_out.By = bcmag_min_val[dir*3+IY];
+        q_out.Bz = bcmag_min_val[dir*3+IZ];
+      }
     }
 
     /**

@@ -29,6 +29,7 @@ enum MagneticBoundaryConditionType {
   BCMAG_SAME_AS_HYDRO,     /*!< Apply absorbing/reflective as for hydro */
   BCMAG_PERFECT_CONDUCTOR, /*!< Normal field is set to 0 */
   BCMAG_NORMAL_FIELD,      /*!< Horizontal field is set to 0 */
+  BCMAG_FIXED_VALUE,       /*!< Magnetic field is set to a fixed value at boundary */
 };
 
 template<>
@@ -38,6 +39,7 @@ inline named_enum<MagneticBoundaryConditionType>::init_list named_enum<MagneticB
     {MagneticBoundaryConditionType::BCMAG_SAME_AS_HYDRO, "same_as_hydro"},
     {MagneticBoundaryConditionType::BCMAG_PERFECT_CONDUCTOR, "perfect_conductor"},
     {MagneticBoundaryConditionType::BCMAG_NORMAL_FIELD, "normal_field"},
+    {MagneticBoundaryConditionType::BCMAG_FIXED_VALUE, "fixed_value"},
   };
 }
 
