@@ -272,6 +272,9 @@ DEFINE_UNIT( cm2        , cm() * cm() );
 DEFINE_UNIT( cm3        , cm() * cm() * cm() );
 DEFINE_UNIT( s2         , s() * s() );
 
+// Other units
+DEFINE_UNIT( atom        , mol() / 6.02214076e23 );
+
 // Constants
 DEFINE_UNIT( KBOLTZ     , 1.3806e-23 * Joule() / Kelvin() );
 DEFINE_UNIT( PROTON_MASS, 1.67262158e-27 * kilogram() );
