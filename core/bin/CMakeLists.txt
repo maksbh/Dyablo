@@ -56,6 +56,10 @@ configure_file(test_brio_wu.ini test_brio_wu.ini COPYONLY)
 configure_file(validate_brio_wu.py validate_brio_wu.py COPYONLY)
 configure_file(brio_wu_reference.npy brio_wu_reference.npy COPYONLY)
 
+# 2D Blast MHD test
+configure_file(test_mhd_blast_2D_block.ini test_mhd_blast_2D_block.ini COPYONLY)
+configure_file(visu_mhd_blast_2D_block.pvsm visu_mhd_blast_2D_block.pvsm COPYONLY)
+
 # Gravity 3D test
 configure_file(test_gravity_spheres_3D.ini test_gravity_spheres_3D.ini COPYONLY)
 configure_file(visu_gravity_spheres_3D.pvsm visu_gravity_spheres_3D.pvsm COPYONLY)
