@@ -11,6 +11,7 @@ namespace Units{
 namespace {
 
 [[maybe_unused]] 
+KOKKOS_INLINE_FUNCTION
 constexpr real_t pow_int(real_t x, int exp) 
 {
     if( exp < 0 )
@@ -324,6 +325,7 @@ public:
     {}
 
     template<typename Unit_t>
+    KOKKOS_INLINE_FUNCTION
     Unit_t getUnit( const Unit_t& u = Unit_t(1) ) const
     {
         using traits = Unit_traits<Unit_t>;
@@ -352,6 +354,7 @@ namespace Impl{
 namespace{
 
 template<typename Unit_t>
+KOKKOS_INLINE_FUNCTION
 constexpr int get_aexp_exponent()
 {
     using traits = Unit_traits<Unit_t>;
@@ -362,12 +365,14 @@ constexpr int get_aexp_exponent()
 }
 
 template< typename Unit_t >
+KOKKOS_INLINE_FUNCTION
 real_t physical_to_supercomoving( const real_t val, const real_t aexp )
 {
     return val * pow_int(aexp, Impl::get_aexp_exponent<Unit_t>());
 }
 
 template< typename Unit_t >
+KOKKOS_INLINE_FUNCTION
 real_t supercomoving_to_physical( const real_t val, const real_t aexp )
 {
     return val / pow_int(aexp, Impl::get_aexp_exponent<Unit_t>());
