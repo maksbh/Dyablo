@@ -109,7 +109,7 @@ public:
     : cosmo_run(configMap.getValue<bool>("cosmology", "active", false)),
       omega_m(configMap.getValue<real_t>("cosmology",  "omegam", 0.3)),
       omega_v(configMap.getValue<real_t>("cosmology",  "omegav", 0.7)),
-      a_start(configMap.getValue<real_t>("cosmology",  "aStart",  1.0e-2)),
+      a_start(configMap.getValue<real_t>("cosmology",  "aStart", 1.0)),
       a_end(configMap.getValue<real_t>("cosmology", "aEnd", 1.00)),
       da(configMap.getValue<real_t>("cosmology", "da", 1.02)),
       save_expansion_table(configMap.getValue<bool>("cosmology", "save_expansion_table", false)),

@@ -287,7 +287,8 @@ public:
     else
     {
       m_scalar_data.set("aexp", 1.0);
-      configMap.getValue<real_t>("cosmology",  "aStart",  1.0);
+      real_t astart = configMap.getValue<real_t>("cosmology",  "aStart",  1.0);
+      DYABLO_ASSERT_HOST_RELEASE( astart == 1.0, "cosmology is disabled but cosmology/astart = " << astart << " != 1" );
     }
 
     this->m_scalar_data.set("iter", m_iter_start);
