@@ -108,13 +108,14 @@ public:
         const real_t V [] = {qLoc.u, qLoc.v, qLoc.w};
         const real_t D [] = {dx, dy, dz};
 
+        real_t cmax = 0.0;
         for (int i=0; i < ndim; ++i) {
           const real_t cf2 = gr + B2 + sqrt(cf1*cf1 + 4.0*gr*Bt2[i]);
           const real_t cf = sqrt(0.5 * cf2 / qLoc.rho);
 
-          const real_t cmax = FMAX(FABS(V[i] - cf), FABS(V[i] + cf));
-          inv_dt_update = FMAX(inv_dt_update, cmax/D[i]);
+          cmax += (cf + Kokkos::abs(V[i])) / D[i];
         }
+        inv_dt_update = FMAX(inv_dt_update, cmax);
      }
 
     }, Kokkos::Max<real_t>(inv_dt) );
