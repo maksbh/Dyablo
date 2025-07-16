@@ -7,7 +7,6 @@ namespace dyablo {
 class HydroUpdate_gravity : public HyperbolicUpdate {
 private:
   ForeachCell& foreach_cell;  
-  Timers& timers;
   int ndim;
   GravityType gravity_type;
   real_t gx, gy, gz; 
@@ -18,7 +17,6 @@ public:
           ForeachCell& foreach_cell,
           Timers& timers) 
   : foreach_cell(foreach_cell),
-    timers(timers),
     ndim(configMap.getValue<int>("mesh", "ndim", 3)),
     gravity_type(configMap.getValue<GravityType>("gravity", "gravity_type", GRAVITY_NONE)) 
   {
