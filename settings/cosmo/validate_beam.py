@@ -40,10 +40,12 @@ def read_config(filename) :
     source_position = config.getfloat('rad', 'source_position')
     spawn_rate = config.getfloat('rad', 'spawn_rate')
     e_rad_start = config.getfloat('rad', 'e_rad_start')
+    cfrac = config.getfloat('cosmology', 'clight_fraction')
+
 
     conf = {"bx":bx, "by":by, "bz":bz, "lmin":lmin, "lmax":lmax, "cor_x":cor_x, "cor_y":cor_y, 
             "cor_z":cor_z, "xmin":xmin, "xmax":xmax, "ymin":ymin, "ymax":ymax, "zmin":zmin, "zmax":zmax, "Nx":Nx, "Ny":Ny, "Nz":Nz, "dz":dz,
-            "source_position":source_position, "spawn_rate":spawn_rate, "e_rad_start":e_rad_start}
+            "source_position":source_position, "spawn_rate":spawn_rate, "e_rad_start":e_rad_start, "cfrac":cfrac}
 
     return conf
 
@@ -59,10 +61,13 @@ def compute_diff(files, conf) :
   # x position of the source in Mpc
   x0 = conf["source_position"]/5
 
+  # speed of light fraction
+  cfrac = conf["cfrac"]
+
   mpc = 3.085678e22 #m
-  c = 299792458 #m/s
+  c = 299792458*cfrac #m/s
   myr = 3600*24*365*1e6 #s
-  dt = 0.0764953 # comes from simulation
+#  dt = 0.0764953/cfrac # comes from simulation
   mol = 6.02214076e23 
 
   times = []
@@ -72,13 +77,14 @@ def compute_diff(files, conf) :
   for f in files:
 
       # Time in Myr
-      iter = (int)(f.replace('.xmf', '').replace('beam_iter', ''))
-      t = iter*dt
-      volume = conf['xmax'] * conf['xmax'] * conf['xmax'] /conf['Nx']/conf['Nx']/conf['Nx'] # dx^3
+      #iter = (int)(f.replace('.xmf', '').replace('beam_iter', ''))
+      #t = iter*dt
+      dx3 = conf['xmax'] * conf['xmax'] * conf['xmax'] /conf['Nx']/conf['Nx']/conf['Nx'] 
+      volume = conf['xmax'] * conf['xmax'] * conf['xmax'] 
       
       # Read snapshot
       snap = reader.readSnapshot(f) 
-
+      t = snap.getTime()
       mask = snap.getSortingMask3d(conf["lmin"], conf["bx"], conf["by"], conf["bz"], conf["cor_x"], conf["cor_y"], conf["cor_z"])
 
       # Get all e_rad values
@@ -87,7 +93,7 @@ def compute_diff(files, conf) :
       # Sum of erad values in a single line that goes through the middle of the beam
       sum = np.sum(erad[pos], axis=0)
       
-      nb_photons = np.sum(erad)*volume
+      nb_photons = np.sum(erad)*dx3
       nb_photons_theo = conf["spawn_rate"] * t + conf['e_rad_start']*volume
 
       # Distance = x0 + (vitesse de la lumière x temps de simu)
@@ -110,7 +116,7 @@ def compute_diff(files, conf) :
       
       ratio_distances.append((distance-distance_theo)/distance_theo)
       ratio_nb_photons.append((nb_photons-nb_photons_theo)/nb_photons_theo)
-      times.append(iter*dt)
+      times.append(t)
 
       print('t=', t, ' distance_theo=', round(distance_theo,2), ' distance=', round(distance,2), ' ratio_distance=', round((distance-distance_theo)/distance_theo,2), 
             'nb_photons_theo=', round(nb_photons_theo,2), ' nb_photons=', round(nb_photons,2), ' ratio_photons=', round((nb_photons-nb_photons_theo)/nb_photons_theo,4) )
