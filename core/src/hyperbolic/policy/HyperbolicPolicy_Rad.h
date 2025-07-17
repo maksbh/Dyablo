@@ -278,7 +278,7 @@ private:
                 n[1] = fy / ff;
                 n[2] = fz / ff;
               }
-              ff = ff / (c * ee); // 2flop
+              ff = FMIN(ff / (c * ee), 1.0); // 2flop
           }
           arg = FMAX(4. - 3.*ff * ff, 0.); // 4 flop
           chi = FMAX((3. + 4.*ff * ff) / (5. + 2.*SQRT(arg)),1./3.); // 7 flops

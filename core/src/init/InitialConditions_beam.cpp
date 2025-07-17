@@ -6,7 +6,7 @@ namespace dyablo{
 
     public:
 
-    using SpawnRate = decltype( Units::mol()/Units::code_units().getUnit<Units::Time>() );
+    using Photondens = decltype( Units::mol()/Units::code_units().getUnit<Units::Volume>() );
 
     InitialConditions_beam(
         ConfigMap& configMap, 
@@ -22,7 +22,7 @@ namespace dyablo{
             configMap.getValue<real_t>("cosmology", "ctilde", ctilde);
         }
         
-        real_t e_rad_start = configMap.getValue_in_code_unit<SpawnRate>("rad", "e_rad_start", "1e-10 atom/s");
+        real_t e_rad_start = configMap.getValue_in_code_unit<Photondens>("rad", "e_rad_start", "1e-10 atom/m3");
 
         this->fields = { "rho","rho_HII","e_tot","rho_vx","rho_vy","rho_vz",
                         "e_rad","fx_rad","fy_rad","fz_rad"};
