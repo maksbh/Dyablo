@@ -1,4 +1,4 @@
-#include "../InitialConditions_uniform.h"
+#include "InitialConditions_uniform.h"
 
 namespace dyablo{
 
