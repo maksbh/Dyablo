@@ -36,6 +36,7 @@ class InitialConditions_particle_grid;
 
 // Cosmology
 class InitialConditions_grafic_fields;
+class InitialConditions_beam;
 
 // Convection
 class AnalyticalFormula_C91;
@@ -73,6 +74,7 @@ bool dyablo::InitialConditionsFactory::init()
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_sod> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_Zeldovitch_pancake> );
   DECLARE_REGISTERED( dyablo::InitialConditions_zeldovitch_particles );
+  DECLARE_REGISTERED( dyablo::InitialConditions_beam );
 
   DECLARE_REGISTERED( dyablo::InitialConditions_grafic_fields );
 
