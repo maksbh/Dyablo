@@ -39,13 +39,12 @@ def read_config(filename) :
     
     source_position = config.getfloat('rad', 'source_position')
     spawn_rate = config.getfloat('rad', 'spawn_rate')
-    e_rad_start = config.getfloat('rad', 'e_rad_start')
     cfrac = config.getfloat('cosmology', 'clight_fraction')
 
 
     conf = {"bx":bx, "by":by, "bz":bz, "lmin":lmin, "lmax":lmax, "cor_x":cor_x, "cor_y":cor_y, 
             "cor_z":cor_z, "xmin":xmin, "xmax":xmax, "ymin":ymin, "ymax":ymax, "zmin":zmin, "zmax":zmax, "Nx":Nx, "Ny":Ny, "Nz":Nz, "dz":dz,
-            "source_position":source_position, "spawn_rate":spawn_rate, "e_rad_start":e_rad_start, "cfrac":cfrac}
+            "source_position":source_position, "spawn_rate":spawn_rate, "cfrac":cfrac}
 
     return conf
 
@@ -67,7 +66,6 @@ def compute_diff(files, conf) :
   mpc = 3.085678e22 #m
   c = 299792458*cfrac #m/s
   myr = 3600*24*365*1e6 #s
-#  dt = 0.0764953/cfrac # comes from simulation
   mol = 6.02214076e23 
 
   times = []
@@ -75,16 +73,11 @@ def compute_diff(files, conf) :
   ratio_nb_photons = []
 
   for f in files:
-
-      # Time in Myr
-      #iter = (int)(f.replace('.xmf', '').replace('beam_iter', ''))
-      #t = iter*dt
+  
       dx3 = conf['xmax'] * conf['xmax'] * conf['xmax'] /conf['Nx']/conf['Nx']/conf['Nx'] 
-      volume = conf['xmax'] * conf['xmax'] * conf['xmax'] 
       
       # Read snapshot
       snap = reader.readSnapshot(f) 
-      t = snap.getTime()
       mask = snap.getSortingMask3d(conf["lmin"], conf["bx"], conf["by"], conf["bz"], conf["cor_x"], conf["cor_y"], conf["cor_z"])
 
       # Get all e_rad values
@@ -93,26 +86,29 @@ def compute_diff(files, conf) :
       # Sum of erad values in a single line that goes through the middle of the beam
       sum = np.sum(erad[pos], axis=0)
       
+      # Time in Myr
+      t = snap.getTime()
+      
+      nb_photons_theo = conf["spawn_rate"] * t
       nb_photons = np.sum(erad)*dx3
-      nb_photons_theo = conf["spawn_rate"] * t + conf['e_rad_start']*volume
 
       # Distance = x0 + (vitesse de la lumière x temps de simu)
-      distance = x0 + t*c*myr/mpc 
+      distance_theo = x0 + t*c*myr/mpc 
 
       # Compute derivative
       x = np.linspace(conf["xmin"], conf["xmax"], conf["Nz"])
-
       dx = np.diff(x,1)
       dy = np.diff(sum,1)
       dv = np.array(dy/dx)
       x = 0.5*(x[:-1]+x[1:])
 
-      peaks = argrelmin(dv)
-    # print(peaks)
+      # Get local minima from the derivative and remove noisy points at the end
+      peaks = argrelmin(dv, order=5)[0]
+      if abs(dv[peaks[-1]]) < 1e-10 :
+          peaks = peaks[:-1]
+      
       index = -1
-      if len(peaks[0]) == 4: # extra peak for the first iterations
-          index = 2
-      distance_theo = x[peaks[0][index]+1]
+      distance = x[peaks[index]+1]
       
       ratio_distances.append((distance-distance_theo)/distance_theo)
       ratio_nb_photons.append((nb_photons-nb_photons_theo)/nb_photons_theo)
