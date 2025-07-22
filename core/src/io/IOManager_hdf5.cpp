@@ -240,7 +240,6 @@ void IOManager_hdf5::save_snapshot_aux( const UserData& U_, ScalarSimulationData
     strsuffix.width(7);
     strsuffix.fill('0');
     strsuffix << iter;
-    strsuffix.str();
     base_filename = filename_prefix + strsuffix.str();
   }
 
@@ -494,7 +493,6 @@ void IOManager_hdf5::save_particles( const UserData& U, const std::string& parti
     strsuffix.width(7);
     strsuffix.fill('0');
     strsuffix << iter;
-    strsuffix.str();
     base_filename = filename_prefix + strsuffix.str();
   }
 

@@ -34,8 +34,6 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/parabolic/ParabolicUpdate_explicit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/source_terms/SourceUpdate_Cooling_FF.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/source_terms/SourceUpdate_GLM.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/source_terms/SourceUpdate_Ionization_Bunny.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/source_terms/SourceUpdate_Ionization_Chem.cpp
 )
 
 set( ic_src
@@ -58,7 +56,6 @@ set( ic_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/wholesun/InitialConditions_tri_layer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_zeldovitch_pancake.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_zeldovitch_particles.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_rad_blast.cpp
 )
      
 set( legacy_src

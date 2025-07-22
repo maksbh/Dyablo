@@ -16,7 +16,6 @@ class SourceUpdate_GLM : public SourceUpdate
 private:
   ForeachCell& foreach_cell;
   Timers& timers;
-  real_t flux;
 
   real_t base_c_h; // Hyperbolic cleaning speed
   real_t c_r;      // Proxy ratio of parabolic over cleaning speed : c_r = c_p^2/c_h

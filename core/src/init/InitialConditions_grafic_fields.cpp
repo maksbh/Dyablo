@@ -1,7 +1,6 @@
 #include "InitialConditions_base.h"
 #include "utils/io/FortranBinaryReader.h"
 #include "utils/units/Units.h"
-#include "ionization/Ionization_utils.h"
 
 namespace dyablo {
 
@@ -26,11 +25,7 @@ public:
     gamma0(configMap.getValue<real_t>("hydro", "gamma0", 1.4)),
     smallr(configMap.getValue<real_t>("hydro", "smallr", 1e-10)),
     smallc(configMap.getValue<real_t>("hydro", "smallc", 1e-10)),
-    smallp(smallc * smallc / gamma0),
-    clight_fraction(configMap.getValue<real_t>("cosmology", "clight_fraction", 0.1)),
-    xe_start(configMap.getValue<real_t>("rad", "xe_start", 1.2e-3)),
-    zre_start(configMap.getValue<real_t>("ionization", "zre_start", -1000.0)),
-    temperature_bb(configMap.getValue<real_t>("ionization", "temp_black_body", 1e5))
+    smallp(smallc * smallc / gamma0)
   {
     {
       const AMRmesh& pmesh = foreach_cell.get_amr_mesh();
@@ -125,19 +120,9 @@ public:
       set_or_check("amr", "mass_refine", mass0*mass_refine_factor);
     }
 
-    real_t clight = clight_fraction * Units::constant_to_code_units(Units::SPEEDOFLIGHT());
-
-    set_or_check( "cosmology", "ctilde", clight * astart);
-
-
     real_t cosmo_z = 1. / astart - 1.;
-    this->temp = 317.5 * (cosmo_z * cosmo_z) / (151.0 * 151.0);
-
-    // Compute sigma_n, sigma_e and typical energy
-    auto s = computeSigma(this->temperature_bb);
-    set_or_check( "ionization", "sigma_n_c", s.sn * clight );
-    set_or_check( "ionization", "sigma_e_c", s.se * clight );
-    set_or_check( "ionization", "typical_energy", s.etyp);
+    auto temp_u = 317.5 * Units::Kelvin() * (cosmo_z * cosmo_z) / (151.0 * 151.0);
+    this->temp = temp_u.convert_to( Units::code_units().getUnit<Units::Temperature>() );
   }
 
   void init( UserData& U )
@@ -203,26 +188,19 @@ public:
     };
 
     // Sequentially read density and velocities from grafic file
-    U.new_fields({"rho","e_tot","rho_vx","rho_vy","rho_vz", "e_rad", "fx_rad", "fy_rad", "fz_rad", "xe", "zre", "temp"});
+    U.new_fields({"rho","e_tot","rho_vx","rho_vy","rho_vz"});
     fill_field( "ic_deltab", "rho" );
     fill_field( "ic_velbx", "rho_vx" );
     fill_field( "ic_velby", "rho_vy" );
     fill_field( "ic_velbz", "rho_vz" );
 
-    enum VarIndex_hydro {ID, IE, IU, IV, IW, IDR, IUR, IVR, IWR, IXE, IZR, ITemp};
+    enum VarIndex_hydro {ID, IE, IU, IV, IW};
     UserData::FieldAccessor Uinout = U.getAccessor({
         {"rho", ID},
         {"e_tot", IE},
         {"rho_vx", IU},
         {"rho_vy", IV},
-        {"rho_vz", IW},
-        {"e_rad",  IDR},
-        {"fx_rad", IUR},
-        {"fy_rad", IVR},
-        {"fz_rad", IWR},
-        {"xe", IXE},
-	      {"zre", IZR},
-        {"temp", ITemp},
+        {"rho_vz", IW}
     });
 
     // Parameters
@@ -231,8 +209,6 @@ public:
     real_t astart = this->astart;
     real_t smallp = this->smallp;
     real_t rhoc = this->rhoc;
-    real_t xe_start = this->xe_start;
-    real_t zre_start = this->zre_start;
     real_t temp = this->temp;
 
     auto grafic_vel = Units::km() / Units::s();
@@ -272,16 +248,6 @@ public:
       Uinout.at( iCell, IU ) = rho_u;
       Uinout.at( iCell, IV ) = rho_v;
       Uinout.at( iCell, IW ) = rho_w;
-
-      // Rad
-      Uinout.at( iCell, IDR ) = 1e-18;
-      Uinout.at( iCell, IUR ) = 0.0;
-      Uinout.at( iCell, IVR ) = 0.0;
-      Uinout.at( iCell, IWR ) = 0.0;
-      Uinout.at( iCell, IXE ) = xe_start;
-      Uinout.at( iCell, IZR ) = zre_start;
-      Uinout.at( iCell, ITemp ) = temp;
-
     });
 
   }
@@ -320,16 +286,12 @@ private:
   real_t astart, omegam;
   real_t H0;
   real_t rhoc;
-
-
+  
   // Hydro params
   real_t gamma0;
   real_t smallr,smallc,smallp;
 
-  real_t clight_fraction;
-
-  real_t xe_start, zre_start, temperature_bb, temp;
-
+  real_t temp;
 };
 
 } //namespace dyablo
