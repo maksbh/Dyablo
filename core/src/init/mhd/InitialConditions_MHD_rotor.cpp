@@ -58,8 +58,8 @@ struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base_MHD
     real_t rho, u, v;
     if (r < r0) {
       rho = rho0;
-      u = -q*ddy;
-      v = q*ddx;
+      u = q*ddy;
+      v = -q*ddx;
     }
     else if (r > r1) {
       rho = rho2;
@@ -68,8 +68,8 @@ struct AnalyticalFormula_MHD_rotor : public AnalyticalFormula_base_MHD
     }
     else {
       rho = rho2 + (rho0-rho2)*f;
-      u = -f*q*ddy;
-      v = f*q*ddx;
+      u = f*q*ddy;
+      v = -f*q*ddx;
     }
 
     const real_t Bx = 5.0 / sqrt(4.0*M_PI);
