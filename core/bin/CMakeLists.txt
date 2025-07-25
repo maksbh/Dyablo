@@ -60,6 +60,10 @@ configure_file(brio_wu_reference.npy brio_wu_reference.npy COPYONLY)
 configure_file(test_mhd_blast_2D_block.ini test_mhd_blast_2D_block.ini COPYONLY)
 configure_file(visu_mhd_blast_2D_block.pvsm visu_mhd_blast_2D_block.pvsm COPYONLY)
 
+# Orszag-Tang Vortex test
+configure_file(test_orszag_tang_vortex.ini test_orszag_tang_vortex.ini COPYONLY)
+
+
 # Gravity 3D test
 configure_file(test_gravity_spheres_3D.ini test_gravity_spheres_3D.ini COPYONLY)
 configure_file(visu_gravity_spheres_3D.pvsm visu_gravity_spheres_3D.pvsm COPYONLY)
