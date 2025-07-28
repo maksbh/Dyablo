@@ -6,6 +6,7 @@ namespace dyablo {
 
 //class MapUserData_legacy;
 class MapUserData_mean;
+class MapUserData_linear;
 
 } //namespace dyablo 
 
@@ -15,6 +16,7 @@ inline bool dyablo::MapUserDataFactory::init()
 {
   //DECLARE_REGISTERED(dyablo::MapUserData_legacy);
   DECLARE_REGISTERED(dyablo::MapUserData_mean);
+  DECLARE_REGISTERED(dyablo::MapUserData_linear);
 
   return true;
 }

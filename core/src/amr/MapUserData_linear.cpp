@@ -1,0 +1,200 @@
+#include "amr/MapUserData_base.h"
+
+#include "amr/CellIndexRemapper.h"
+#include "mpi/GhostCommunicator_full_blocks.h"
+#include "UserData.h"
+
+namespace dyablo {
+
+/**
+ * Implementation of MapUserData using linear interpolation
+ * For fine -> coarse we simply average the values in the small cells
+ * For coarse -> fine we use a linear interpolation
+ **/
+class MapUserData_linear : public MapUserData{
+public: 
+  MapUserData_linear(
+                ConfigMap& configMap,
+                ForeachCell& foreach_cell,
+                Timers& timers )
+    : 
+      foreach_cell(foreach_cell)
+  {}
+  
+  ~MapUserData_linear(){}
+
+  void save_old_mesh() override
+  {
+    this->lmesh_old = this->foreach_cell.get_amr_mesh().getLightOctree();
+    this->cellmetadata_old = std::make_unique<ForeachCell::CellMetaData>(foreach_cell.getCellMetaData());
+  }
+
+  void remap( UserData& user_data ) override
+  {
+    UserData::FieldAccessor fields_old = user_data.backup_and_realloc();
+    UserData::FieldAccessor fields_new;
+    {
+      std::vector<UserData::FieldAccessor::FieldInfo> all_fields;
+      int i=0;
+      for( const std::string& field : user_data.getEnabledFields() )
+        all_fields.push_back({field, i++});
+      fields_new = user_data.getAccessor( all_fields );
+    }
+
+    remap_aux( fields_old, fields_new );
+
+    // Deallocate fields_old before reallocating empty fields
+    fields_old = UserData::FieldAccessor();
+
+    user_data.extend_fields();
+  }
+
+  void remap_aux( const UserData::FieldAccessor& Uin, const UserData::FieldAccessor& Uout ) 
+  {
+    using CellIndex = ForeachCell::CellIndex;
+    using pos_t = AMRBlockForeachCell_CellMetaData::pos_t;
+    int ndim = foreach_cell.getDim();
+    int nbfields = Uin.nbFields();
+
+    ForeachCell::CellMetaData &cellmetadata_in = *(this->cellmetadata_old);
+    auto cellmetadata_out = foreach_cell.getCellMetaData();
+
+    CellIndexRemapper remapper( this->lmesh_old, this->foreach_cell );
+    
+    auto remap = [&](){
+      // Detect if a coarsened octant needs ghost values
+      int ghost_coarsen_count = 0;
+      
+      foreach_cell.reduce_cell( "MapUserData_mean::remap", Uout.getShape(),
+        KOKKOS_LAMBDA( const CellIndex& iCell_Uout, int& ghost_coarsen_count )
+      {
+        CellIndex iCell_Uin = remapper.get_old_cell( iCell_Uout );
+
+        auto ldiff = iCell_Uin.level_diff();
+        if( ldiff >= 0 ) // Same size or coarse -> fine
+        {
+          // Copy the original cell in the new one
+          for(int ivar=0; ivar<nbfields; ivar++)
+            Uout.at_ivar( iCell_Uout, ivar ) = Uin.at_ivar( iCell_Uin, ivar );
+
+          if (ldiff > 0) { // coarse -> fine
+            const pos_t dh = cellmetadata_in.getCellSize(iCell_Uin); // Original cell size
+
+            // 1. Calculating position difference between new and old cells
+            const pos_t pos_old = cellmetadata_in.getCellCenter(iCell_Uin);
+            const pos_t pos_new = cellmetadata_out.getCellCenter(iCell_Uout);
+            const pos_t dpos {pos_new[IX]-pos_old[IX], 
+                              pos_new[IY]-pos_old[IY], 
+                              pos_new[IZ]-pos_old[IZ]};
+
+            // 2. Retrieving stencil, and computing level differences
+            const CellIndex iCell_mx = iCell_Uin.getNeighbor_ghost({-1, 0, 0}, Uin); 
+            const CellIndex iCell_px = iCell_Uin.getNeighbor_ghost({ 1, 0, 0}, Uin);
+            const CellIndex iCell_my = iCell_Uin.getNeighbor_ghost({ 0,-1, 0}, Uin);
+            const CellIndex iCell_py = iCell_Uin.getNeighbor_ghost({ 0, 1, 0}, Uin);
+            const int ldiffLx = iCell_mx.level_diff();
+            const int ldiffRx = iCell_px.level_diff();
+            const int ldiffLy = iCell_my.level_diff();
+            const int ldiffRy = iCell_py.level_diff();
+
+            CellIndex iCell_mz, iCell_pz;
+            int ldiffLz, ldiffRz;
+            if (ndim == 3) {
+              iCell_mz = iCell_Uin.getNeighbor_ghost({ 0, 0,-1}, Uin);
+              iCell_pz = iCell_Uin.getNeighbor_ghost({ 0, 0, 1}, Uin);
+              ldiffLz = iCell_mz.level_diff();
+              ldiffRz = iCell_pz.level_diff();
+            }
+
+
+            // 3. Calculating gradients
+            auto get_gradient = [&](const CellIndex &iCellL, const CellIndex &iCellC, const CellIndex &iCellR, int ldiffL, int ldiffR, real_t dh, int ivar) {
+              const bool bcL = iCellL.is_boundary();
+              const bool bcR = iCellR.is_boundary();
+
+              const real_t dS[3] {0.75, 1.0, 1.5}; 
+              
+              // If any side is a boundary we return the other gradient
+              real_t grad;
+              if (bcL)
+                grad = (Uin.at_ivar(iCellR, ivar) - Uin.at_ivar(iCellC, ivar)) / (dh * dS[ldiffR+1]);
+              else if (bcR)
+                grad = (Uin.at_ivar(iCellC, ivar) - Uin.at_ivar(iCellL, ivar)) / (dh * dS[ldiffL+1]);
+              // We apply minmod  
+              else { 
+                const real_t gL = (Uin.at_ivar(iCellR, ivar) - Uin.at_ivar(iCellC, ivar)) / (dh * dS[ldiffR+1]);
+                const real_t gR = (Uin.at_ivar(iCellC, ivar) - Uin.at_ivar(iCellL, ivar)) / (dh * dS[ldiffL+1]);
+              
+                if (gL*gR < 0.0)
+                  grad = 0.0;
+                else if (Kokkos::abs(gL) < Kokkos::abs(gR))
+                  grad = gL;
+                else
+                  grad = gR;
+              }
+
+              return grad;
+            };
+
+            for (int ivar=0; ivar<nbfields; ivar++) {
+              const real_t gx = get_gradient(iCell_mx, iCell_Uin, iCell_px, ldiffLx, ldiffRx, dh[IX], ivar);
+              const real_t gy = get_gradient(iCell_my, iCell_Uin, iCell_py, ldiffLy, ldiffRy, dh[IY], ivar);
+              
+              Uout.at_ivar(iCell_Uout, ivar) += dpos[IX]*gx + dpos[IY]*gy;
+
+              if (ndim == 3) {
+                const real_t gz = get_gradient(iCell_mz, iCell_Uin, iCell_pz, ldiffLz, ldiffRz, dh[IZ], ivar);
+                Uout.at_ivar(iCell_Uout, ivar) += dpos[IZ]*gz;
+              }
+            }
+          }
+        }
+        else // fine -> coarse
+        {
+          for(int ivar=0; ivar<nbfields; ivar++)
+            Uout.at_ivar( iCell_Uout, ivar ) = 0;
+
+          int nsubcells = (ndim-1) * 2 * 2;
+          for(int8_t dz=0; dz<(ndim-1); dz++)
+            for(int8_t dy=0; dy<2; dy++)
+              for(int8_t dx=0; dx<2; dx++)
+              {
+                CellIndex iCell_Uin_n = iCell_Uin.getNeighbor_ghost({dx,dy,dz}, Uin.getShape());
+                ghost_coarsen_count += iCell_Uin_n.iOct.isGhost ? 1 : 0;
+                for(int ivar=0; ivar<nbfields; ivar++)
+                  Uout.at_ivar( iCell_Uout, ivar ) += Uin.at_ivar( iCell_Uin_n, ivar ) / nsubcells;
+              }
+        }
+      }, ghost_coarsen_count);
+      if( ghost_coarsen_count > 0 )
+        std::cout << "Warning : detected ghost subcells in coarsened octant during remap - this is so unlikely that it was never tested" << std::endl;
+
+      return ghost_coarsen_count;
+    };
+
+    int ghost_coarsen_count_local = remap();
+    int ghost_coarsen_count;
+    foreach_cell.get_amr_mesh().getMpiComm().MPI_Allreduce( &ghost_coarsen_count_local, &ghost_coarsen_count, 1, MpiComm::MPI_Op_t::SUM);
+    if( ghost_coarsen_count > 0 )
+    {
+      // In rare cases, a coarsened cell could have it's subcells scattered on multiple process
+      // If this happens, we perform a complete full-block communication of all ghosts
+      // before remapping again
+      // TODO : find a test-case that uses that
+      // TODO : communicate only needed octants
+
+      GhostCommunicator_full_blocks ghost_comm(foreach_cell.get_amr_mesh(), Uin.getShape(), -1 );
+      ghost_comm.exchange_ghosts( Uin );
+      remap_aux(Uin, Uout);
+    }
+  }
+
+private:
+  ForeachCell& foreach_cell;
+  std::unique_ptr<ForeachCell::CellMetaData> cellmetadata_old;
+  LightOctree lmesh_old;
+};
+
+} // namespace dyablo;
+
+FACTORY_REGISTER( dyablo::MapUserDataFactory , dyablo::MapUserData_linear, "MapUserData_linear")

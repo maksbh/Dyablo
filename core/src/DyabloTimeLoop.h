@@ -811,7 +811,10 @@ public:
         timers.get("AMR").start();
 
         timers.get("MPI ghosts").start();
-        communicate_ghosts( fields_to_exchange );
+        std::vector<std::string> all_fields;
+        for (auto field : U.getEnabledFields())
+          all_fields.push_back(field);
+        communicate_ghosts( all_fields );
         timers.get("MPI ghosts").stop();
 
         timers.get("AMR: Mark cells").start();

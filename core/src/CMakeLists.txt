@@ -4,6 +4,7 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap_new.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_mean.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_linear.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/scheme/HyperbolicUpdate_hancock_oneneighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/HydroUpdate_gravity.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/HydroUpdate_euler.cpp
