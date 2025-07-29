@@ -323,7 +323,8 @@ void run_test(int ndim, std::string mapUserData_id)
 
     // // Refine 0 because it is at an MPI boundary 
     // // 2:1 balance should create cells that are neither coarsened nor refined
-    amr_mesh->setMarker((uint32_t)0 , 1);
+    if(GlobalMpiSession::get_comm_world().MPI_Comm_rank()==0)
+      amr_mesh->setMarker((uint32_t)0 , 1);
     // // Refine a random octant in the middle
     amr_mesh->setMarker(nbOcts/2 , 1);
 
