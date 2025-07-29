@@ -322,6 +322,8 @@ void run_test(int ndim, std::string mapUserData_id)
 
   std::cout << "Checking data" << std::endl;
 
+  check_test(test_params);
+
   scalar_data.set<int>("iter", 1);
   scalar_data.set<real_t>("time", 1.0);
   io_manager->save_snapshot(U, scalar_data);
