@@ -18,6 +18,8 @@
 #include "amr/LightOctree.h"
 #include "io/IOManager.h"
 
+#include "mpi/GhostCommunicator.h"
+
 namespace dyablo
 {
 
@@ -33,7 +35,7 @@ struct MapDataTestParams {
   int ndim;
 };
 
-enum VarIndex {Px, Py, Pz};
+enum VarIndex {Px, Py, Pz, S};
 
 const real_t gradX = 1.0;
 const real_t gradY = 3.0;
@@ -43,16 +45,18 @@ void init_position(MapDataTestParams &test_params) {
   auto &foreach_cell = test_params.foreach_cell;
   auto &U = test_params.U;
 
-  U.new_fields({"px", "py", "pz"});
-  UserData::FieldAccessor Uin = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+  U.new_fields({"px", "py", "pz", "size_initial"});
+  UserData::FieldAccessor Uin = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}, {"size_initial", S}} );
   const ForeachCell::CellMetaData& cells = test_params.foreach_cell.getCellMetaData();
   foreach_cell.foreach_cell( "Init_U", U.getShape(),
     KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
   {
     auto c = cells.getCellCenter( iCell );
+    auto size = cells.getCellSize( iCell );
     Uin.at(iCell, Px) = c[IX];
     Uin.at(iCell, Py) = c[IY];
     Uin.at(iCell, Pz) = c[IZ];
+    Uin.at(iCell, S) = size[IX];
   });
   //U.exchange_ghosts( ViewCommunicator( amr_mesh ) );
 }
@@ -99,7 +103,7 @@ void check_position(MapDataTestParams &test_params) {
 
   std::cout << "Check remapped U ( nbOcts=" << nbOcts << ")" << std::endl;
 
-  EXPECT_EQ( U.nbFields(), 3 );
+  EXPECT_EQ( U.nbFields(), 4 );
 
   EXPECT_EQ( U.getField("px").nbOcts, nbOcts );
   EXPECT_EQ( U.getField("py").nbOcts, nbOcts );
@@ -114,11 +118,12 @@ void check_position(MapDataTestParams &test_params) {
   auto Uhost_px = Kokkos::create_mirror_view(U.getField("px").U);
   auto Uhost_py = Kokkos::create_mirror_view(U.getField("py").U);
   auto Uhost_pz = Kokkos::create_mirror_view(U.getField("pz").U);
+  auto Uhost_size_initial = Kokkos::create_mirror_view(U.getField("size_initial").U);
   Kokkos::deep_copy(Uhost_px, U.getField("px").U);
   Kokkos::deep_copy(Uhost_py, U.getField("py").U);
   Kokkos::deep_copy(Uhost_pz, U.getField("pz").U);
+  Kokkos::deep_copy(Uhost_size_initial, U.getField("size_initial").U);
 
-  real_t oct_size_initial = 1./8; 
   for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
   {
     auto oct_pos = amr_mesh->getCoordinates(iOct);
@@ -133,6 +138,8 @@ void check_position(MapDataTestParams &test_params) {
       real_t expected_x = oct_pos[IX] + (cx+0.5)*oct_size/bx;
       real_t expected_y = oct_pos[IY] + (cy+0.5)*oct_size/by;
       real_t expected_z = oct_pos[IZ] + (cz+0.5)*oct_size/bz; 
+
+      real_t oct_size_initial = Uhost_size_initial(c, 0, iOct)*bx;
 
       if(oct_size < oct_size_initial)
       { // When cell is newly refined there is no interpolation
@@ -182,7 +189,6 @@ void check_linear(MapDataTestParams &test_params) {
   Kokkos::deep_copy(Uhost_py, U.getField("py").U);
   Kokkos::deep_copy(Uhost_pz, U.getField("pz").U);
 
-  real_t oct_size_initial = 1./8; 
   for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
   {
     auto oct_pos = amr_mesh->getCoordinates(iOct);
@@ -239,16 +245,17 @@ void run_test(int ndim, std::string mapUserData_id)
   //solver->amr_mesh 
   {
     amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, level_min, level_max );
-    amr_mesh->adaptGlobalRefine();
-    // amr_mesh->setBalanceCodimension(ndim);
-    // uint32_t idx = 0;
-    // amr_mesh->setBalance(idx,true);
-    // amr_mesh->setPeriodic(0);
-    // amr_mesh->setPeriodic(1);
-    // amr_mesh->setPeriodic(2);
-    // amr_mesh->setPeriodic(3);
-    // amr_mesh->setPeriodic(4);
-    // amr_mesh->setPeriodic(5);
+    amr_mesh->adaptGlobalRefine();    
+    amr_mesh->loadBalance();
+
+    if(GlobalMpiSession::get_comm_world().MPI_Comm_rank()==0)
+    {
+      // Refine Octant at process 0 boundary
+      uint32_t nbOcts = amr_mesh->getNumOctants();
+      amr_mesh->setMarker(nbOcts-1 , 1);
+    }
+    amr_mesh->adapt(true);
+    amr_mesh->loadBalance();
   }
 
   Timers timers;
@@ -257,7 +264,7 @@ void run_test(int ndim, std::string mapUserData_id)
     "[output]\n"
     "hdf5_enabled=true\n"
     "write_mesh_info=true\n"
-    "write_variables=px,py,pz\n"
+    "write_variables=px,py,pz,rank\n"
     "write_iOct=false\n"
     "outputPrefix=output\n"
     "outputDir=./\n"
@@ -297,6 +304,13 @@ void run_test(int ndim, std::string mapUserData_id)
     timers
   );
   io_manager->save_snapshot(U, scalar_data);
+
+  {
+    int ghost_count = 1; 
+    GhostCommunicator ghost_comm(*amr_mesh, U.getShape(), ghost_count );
+    auto Uexchange = U.getAccessor( {{"px", 0},{"py", 0},{"pz", 0}} );
+    ghost_comm.exchange_ghosts(Uexchange);
+  }
 
   mapUserData->save_old_mesh();
   {

@@ -100,7 +100,7 @@ dyablo_add_test(utest_ForeachCell ON
   block_data/test_ForeachCell.cpp
   main.cpp)
   
-dyablo_add_test(utest_MapUserData OFF
+dyablo_add_test(utest_MapUserData ON
   block_data/test_MapUserData.cpp
   main.cpp)
 
