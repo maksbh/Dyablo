@@ -25,39 +25,13 @@ public:
       return ViewCommunicator::getNumGhosts();
     }
 
-    void exchange_ghosts( const UserData::FieldAccessor& U ) const
-    {
-      for(int i=0; i<U.nbFields(); i++)
-      {
-        int iVar = U.get_index_from_ivar_host(i);
-        auto U_subview      = Kokkos::subview( U.fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-        auto Ughost_subview = Kokkos::subview( U.fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    void exchange_ghosts( const UserData::FieldAccessor& U ) const;
 
-        ViewCommunicator::exchange_ghosts<2>(U_subview, Ughost_subview);
-      }
-    }
+    void exchange_ghosts( ForeachCell::CellArray_global_ghosted& U ) const;
 
-    void exchange_ghosts( ForeachCell::CellArray_global_ghosted& U ) const
-    {
-      ViewCommunicator::exchange_ghosts<2>(U.U, U.Ughost);
-    }
+    void reduce_ghosts( UserData::FieldAccessor& U ) const;
 
-    void reduce_ghosts( UserData::FieldAccessor& U ) const
-    {
-      for(int i=0; i<U.nbFields(); i++)
-      {
-        int iVar = U.get_index_from_ivar_host(i);
-        auto U_subview      = Kokkos::subview( U.fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-        auto Ughost_subview = Kokkos::subview( U.fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-
-        ViewCommunicator::reduce_ghosts<2>(U_subview, Ughost_subview);
-      }
-    }
-
-    void reduce_ghosts( ForeachCell::CellArray_global_ghosted& U ) const
-    {
-      ViewCommunicator::reduce_ghosts<2>(U.U, U.Ughost);
-    }  
+    void reduce_ghosts( ForeachCell::CellArray_global_ghosted& U ) const; 
 };
 
 } // namespace dyablo
