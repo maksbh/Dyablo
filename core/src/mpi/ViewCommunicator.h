@@ -121,7 +121,7 @@ public:
     template< int distributed_dim, typename DataArray_t >
     void reduce_ghosts( const DataArray_t& U, const DataArray_t& Ughost) const;
 
-private:
+protected:
     void private_init_map( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts );
 
     Kokkos::View<uint32_t*> recv_sizes, send_sizes; //!Number of octants to send/recv for each proc

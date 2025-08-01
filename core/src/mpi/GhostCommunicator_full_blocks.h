@@ -29,6 +29,21 @@ public:
 
     void exchange_ghosts( ForeachCell::CellArray_global_ghosted& U ) const;
 
+    struct OctSubset
+    {
+      OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts );
+
+      uint32_t nbGhosts() const
+      {
+        return partial_comm->getNumGhosts();
+      }
+    
+      std::unique_ptr<ViewCommunicator> partial_comm;
+      Kokkos::View<uint32_t*> subset_iOcts;
+    };
+
+    void exchange_ghosts_subset( const UserData::FieldAccessor& U, const OctSubset& subset ) const;
+
     void reduce_ghosts( UserData::FieldAccessor& U ) const;
 
     void reduce_ghosts( ForeachCell::CellArray_global_ghosted& U ) const; 
