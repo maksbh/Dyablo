@@ -7,6 +7,7 @@
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
 #include "UserData.h"
+#include "mpi/GhostCommunicator_full_blocks.h"
 
 namespace dyablo {
 
@@ -26,7 +27,7 @@ public:
    * Save a snapshot of the current AMR mesh in ForeachCell
    * This should be called before calling AMRmesh::refine()
    **/
-  virtual void save_old_mesh() = 0;
+  virtual void save_old_mesh( UserData& user_data ) = 0;
   
   /**
    * Fill new array Uout from Uin
@@ -52,7 +53,7 @@ public:
   
   ~MapUserData_base(){}
 
-  void save_old_mesh() override;
+  void save_old_mesh(UserData& user_data) override;
 
   void remap( UserData& user_data ) override;
     
@@ -61,6 +62,7 @@ public:
 protected:
   ForeachCell& foreach_cell;
   LightOctree lmesh_old;
+  std::unique_ptr<GhostCommunicator_full_blocks> ghost_comm_full;
 };
 
 using MapUserDataFactory = RegisteringFactory< MapUserData, 

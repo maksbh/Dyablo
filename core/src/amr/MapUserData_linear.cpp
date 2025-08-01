@@ -20,9 +20,9 @@ public:
   
   ~MapUserData_linear(){}
 
-  void save_old_mesh() override
+  void save_old_mesh(UserData& user_data) override
   {
-    MapUserData_base::save_old_mesh();
+    MapUserData_base::save_old_mesh(user_data);
     this->cellmetadata_old = std::make_unique<ForeachCell::CellMetaData>(foreach_cell.getCellMetaData());
   }
 

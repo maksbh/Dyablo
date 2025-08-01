@@ -312,7 +312,7 @@ void run_test(int ndim, std::string mapUserData_id)
     ghost_comm.exchange_ghosts(Uexchange);
   }
 
-  mapUserData->save_old_mesh();
+  mapUserData->save_old_mesh( U );
   {
     std::cout << "Coarsening octants" << std::endl;
 

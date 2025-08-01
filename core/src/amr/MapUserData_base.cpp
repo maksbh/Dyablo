@@ -1,13 +1,13 @@
 #include "amr/MapUserData_base.h"
 #include "amr/CellIndexRemapper.h"
-#include "mpi/GhostCommunicator_full_blocks.h"
 #include "UserData.h"
 
 namespace dyablo {
 
-void MapUserData_base::save_old_mesh()
+void MapUserData_base::save_old_mesh( UserData& U )
 {
   this->lmesh_old = this->foreach_cell.get_amr_mesh().getLightOctree();
+  this->ghost_comm_full = std::make_unique<GhostCommunicator_full_blocks>( this->foreach_cell.get_amr_mesh(), U.getShape(), -1 );
 }
 
 void MapUserData_base::remap( UserData& user_data )
@@ -23,6 +23,8 @@ void MapUserData_base::remap( UserData& user_data )
       all_fields.push_back({field, i++});
     Uout = user_data.getAccessor( all_fields );
   }
+
+  this->ghost_comm_full->exchange_ghosts(Uin);
 
   remap_aux( Uin, Uout, remapper );
 
