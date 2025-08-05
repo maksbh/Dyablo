@@ -25,7 +25,6 @@ void MapUserData_base::remap( UserData& user_data )
   }
 
   using OctantIndex = LightOctree::OctantIndex;
-  using pos_t = LightOctree::pos_t;
   int ndim = foreach_cell.getDim();   
 
   {

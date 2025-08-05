@@ -383,7 +383,7 @@ AMRmesh_hashmap_new::GhostMap_t discover_ghosts(
         morton_t morton_n = compute_morton( pos_n, level );
         int neighbor_rank = find_rank( morton_n );
 
-        Face neighbor_face; // face of current cell facing neighbor
+        Face neighbor_face = Face::FACE_COUNT; // face of current cell facing neighbor
         if      ( dx==-1 ) neighbor_face = Face::XL; // Whole face is included for corners 
         else if ( dx== 1 ) neighbor_face = Face::XR; 
         else if ( dy==-1 ) neighbor_face = Face::YL;
