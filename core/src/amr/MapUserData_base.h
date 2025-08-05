@@ -6,6 +6,7 @@
 #include "utils/misc/RegisteringFactory.h"
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
+#include "UserData.h"
 
 namespace dyablo {
 
@@ -33,6 +34,33 @@ public:
    * @param Uout An array to store new cells for the new mesh to write new mesh data to
    **/
   virtual void remap( UserData& user_data ) = 0;
+};
+
+class CellIndexRemapper;
+
+/**
+ * Implementation of MapUserData using mean of smaller cells when coarseneing
+ **/
+class MapUserData_base : public MapUserData{
+public: 
+  MapUserData_base(
+                ConfigMap& configMap,
+                ForeachCell& foreach_cell,
+                Timers& timers )
+    : foreach_cell(foreach_cell)
+  {}
+  
+  ~MapUserData_base(){}
+
+  void save_old_mesh() override;
+
+  void remap( UserData& user_data ) override;
+    
+  virtual void remap_aux( const UserData::FieldAccessor& Uin, const UserData::FieldAccessor& Uout, const CellIndexRemapper& remapper ) = 0;
+
+protected:
+  ForeachCell& foreach_cell;
+  LightOctree lmesh_old;
 };
 
 using MapUserDataFactory = RegisteringFactory< MapUserData, 
