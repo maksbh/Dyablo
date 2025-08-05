@@ -18,6 +18,31 @@ public:
   {}
 
   /**
+   * Convert octant index from the current amr mesh to an index pointing to 
+   * the corresponding octant in the old amr mesh
+   * 
+   * @param iOct_new an OctantIndex in the current amr mesh
+   **/
+  KOKKOS_INLINE_FUNCTION
+  OctantIndex get_old_octant( const OctantIndex& iOct_new ) const
+  {
+    int ndim = lmesh_old.getNdim();
+
+    DYABLO_ASSERT_KOKKOS_DEBUG( !iOct_new.isGhost, "Octant can't be ghost" );
+
+    LightOctree::pos_t oct_pos_new = lmesh_new.getCenter(iOct_new);
+    auto oct_size_new = lmesh_new.getSize(iOct_new);
+    LightOctree::pos_t first_old_pos = {
+      oct_pos_new[IX] - 0.25*oct_size_new[IX],
+      oct_pos_new[IY] - 0.25*oct_size_new[IY],
+      (ndim==2) ? 0 : oct_pos_new[IZ] - 0.25*oct_size_new[IZ]
+    };
+    OctantIndex iOct_old = lmesh_old.getiOctFromPos( first_old_pos );
+
+    return iOct_old;
+  }
+
+  /**
    * Convert cell index from the current amr mesh to an index pointing to 
    * the corresponding cell in the old amr mesh
    * 
@@ -26,22 +51,12 @@ public:
   KOKKOS_INLINE_FUNCTION
   CellIndex get_old_cell( const CellIndex& iCell_new ) const
   {
-    int ndim = lmesh_old.getNdim();
-
     DYABLO_ASSERT_KOKKOS_DEBUG( iCell_new.is_valid(), "Invalid cell" );
-    DYABLO_ASSERT_KOKKOS_DEBUG( !iCell_new.iOct.isGhost, "Cell can't be ghost" );
 
-    LightOctree::pos_t oct_pos_new = lmesh_new.getCenter(iCell_new.iOct);
-    auto oct_size_new = lmesh_new.getSize(iCell_new.iOct);
-    LightOctree::pos_t first_old_pos = {
-      oct_pos_new[IX] - 0.25*oct_size_new[IX],
-      oct_pos_new[IY] - 0.25*oct_size_new[IY],
-      (ndim==2) ? 0 : oct_pos_new[IZ] - 0.25*oct_size_new[IZ]
-    };
-    OctantIndex iOct_old = lmesh_old.getiOctFromPos( first_old_pos );
+    OctantIndex iOct_old = get_old_octant(iCell_new.iOct);
 
     int level_old = lmesh_old.getLevel( iOct_old );
-    int level_new = lmesh_new.getLevel( iCell_new.iOct );;
+    int level_new = lmesh_new.getLevel( iCell_new.iOct );
 
     if( level_old == level_new ) // same size, same cell in block
     {
@@ -51,6 +66,7 @@ public:
     }
     else if( level_old == level_new-1 ) // old cell was bigger
     {
+      LightOctree::pos_t oct_pos_new = lmesh_new.getCenter(iCell_new.iOct);
       // Compute position of new octant in bigger source octant
       auto oct_pos_old = lmesh_old.getCenter(iOct_old);
       // new (smaller) suboctant is right suboctant if it's center is right of old (bigger) octant 

@@ -822,7 +822,7 @@ public:
         timers.get("AMR: Mark cells").stop();
 
         // Backup old mesh
-        mapUserData->save_old_mesh();
+        mapUserData->save_old_mesh(U);
 
         timers.get("AMR: adapt").start();
         // 1. adapt mesh with mapper enabled

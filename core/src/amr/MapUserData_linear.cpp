@@ -1,8 +1,6 @@
 #include "amr/MapUserData_base.h"
 
 #include "amr/CellIndexRemapper.h"
-#include "mpi/GhostCommunicator_full_blocks.h"
-#include "UserData.h"
 
 namespace dyablo {
 
@@ -11,45 +9,24 @@ namespace dyablo {
  * For fine -> coarse we simply average the values in the small cells
  * For coarse -> fine we use a linear interpolation
  **/
-class MapUserData_linear : public MapUserData{
+class MapUserData_linear : public MapUserData_base{
 public: 
   MapUserData_linear(
-                ConfigMap& configMap,
-                ForeachCell& foreach_cell,
-                Timers& timers )
-    : 
-      foreach_cell(foreach_cell)
+    ConfigMap& configMap,
+    ForeachCell& foreach_cell,
+    Timers& timers )
+  : MapUserData_base( configMap, foreach_cell, timers)
   {}
   
   ~MapUserData_linear(){}
 
-  void save_old_mesh() override
+  void save_old_mesh(UserData& user_data) override
   {
-    this->lmesh_old = this->foreach_cell.get_amr_mesh().getLightOctree();
+    MapUserData_base::save_old_mesh(user_data);
     this->cellmetadata_old = std::make_unique<ForeachCell::CellMetaData>(foreach_cell.getCellMetaData());
   }
 
-  void remap( UserData& user_data ) override
-  {
-    UserData::FieldAccessor fields_old = user_data.backup_and_realloc();
-    UserData::FieldAccessor fields_new;
-    {
-      std::vector<UserData::FieldAccessor::FieldInfo> all_fields;
-      int i=0;
-      for( const std::string& field : user_data.getEnabledFields() )
-        all_fields.push_back({field, i++});
-      fields_new = user_data.getAccessor( all_fields );
-    }
-
-    remap_aux( fields_old, fields_new );
-
-    // Deallocate fields_old before reallocating empty fields
-    fields_old = UserData::FieldAccessor();
-
-    user_data.extend_fields();
-  }
-
-  void remap_aux( const UserData::FieldAccessor& Uin, const UserData::FieldAccessor& Uout ) 
+  void remap_aux( const UserData::FieldAccessor& Uin, const UserData::FieldAccessor& Uout, const CellIndexRemapper& remapper ) override
   {
     using CellIndex = ForeachCell::CellIndex;
     using pos_t = AMRBlockForeachCell_CellMetaData::pos_t;
@@ -58,8 +35,6 @@ public:
 
     ForeachCell::CellMetaData &cellmetadata_in = *(this->cellmetadata_old);
     auto cellmetadata_out = foreach_cell.getCellMetaData();
-
-    CellIndexRemapper remapper( this->lmesh_old, this->foreach_cell );
     
     auto remap = [&](){
       // Detect if a coarsened octant needs ghost values
@@ -172,27 +147,11 @@ public:
       return ghost_coarsen_count;
     };
 
-    int ghost_coarsen_count_local = remap();
-    int ghost_coarsen_count;
-    foreach_cell.get_amr_mesh().getMpiComm().MPI_Allreduce( &ghost_coarsen_count_local, &ghost_coarsen_count, 1, MpiComm::MPI_Op_t::SUM);
-    if( ghost_coarsen_count > 0 )
-    {
-      // In rare cases, a coarsened cell could have it's subcells scattered on multiple process
-      // If this happens, we perform a complete full-block communication of all ghosts
-      // before remapping again
-      // TODO : find a test-case that uses that
-      // TODO : communicate only needed octants
-
-      GhostCommunicator_full_blocks ghost_comm(foreach_cell.get_amr_mesh(), Uin.getShape(), -1 );
-      ghost_comm.exchange_ghosts( Uin );
-      remap_aux(Uin, Uout);
-    }
+    remap();
   }
 
-private:
-  ForeachCell& foreach_cell;
+protected:
   std::unique_ptr<ForeachCell::CellMetaData> cellmetadata_old;
-  LightOctree lmesh_old;
 };
 
 } // namespace dyablo;

@@ -3,6 +3,7 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap_new.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_base.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_mean.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_linear.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/hyperbolic/scheme/HyperbolicUpdate_hancock_oneneighbor.cpp
@@ -71,6 +72,7 @@ set( legacy_src
 set( mpi_src
     ${CMAKE_CURRENT_SOURCE_DIR}/mpi/ViewCommunicator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_partial_blocks.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_full_blocks.cpp
 )
 
 set( hdf5_src

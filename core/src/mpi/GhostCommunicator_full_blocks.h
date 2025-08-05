@@ -25,39 +25,28 @@ public:
       return ViewCommunicator::getNumGhosts();
     }
 
-    void exchange_ghosts( const UserData::FieldAccessor& U ) const
+    void exchange_ghosts( const UserData::FieldAccessor& U ) const;
+
+    void exchange_ghosts( ForeachCell::CellArray_global_ghosted& U ) const;
+
+    struct OctSubset
     {
-      for(int i=0; i<U.nbFields(); i++)
+      OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts );
+
+      uint32_t nbGhosts() const
       {
-        int iVar = U.get_index_from_ivar_host(i);
-        auto U_subview      = Kokkos::subview( U.fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-        auto Ughost_subview = Kokkos::subview( U.fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-
-        ViewCommunicator::exchange_ghosts<2>(U_subview, Ughost_subview);
+        return partial_comm->getNumGhosts();
       }
-    }
+    
+      std::unique_ptr<ViewCommunicator> partial_comm;
+      Kokkos::View<uint32_t*> subset_iOcts;
+    };
 
-    void exchange_ghosts( ForeachCell::CellArray_global_ghosted& U ) const
-    {
-      ViewCommunicator::exchange_ghosts<2>(U.U, U.Ughost);
-    }
+    void exchange_ghosts_subset( const UserData::FieldAccessor& U, const OctSubset& subset ) const;
 
-    void reduce_ghosts( UserData::FieldAccessor& U ) const
-    {
-      for(int i=0; i<U.nbFields(); i++)
-      {
-        int iVar = U.get_index_from_ivar_host(i);
-        auto U_subview      = Kokkos::subview( U.fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-        auto Ughost_subview = Kokkos::subview( U.fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    void reduce_ghosts( UserData::FieldAccessor& U ) const;
 
-        ViewCommunicator::reduce_ghosts<2>(U_subview, Ughost_subview);
-      }
-    }
-
-    void reduce_ghosts( ForeachCell::CellArray_global_ghosted& U ) const
-    {
-      ViewCommunicator::reduce_ghosts<2>(U.U, U.Ughost);
-    }  
+    void reduce_ghosts( ForeachCell::CellArray_global_ghosted& U ) const; 
 };
 
 } // namespace dyablo
