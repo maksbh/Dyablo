@@ -131,6 +131,7 @@ public:
     std::string kernel_name = "Parabolic[explicit] " + named_enum<ParabolicTermType>::to_string(term_type);
     timers.get(kernel_name).start();
 
+    real_t gamma0 = this->gamma0;
     BoundaryConditions bc_manager = this->bc_manager;
 
     auto fields_info = parabolic_term.getFieldsInfo();

@@ -58,7 +58,7 @@ public:
         foreach_cell.foreach_cell( "InitialConditions_uniform::fill", U.getShape(),
             KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
         {
-            for( int i=0; i<values_view.size(); i++ )
+            for( size_t i=0; i<values_view.size(); i++ )
             {
                 Uout.at(iCell, i) = values_view(i);
             };

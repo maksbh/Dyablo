@@ -40,7 +40,7 @@ void OctSubset_init( MpiComm mpi_comm,
   {
     uint32_t iOct_ghost_subset = subset_iOcts(i);
 
-    int rank_iOct_end = 0;
+    uint32_t rank_iOct_end = 0;
     int rank = 0;
     for( rank=0; rank < nbProc; rank++ )
     {

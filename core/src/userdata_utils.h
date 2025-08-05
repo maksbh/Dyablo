@@ -80,7 +80,7 @@ namespace userdata_utils{
 
     // Realloc U with the correct number of octants
     auto layout_U = U.layout();
-    for(uint32_t i=0; i<rank; i++)
+    for(int i=0; i<rank; i++)
     {
       if( i < iOct_pos )
         layout_U.dimension[i] = U_right_iOct.extent(i);
@@ -131,7 +131,7 @@ namespace userdata_utils{
 
     // Realloc U_right_iOct with the correct number of octants
     auto layout_right_iOct = U.layout();
-    for(uint32_t i=0; i<rank-1; i++)
+    for(int i=0; i<rank-1; i++)
     {
       if( i < iOct_pos )
         layout_right_iOct.dimension[i] = U.extent(i);
