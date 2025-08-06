@@ -331,7 +331,7 @@ public:
         this->ivar_to_arrayindex = Kokkos::View<int*>( "ivar_to_viewindex", attr_info.size() );
         auto var_to_arrayindex_host = Kokkos::create_mirror_view( var_to_arrayindex );
         this->ivar_to_arrayindex_host = Kokkos::create_mirror_view( ivar_to_arrayindex );
-        for(int i=0; i<var_to_arrayindex_host.size(); i++)
+        for(size_t i=0; i<var_to_arrayindex_host.size(); i++)
             var_to_arrayindex_host(i) = -1;
 
         int i=0; 

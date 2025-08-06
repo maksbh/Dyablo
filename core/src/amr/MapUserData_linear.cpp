@@ -72,8 +72,8 @@ public:
             const int ldiffLy = iCell_my.level_diff();
             const int ldiffRy = iCell_py.level_diff();
 
-            CellIndex iCell_mz, iCell_pz;
-            int ldiffLz, ldiffRz;
+            CellIndex iCell_mz{}, iCell_pz{};
+            int ldiffLz = 0, ldiffRz = 0;
             if (ndim == 3) {
               iCell_mz = iCell_Uin.getNeighbor_ghost({ 0, 0,-1}, Uin);
               iCell_pz = iCell_Uin.getNeighbor_ghost({ 0, 0, 1}, Uin);
