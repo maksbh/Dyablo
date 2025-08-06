@@ -15,10 +15,10 @@ namespace dyablo {
 class LightOctree_base{
 public:
     
-    /// Index to a PABLO octant
+    /// Index to an octant
     struct OctantIndex
     {
-        uint32_t iOct; //! PABLO's Octant index
+        uint32_t iOct; //! Octant index
         bool isGhost; //! Is this a MPI ghost octant?
 
         KOKKOS_INLINE_FUNCTION static uint32_t OctantIndex_to_iOctLocal(const OctantIndex& oct, uint32_t numOctants)
@@ -105,8 +105,8 @@ public:
      * findNeighbors({1,true},{ 1, 1, 0}) -> 6 (Note that there is only 1 smaller neighbor in corners)
      * ```
      *
-     * @note findNeighbor(), unlike PABLO's, always returns all neighbors in corner 
-     * @note Requesting a neighbor outside the domain when PABLO octree is not periodic returns 
+     * @note findNeighbor(), always returns all neighbors in corner 
+     * @note Requesting a neighbor outside the domain when octree is not periodic returns 
      *       an empty neighbor list (but you should use isBoundary() if you only want to test that)
      **/
     NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset ) const;

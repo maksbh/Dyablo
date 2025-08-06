@@ -90,9 +90,6 @@ const LightOctree& AMRmesh_impl<Impl_t>::getLightOctree()
   return *lmesh; 
 }
 
-#ifdef DYABLO_COMPILE_PABLO
-  template class AMRmesh_impl<AMRmesh_pablo>;
-#endif
 template class AMRmesh_impl<AMRmesh_hashmap>;
 template class AMRmesh_impl<AMRmesh_hashmap_new>;
 } //namespace dyablo

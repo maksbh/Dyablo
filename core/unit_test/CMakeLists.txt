@@ -31,12 +31,9 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
     dyablo_units
     Kokkos::kokkos
     monitoring
-    BITPIT::BITPIT
     gtest)
 
   if (DYABLO_USE_MPI)
-    target_compile_definitions(${UNIT_TEST_NAME} PUBLIC BITPIT_ENABLE_MPI)
-    
     target_link_libraries(${UNIT_TEST_NAME} PUBLIC mpiUtils)
   endif()
 

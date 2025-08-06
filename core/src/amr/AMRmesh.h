@@ -2,7 +2,6 @@
 
 #include <iostream>
 
-#include "AMRmesh_pablo.h"
 #include "AMRmesh_hashmap.h"
 #include "AMRmesh_hashmap_new.h"
 #include "utils/misc/Dyablo_assert.h"
@@ -312,10 +311,6 @@ public:
 
 namespace dyablo {
 
-#ifdef DYABLO_USE_PABLO
-using AMRmesh = AMRmesh_impl<AMRmesh_pablo>;
-#else
 using AMRmesh = AMRmesh_impl<AMRmesh_hashmap_new>;
-#endif
 
 }// namespace dyablo

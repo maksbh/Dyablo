@@ -29,10 +29,10 @@ void run_test()
   std::cout << "==================================\n";
 
   // ================================
-  // stage 1 : create a PABLO mesh
+  // stage 1 : create a mesh
   // ================================
 
-  /**<Instantation of a nDimensional pablo uniform object.*/
+  /**<Instantation of a nDimensional uniform tree.*/
   // Set 2:1 balance
   // codim 1 ==> balance through faces
   // codim 2 ==> balance through faces and corner
@@ -448,7 +448,7 @@ void test_perf()
   std::cout << "   LightOctree perf \n";
   std::cout << "==================================\n";
 
-  std::cout << "Setup PABLO mesh ..." << std::endl;
+  std::cout << "Setup AMR mesh ..." << std::endl;
   //uint8_t CODIM_FACE = 1;
   //uint8_t CODIM_EDGE = 2;
   int CODIM_CORNER = 3;

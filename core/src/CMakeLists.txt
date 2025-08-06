@@ -1,5 +1,4 @@
 set( core_src
-    ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_pablo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap_new.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
@@ -87,11 +86,9 @@ add_library( dyablo_core ${core_src} ${ic_src} ${legacy_src} )
 target_include_directories( dyablo_core PUBLIC . )
 target_link_libraries( dyablo_core PUBLIC
     Kokkos::kokkos
-    BITPIT::BITPIT
 )
 
 if (DYABLO_USE_MPI)
-    target_compile_definitions(dyablo_core PUBLIC BITPIT_ENABLE_MPI)
     target_link_libraries( dyablo_core PUBLIC mpiUtils)
     target_sources( dyablo_core PRIVATE ${mpi_src} )
 endif (DYABLO_USE_MPI)
