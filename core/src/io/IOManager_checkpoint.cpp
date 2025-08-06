@@ -1,8 +1,5 @@
 #include "io/IOManager_base.h"
 
-#include "legacy/utils_block.h"
-#include "legacy/io_utils.h"
-
 #include "utils/monitoring/Timers.h"
 #include "userdata_utils.h"
 

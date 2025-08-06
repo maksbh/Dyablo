@@ -7,7 +7,6 @@
 
 #include "mpi/ViewCommunicator.h"
 
-#include "legacy/utils_block.h"
 #include "amr/AMRmesh.h"
 #include "utils/io/AMRMesh_output_vtk.h"
 

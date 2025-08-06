@@ -77,10 +77,6 @@ dyablo_add_test(utest_LightOctree OFF
   amr/test_LightOctree.cpp
   main.cpp)
 
-dyablo_add_test(utest_CopyGhostBlockCellData ON 
-  legacy/test_CopyGhostBlockCellData.cpp
-  main.cpp)
-
 dyablo_add_test(utest_ViewCommunicator ON
   block_data/test_ViewCommunicator.cpp
   main.cpp)

@@ -2,7 +2,6 @@
 
 #include <iostream>
 
-#include "AMRmesh_hashmap.h"
 #include "AMRmesh_hashmap_new.h"
 #include "utils/misc/Dyablo_assert.h"
 

@@ -81,5 +81,3 @@ bool dyablo::InitialConditionsFactory::init()
 
   return true;
 }
-
-#undef INITIALCONDITIONS_LEGACY

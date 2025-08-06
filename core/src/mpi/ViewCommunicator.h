@@ -33,11 +33,6 @@ public:
       auto gm = mesh.getGhostMap();
       return ViewCommunicator( gm.send_sizes, gm.send_iOcts, mpi_comm );
     }
-    
-    static ViewCommunicator from_mesh( const AMRmesh_hashmap& mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-    {
-      return ViewCommunicator( mesh.getBordersPerProc(), mpi_comm );
-    }
 
     /**
      * Create a new ViewCommunicator using a view containing the target domain for each local object

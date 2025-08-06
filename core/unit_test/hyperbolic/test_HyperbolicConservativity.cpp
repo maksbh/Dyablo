@@ -35,7 +35,6 @@ real_t expected_conservativity_percent( const std::string& HyperbolicUpdate_id )
   {
     {"HydroUpdate_hancock", 1},
     {"MHDUpdate_hancock", 1},
-    {"HydroUpdate_legacy", 1},
     // Add custom conservativity target for non-conservative Solvers
   };
   real_t expected_default = 1e-10;

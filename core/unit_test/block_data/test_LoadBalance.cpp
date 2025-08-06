@@ -6,7 +6,6 @@
 
 #include "gtest/gtest.h"
 
-#include "legacy/utils_block.h"
 #include "amr/AMRmesh.h"
 #include "mpi/ViewCommunicator.h"
 
