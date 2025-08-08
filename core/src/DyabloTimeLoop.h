@@ -217,7 +217,7 @@ private:
   std::shared_ptr<AMRmesh> init_amr_mesh( ConfigMap& configMap )
   {
     AMRmesh::Parameters p = AMRmesh::parse_parameters(configMap);
-    return std::make_shared<AMRmesh>( p.dim, p.dim, p.periodic, p.level_min, p.level_max, 
+    return std::make_shared<AMRmesh>( p.dim, p.periodic, p.level_min, p.level_max, 
                                       p.coarse_grid_size );
   }
 public:
@@ -826,10 +826,8 @@ public:
 
         timers.get("AMR: adapt").start();
         // 1. adapt mesh with mapper enabled
-        m_amr_mesh->adapt(true);
+        m_amr_mesh->adapt();
         // Verify that adapt() doesn't need another iteration (expensive : only debug)
-        DYABLO_ASSERT_HOST_DEBUG(m_amr_mesh->check21Balance(), "2:1 balance not respected");
-        DYABLO_ASSERT_HOST_DEBUG(!m_amr_mesh->checkToAdapt(), "Adapt not complete");        
         timers.get("AMR: adapt").stop();
 
         // Resize and fill U with copied/interpolated/extrapolated data

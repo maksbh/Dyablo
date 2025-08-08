@@ -5,8 +5,8 @@ namespace dyablo {
 void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t ghost_count, 
                                 Kokkos::View<uint32_t*>& facemask_count, Kokkos::View<uint32_t**, Kokkos::LayoutRight>& facemask_iCells )
 {
-  using CellMask = AMRmesh_hashmap_new::GhostMap_t::CellMask;
-  using Face = AMRmesh_hashmap_new::GhostMap_t::Face;
+  using CellMask = AMRmesh::GhostMap_t::CellMask;
+  using Face = AMRmesh::GhostMap_t::Face;
 
   auto facemask_count_host = Kokkos::create_mirror_view(facemask_count);
 
@@ -99,15 +99,15 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
 }
 
 
-GhostCommunicator_partial_blocks::GhostCommunicator_partial_blocks( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm )
+GhostCommunicator_partial_blocks::GhostCommunicator_partial_blocks( const AMRmesh& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm )
   : mpi_comm(mpi_comm)
 {
   init(amr_mesh, shape, ghost_count, mpi_comm);
 }
 
-void GhostCommunicator_partial_blocks::init( const AMRmesh_hashmap_new& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm )
+void GhostCommunicator_partial_blocks::init( const AMRmesh& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm )
 {
-  using GhostMap_t = AMRmesh_hashmap_new::GhostMap_t;
+  using GhostMap_t = AMRmesh::GhostMap_t;
 
   int mpi_size = mpi_comm.MPI_Comm_size();
 

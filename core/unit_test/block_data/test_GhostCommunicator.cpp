@@ -31,7 +31,7 @@ void test_GhostCommunicator_partial_block()
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     int ndim = 3;
-    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 7);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{false,false,false}, 3, 7);
     //amr_mesh->setBalanceCodimension(ndim);
     //uint32_t idx = 0;
     //amr_mesh->setBalance(idx,true);
@@ -43,19 +43,19 @@ void test_GhostCommunicator_partial_block()
     //amr_mesh->setPeriodic(5);
 
     debug::output_vtk("before_initial", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt1", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt2", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt3", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt4", *amr_mesh);
@@ -185,10 +185,7 @@ TEST(dyablo, test_GhostCommunicator_full_blocks_exchange)
 TEST(dyablo, test_GhostCommunicator_partial_blocks_exchange)
 {
   using namespace dyablo;
-  if constexpr( std::is_same_v<AMRmesh::Impl_t, AMRmesh_hashmap_new> )
-    test_GhostCommunicator_partial_block<GhostCommunicator_impl<GhostCommunicator_partial_blocks>>();
-  else
-    GTEST_SKIP();
+  test_GhostCommunicator_partial_block<GhostCommunicator_impl<GhostCommunicator_partial_blocks>>();
 }
 
 template< typename GhostCommunicator_t >
@@ -204,7 +201,7 @@ void run_test_reduce_partial_blocks()
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   constexpr int ndim = 3;
   {
-    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{true,true,true}, 3, 7);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{true,true,true}, 3, 7);
     //amr_mesh->setBalanceCodimension(ndim);
     //uint32_t idx = 0;
     //amr_mesh->setBalance(idx,true);
@@ -216,19 +213,19 @@ void run_test_reduce_partial_blocks()
     //amr_mesh->setPeriodic(5);
 
     debug::output_vtk("before_initial", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt1", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt2", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt3", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt4", *amr_mesh);
@@ -351,8 +348,5 @@ TEST(dyablo, test_GhostCommunicator_full_blocks_reduce)
 TEST(dyablo, test_GhostCommunicator_partial_blocks_reduce)
 {
   using namespace dyablo;
-  if constexpr( std::is_same_v<AMRmesh::Impl_t, AMRmesh_hashmap_new> )
-    run_test_reduce_partial_blocks<GhostCommunicator_impl<GhostCommunicator_partial_blocks>>();
-  else
-    GTEST_SKIP();
+  run_test_reduce_partial_blocks<GhostCommunicator_impl<GhostCommunicator_partial_blocks>>();
 }

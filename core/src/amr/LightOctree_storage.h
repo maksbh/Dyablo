@@ -6,29 +6,6 @@
 #include "amr/LightOctree_base.h"
 #include "enums.h"
 
-namespace LightOctree_storage_impl{
-
-/// When T is AMRmesh_impl<AMRmesh_*> where  AMRmesh_* has a getStorage() method, use this
-template< typename T >
-static decltype(std::declval<T>().getMesh().getStorage()) getStorage( const T& t ) 
-{ return t.getMesh().getStorage(); }
-/// When T is T has a getStorage() method, use it
-template< typename T >
-static decltype(std::declval<T>().getStorage()) getStorage( const T& t ) 
-{ return t.getStorage(); }
-
-template< class... >
-using void_t = void;
-/// Type-trait to detect if T is compatible with getStorage()
-template <typename T, typename = void> 
-struct HasStorage : public std::false_type
-{};
-template <typename T>
-struct HasStorage<T, void_t<decltype(getStorage(std::declval<T>()))>> : public std::true_type
-{};
-
-} // namespace LightOctree_storage_impl
-
 namespace dyablo { 
 
 template< typename MemorySpace_ = Kokkos::View<int*>::memory_space >
@@ -60,67 +37,13 @@ public:
   LightOctree_storage& operator=(LightOctree_storage&& lmesh) = default;
 
   template< typename MemorySpace_t >
-  LightOctree_storage(const LightOctree_storage<MemorySpace_t>& storage)
-   : LightOctree_storage( storage.getNdim(), storage.getNumOctants(), storage.getNumGhosts(), storage.level_min, storage.coarse_grid_size )
+  LightOctree_storage<MemorySpace_t> deep_copy() const
   {
-    Kokkos::deep_copy( this->oct_data, storage.oct_data );
+    const LightOctree_storage& storage = *this;
+    LightOctree_storage<MemorySpace_t> res( storage.getNdim(), storage.getNumOctants(), storage.getNumGhosts(), storage.level_min, storage.coarse_grid_size );
+    Kokkos::deep_copy( res.oct_data, storage.oct_data );
+    return res;
   }
-
-public:
-  /**
-   * Create LightOctree_storage from AMRmesh, when AMRmesh_t uses LightOctree_storage
-   * LightOctree_storage<...> AMRmesh_t::getStorage() is detected and used to copy-construct new storage
-   **/
-  template< typename AMRmesh_t, typename std::enable_if< LightOctree_storage_impl::HasStorage<AMRmesh_t>::value, int >::type = 0>
-  LightOctree_storage(const AMRmesh_t& pmesh)
-  : LightOctree_storage( LightOctree_storage_impl::getStorage(pmesh) )
-  {}
-
-  /**
-   * Create LightOctree_storage from AMRmesh, when AMRmesh is not built around LightOctree_storage
-   * Uses AMRmesh public interface to extract mesh
-   **/
-  template< typename AMRmesh_t, typename std::enable_if< !LightOctree_storage_impl::HasStorage<AMRmesh_t>::value, int >::type = 0 >
-  LightOctree_storage(const AMRmesh_t& pmesh)
-  : LightOctree_storage( pmesh.getDim(), pmesh.getNumOctants(), pmesh.getNumGhosts(), pmesh.get_level_min() )
-  {
-    private_init(pmesh);   
-  }
-
-  /**
-   * DO NOT CALL THIS YOURSELF
-   * this is here because KOKKOS_LAMBDAS cannot be declared in constructors or private methods
-   **/
-  template< typename AMRmesh_t >
-  void private_init(const AMRmesh_t& pmesh)
-  {
-    typename oct_data_t::HostMirror oct_data_host = Kokkos::create_mirror_view(oct_data);
-
-    Kokkos::parallel_for( "LightOctree_storage::copydata", 
-                        Kokkos::RangePolicy<Kokkos::OpenMP>(0, numOctants+numGhosts),
-                        [&]( uint32_t ioct_local )
-    {
-        OctantIndex oct = OctantIndex::iOctLocal_to_OctantIndex( ioct_local, numOctants );
-
-        auto c = oct.isGhost ? 
-                pmesh.getCoordinatesGhost(oct.iOct):
-                pmesh.getCoordinates(oct.iOct);
-        uint8_t level = oct.isGhost ? 
-                pmesh.getLevelGhost(oct.iOct):
-                pmesh.getLevel(oct.iOct);
-
-        logical_coord_t octant_count =( 1U << level );
-        real_t octant_size = 1.0/octant_count;
-        oct_data_host(ioct_local, ICORNERX) = std::floor(c[IX]/octant_size);
-        oct_data_host(ioct_local, ICORNERY) = std::floor(c[IY]/octant_size);
-        oct_data_host(ioct_local, ICORNERZ) = (ndim-2)*std::floor(c[IZ]/octant_size);
-        oct_data_host(ioct_local, ILEVEL) = level;
-    });
-
-    // Copy data to device
-    Kokkos::deep_copy(oct_data,oct_data_host);
-  }
-
 
   // Create an empty LightOctree_storage
   LightOctree_storage( int ndim, uint32_t numOctants, uint32_t numGhosts, level_t level_min, const coarse_grid_size_t& coarse_grid_size )

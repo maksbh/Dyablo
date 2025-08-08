@@ -28,7 +28,7 @@ void run_test()
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     int ndim = 3;
-    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 5);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{false,false,false}, 3, 5);
     //uint32_t idx = 0;
     //amr_mesh->setBalance(idx,true);
     // mr_mesh->setPeriodic(0);
@@ -39,7 +39,7 @@ void run_test()
     //amr_mesh->setPeriodic(5);
 
 
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
     {
       EXPECT_GT( amr_mesh->getNumOctants() , 121 ) << "Internal test error : not enough octants in MPI rank 0";
 

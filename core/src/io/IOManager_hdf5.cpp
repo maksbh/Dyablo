@@ -243,7 +243,7 @@ void IOManager_hdf5::save_snapshot_aux( const UserData& U_, ScalarSimulationData
     base_filename = filename_prefix + strsuffix.str();
   }
 
-  if( foreach_cell.get_amr_mesh().getRank() == 0 )
+  if( foreach_cell.get_amr_mesh().getMpiComm().MPI_Comm_rank() == 0 )
   { 
     // Append Current timestep to main xmdf file
     main_xdmf_fd.append_xmf( base_filename + ".xmf");

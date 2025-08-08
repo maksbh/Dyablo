@@ -27,7 +27,7 @@ void run_test()
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     int ndim = 3;
-    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 5);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{false,false,false}, 3, 5);
     //uint32_t idx = 0;
     //amr_mesh->setBalance(idx,true);
     // mr_mesh->setPeriodic(0);
@@ -37,7 +37,7 @@ void run_test()
     //amr_mesh->setPeriodic(4);
     //amr_mesh->setPeriodic(5);
 
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
     {
       // Refine initial 47 (final smaller 47..54)
       amr_mesh->setMarker(47,1);
@@ -142,10 +142,11 @@ level_max=5
     Kokkos::deep_copy(Uhost_py, U.getField("py").U);
     Kokkos::deep_copy(Uhost_pz, U.getField("pz").U);
 
+    const auto lmesh_host = amr_mesh->getStorage();
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
     {
-      auto oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct)[0];
+      auto oct_pos = lmesh_host.getCorner({iOct, false});
+      real_t oct_size = lmesh_host.getSize({iOct, false})[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {

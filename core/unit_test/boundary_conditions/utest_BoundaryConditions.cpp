@@ -126,7 +126,7 @@ public:
       "ndim=3\n";
     configMap = std::make_shared<ConfigMap>(configmap_str);
 
-    amr_mesh   = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 5);
+    amr_mesh   = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{false,false,false}, 3, 5);
     fieldMgr   = FieldManager({ID,IP,IU,IV,IW});
 
     uint32_t nbOcts = amr_mesh->getNumOctants();

@@ -48,89 +48,90 @@ void run_test(const Test_data& test_data)
     {0.25,0.25,(dim==3)?0.25:0,width,level_max}
   };
 
-  if( ( test_data.coarse_size_x != -1 || test_data.coarse_size_y != -1 || test_data.coarse_size_z != -1 )
-      && !AMRmesh_t::has_coarse_grid_size )
-  {
-    std::cerr << "Test skipped : AMRmesh implementation doesn't support non-square domains" << std::endl;
-    GTEST_SKIP();
-  }
-
   uint32_t max_coarse_size = (1U << level_min);
 
-  Kokkos::Array<uint32_t,3> coarse_grid_size = {
+  std::array<uint32_t,3> coarse_grid_size = {
     (test_data.coarse_size_x == -1) ? (max_coarse_size) : test_data.coarse_size_x,
     (test_data.coarse_size_y == -1) ? (max_coarse_size) : test_data.coarse_size_y,
     (test_data.coarse_size_z == -1) ? ((dim==3)?max_coarse_size:1) : test_data.coarse_size_z
   };
 
-  AMRmesh_t amr_mesh(dim, dim, {perodic_x,perodic_y,perodic_z}, level_min, level_max, coarse_grid_size);
+  AMRmesh_t amr_mesh(dim, {perodic_x,perodic_y,perodic_z}, level_min, level_max, coarse_grid_size);
   if( test_data.level_max > amr_mesh.get_max_supported_level() )
   {
     std::cerr << "Test skipped : h=" << test_data.level_max << " unsupported by this AMRmesh implementation" << std::endl;
     GTEST_SKIP();
   }
 
-  
 
-  for( int level=level_min; level<level_max; level++ )
+
   {
     timers.get("MarkCells").start();
-    std::cout << "Refine level " << level << std::endl;
     uint32_t nbOcts = amr_mesh.getNumOctants();
-    int refine_count = 0;
-    for(uint32_t iOct=0; iOct<nbOcts; iOct++)
+    const auto lmesh_host = amr_mesh.getStorage();
+    for( int level=level_min; level<level_max; level++ )
     {
-      auto c = amr_mesh.getCenter( iOct );
-      real_t s = amr_mesh.getSize( iOct )[0];
-      bool refine = false;
-      for( size_t i=0; i<spots.size(); i++ )
+      std::cout << "Refine level " << level << std::endl;    
+      int refine_count = 0;     
+      for(uint32_t iOct=0; iOct<nbOcts; iOct++)
       {
-        if( spots[i].level > level )
+        auto c = lmesh_host.getCenter({iOct, false});
+        real_t s = lmesh_host.getSize({iOct, false})[0];
+        bool refine = false;
+        for( size_t i=0; i<spots.size(); i++ )
         {
-          real_t dist_x = spots[i].x - c[0]; 
-          real_t dist_y = spots[i].y - c[1]; 
-          real_t dist_z = spots[i].z - c[2]; 
+          if( spots[i].level > level )
+          {
+            real_t dist_x = spots[i].x - c[0]; 
+            real_t dist_y = spots[i].y - c[1]; 
+            real_t dist_z = spots[i].z - c[2]; 
 
-          real_t dist2 = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
-          real_t r2 = spots[i].r0*spots[i].r0*s*s;
+            real_t dist2 = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
+            real_t r2 = spots[i].r0*spots[i].r0*s*s;
 
-          if( dist2 < r2  )
-            refine = true;
+            if( dist2 < r2  )
+              refine = true;
+          }
         }
+        if(refine)
+          refine_count++;
+        amr_mesh.setMarker(iOct, refine?1:0);
       }
-      if(refine)
-        refine_count++;
-      amr_mesh.setMarker(iOct, refine?1:0);
+      std::cout << "Refine count " << refine_count << std::endl;
     }
-    std::cout << "Refine count " << refine_count << std::endl;
     timers.get("MarkCells").stop();
     timers.get("Adapt").start();
     amr_mesh.adapt();
     timers.get("Adapt").stop();
     timers.get("loadBalance").start();
     amr_mesh.loadBalance();
-    timers.get("loadBalance").stop();    
+    timers.get("loadBalance").stop();   
   }
 
   uint32_t nbOcts = amr_mesh.getNumOctants();
 
   // Check total volume is 1
   {
+    LightOctree lmesh = amr_mesh.getLightOctree();
+
     real_t V=0;
     for(int i=level_max; i>=level_min; i--)
     { // Iterate over levels to avoid rounding errors
       uint64_t count_level = 0;
-      for(uint32_t iOct=0; iOct<nbOcts; iOct++)
+      real_t V_level = 0;
+      Kokkos::parallel_reduce( "Check_volume", nbOcts,
+        KOKKOS_LAMBDA( uint32_t iOct, uint64_t& count_level, real_t& V )
       {
-        auto s = amr_mesh.getSize( iOct );
-        int level = amr_mesh.getLevel( iOct );
+        auto s = lmesh.getSize( {iOct, false} );
+        int level = lmesh.getLevel( {iOct, false} );
         if( level==i )
         {
           V += s[IX]*s[IY]*( (dim==3)?s[IZ]:1 );
           count_level ++;
         }
-      }
-      std::cout << "level " << i << " : " << count_level << " octants" << std::endl;
+      }, count_level, V_level);
+      V+=V_level;
+      std::cout << "level " << i << " : " << count_level << " octants, Volume = " << V_level << std::endl;
     }
     real_t Vtot;
     GlobalMpiSession::get_comm_world().MPI_Allreduce(&V, &Vtot, 1, MpiComm::MPI_Op_t::SUM );
@@ -212,7 +213,7 @@ public:
   using AMRmesh_t = AMRmesh_t_;
 };
 
-using AMRmesh_types = ::testing::Types<AMRmesh_hashmap_new>;
+using AMRmesh_types = ::testing::Types<AMRmesh>;
 TYPED_TEST_SUITE( Test_AMRmesh, AMRmesh_types );
 
 TYPED_TEST(Test_AMRmesh, narrow_h6_3D)
@@ -221,7 +222,7 @@ TYPED_TEST(Test_AMRmesh, narrow_h6_3D)
   td.level_min = 4;
   td.level_max = 6;
   td.width = 5;
-  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+  run_test<typename TestFixture::AMRmesh_t>(td);
 }
 
 TYPED_TEST(Test_AMRmesh, narrow_h6_2D)
@@ -231,7 +232,7 @@ TYPED_TEST(Test_AMRmesh, narrow_h6_2D)
   td.level_max = 6;
   td.width = 5;
   td.ndim = 2;
-  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+  run_test<typename TestFixture::AMRmesh_t>(td);
 }
 
 TYPED_TEST(Test_AMRmesh, narrow_h6_3D_nonsquare)
@@ -243,7 +244,7 @@ TYPED_TEST(Test_AMRmesh, narrow_h6_3D_nonsquare)
   td.coarse_size_x = 16;
   td.coarse_size_y = 8;
   td.coarse_size_z = 4;
-  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+  run_test<typename TestFixture::AMRmesh_t>(td);
 }
 
 TYPED_TEST(Test_AMRmesh, narrow_h6_2D_nonsquare)
@@ -255,7 +256,7 @@ TYPED_TEST(Test_AMRmesh, narrow_h6_2D_nonsquare)
   td.ndim = 2;
   td.coarse_size_x = 8;
   td.coarse_size_y = 16;
-  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+  run_test<typename TestFixture::AMRmesh_t>(td);
 }
 
 TYPED_TEST(Test_AMRmesh, narrow_h18)
@@ -264,7 +265,7 @@ TYPED_TEST(Test_AMRmesh, narrow_h18)
   td.level_min = 4;
   td.level_max = 18;
   td.width = 5;
-  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+  run_test<typename TestFixture::AMRmesh_t>(td);
 }
 
 TYPED_TEST(Test_AMRmesh, narrow_h20)
@@ -273,7 +274,7 @@ TYPED_TEST(Test_AMRmesh, narrow_h20)
   td.level_min = 4;
   td.level_max = 20;
   td.width = 5;
-  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+  run_test<typename TestFixture::AMRmesh_t>(td);
 }
 
 TYPED_TEST(Test_AMRmesh, wide_h10)
@@ -282,7 +283,7 @@ TYPED_TEST(Test_AMRmesh, wide_h10)
   td.level_min = 4;
   td.level_max = 10;
   td.width = 15;
-  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+  run_test<typename TestFixture::AMRmesh_t>(td);
 }
 
 TYPED_TEST(Test_AMRmesh, wide_h10_2D)
@@ -292,5 +293,5 @@ TYPED_TEST(Test_AMRmesh, wide_h10_2D)
   td.level_max = 10;
   td.width = 15;
   td.ndim = 2;
-  run_test<dyablo::AMRmesh_impl<typename TestFixture::AMRmesh_t>>(td);
+  run_test<typename TestFixture::AMRmesh_t>(td);
 }

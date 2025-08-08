@@ -57,10 +57,10 @@ by=4
         int level_max = configMap.getValue<int>("amr","level_max", 5);
 
         // Create initial mesh
-        amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, periodic, level_min, level_max);
+        amr_mesh = std::make_shared<AMRmesh>(ndim, periodic, level_min, level_max);
 
         // refine one level
-        if( amr_mesh->getRank() == 0 )
+        if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
         {
             EXPECT_GT( amr_mesh->getNumOctants() , 121 ) << "Internal test error : not enough octants in MPI rank 0";
 
@@ -212,7 +212,6 @@ void test_restart()
     ConfigMap configMap = ConfigMap::broadcast_parameters( ini_filename );
 
     int ndim = configMap.getValue<int>("mesh", "ndim", -1);
-    int codim = ndim;
     BoundaryConditionType bxmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_UNDEFINED);
     BoundaryConditionType bxmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_UNDEFINED);
     BoundaryConditionType bymin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_UNDEFINED);
@@ -226,7 +225,7 @@ void test_restart()
     };
     int amr_level_min = configMap.getValue<int>("amr","level_min", -1);
     int amr_level_max = configMap.getValue<int>("amr","level_max", -1);
-    AMRmesh amr_mesh( ndim, codim, periodic, amr_level_min, amr_level_max );
+    AMRmesh amr_mesh( ndim, periodic, amr_level_min, amr_level_max );
 
     ForeachCell foreach_cell( amr_mesh, configMap );
     UserData U_ ( configMap, foreach_cell );

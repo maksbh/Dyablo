@@ -39,26 +39,25 @@ void run_test()
   // codim 3 ==> balance through faces, edges and corner (3D only)
   int level_max = 3;
   int level_min = 0;
-  int codim = dim; 
-  dyablo::AMRmesh amr_mesh(dim, codim, {true,true,true}, level_min, level_max);
+  dyablo::AMRmesh amr_mesh(dim, {true,true,true}, level_min, level_max);
 
   // stage 1
   amr_mesh.adaptGlobalRefine();
 
   // stage 2
   amr_mesh.setMarker(1,1);
-  amr_mesh.adapt(true);
+  amr_mesh.adapt();
 
   // stage 3
   if (dim==2) 
   {
     amr_mesh.setMarker(3,1);
-    amr_mesh.adapt(true);
+    amr_mesh.adapt();
   }
   else
   {
     amr_mesh.setMarker(5,1);
-    amr_mesh.adapt(true);
+    amr_mesh.adapt();
   }
   std::cout << "Mesh size is " << amr_mesh.getNumOctants() << "\n";
 
@@ -436,6 +435,8 @@ void run_test()
 //template< typename LightOctree_t >
 void test_perf()
 {
+  using LightOctree_t = dyablo::LightOctree;
+
   constexpr int level_min = 5; //! Min AMR level
   constexpr int level_max = 8; //! Max AMR level
   constexpr int ndim = 3; //! 3D
@@ -451,15 +452,19 @@ void test_perf()
   std::cout << "Setup AMR mesh ..." << std::endl;
   //uint8_t CODIM_FACE = 1;
   //uint8_t CODIM_EDGE = 2;
-  int CODIM_CORNER = 3;
-  dyablo::AMRmesh amr_mesh(ndim, CODIM_CORNER, {true,true,true}, level_min, level_max);
+  dyablo::AMRmesh amr_mesh(ndim, {true,true,true}, level_min, level_max);
   {
     // Refine over a circle until level_max
     for(int level=level_min; level<level_max; level++)
     {
-      for(uint32_t iOct=0; iOct<amr_mesh.getNumOctants(); iOct++)
+      uint32_t nbOcts = amr_mesh.getNumOctants();
+      LightOctree_t lmesh = amr_mesh.getLightOctree();
+      Kokkos::View<int*> markers("markers", nbOcts);
+
+      Kokkos::parallel_for( "mark_octants", nbOcts,
+        KOKKOS_LAMBDA( uint32_t iOct )
       {
-        auto center = amr_mesh.getCenter(iOct);
+        auto center = lmesh.getCenter({iOct, false});
         center[IX] -= 0.5;
         center[IY] -= 0.5;
         center[IZ] -= 0.5;
@@ -469,16 +474,15 @@ void test_perf()
         real_t rmax2 = refine_circle_radius_max*refine_circle_radius_max;
         if( rmin2 <= d2 && d2 <= rmax2 )
         {
-          amr_mesh.setMarker(iOct, 1);
+          markers(iOct) = 1;
         }
-      }
+      });
+      amr_mesh.setMarkers(markers);
       amr_mesh.adapt();
     }
   }
   uint64_t nbOct = amr_mesh.getNumOctants();
   std::cout << " Octant count : " << nbOct << std::endl;
-
-  using LightOctree_t = dyablo::LightOctree;
 
   std::cout << "Construct LightOctree..." << std::endl;
 

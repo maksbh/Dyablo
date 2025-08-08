@@ -26,7 +26,7 @@ void test_fields()
   configMap.getValue<real_t>("mesh", "ymax", 2);
   configMap.getValue<real_t>("mesh", "zmax", 4);
 
-  AMRmesh pmesh( ndim, ndim, std::array<bool,3>{false,false,false}, level_min, level_max);
+  AMRmesh pmesh( ndim, std::array<bool,3>{false,false,false}, level_min, level_max);
   ForeachCell foreach_cell( pmesh, configMap );
 
   UserData U(configMap, foreach_cell);
@@ -159,7 +159,7 @@ void test_particles()
   real_t ymax = configMap.getValue<real_t>("mesh", "ymax", 2);
   real_t zmax = configMap.getValue<real_t>("mesh", "zmax", 4);
 
-  AMRmesh pmesh( ndim, ndim, std::array<bool,3>{false,false,false}, level_min, level_max);
+  AMRmesh pmesh( ndim, std::array<bool,3>{false,false,false}, level_min, level_max);
   ForeachCell foreach_cell( pmesh, configMap );
 
   UserData U(configMap, foreach_cell);
