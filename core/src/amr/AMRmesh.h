@@ -90,7 +90,7 @@ public:
       ZL, ZR,
       FACE_COUNT
     };
-    using CellMask = uint8_t;
+    using CellMask = int;
 
     Kokkos::View<CellMask*> send_cell_masks;
   };
