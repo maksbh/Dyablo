@@ -105,9 +105,9 @@ void check_position(MapDataTestParams &test_params) {
 
   EXPECT_EQ( U.nbFields(), 4 );
 
-  EXPECT_EQ( U.getField("px").nbOcts, nbOcts );
-  EXPECT_EQ( U.getField("py").nbOcts, nbOcts );
-  EXPECT_EQ( U.getField("pz").nbOcts, nbOcts );
+  EXPECT_EQ( U.getField("px").getShape().nbOcts, nbOcts );
+  EXPECT_EQ( U.getField("py").getShape().nbOcts, nbOcts );
+  EXPECT_EQ( U.getField("pz").getShape().nbOcts, nbOcts );
 
   uint32_t nbCellsPerOct = bx*by*bz;
   uint32_t expected_size = nbOcts*nbCellsPerOct;
@@ -173,9 +173,9 @@ void check_linear(MapDataTestParams &test_params) {
 
   EXPECT_EQ( U.nbFields(), 3 );
 
-  EXPECT_EQ( U.getField("px").nbOcts, nbOcts );
-  EXPECT_EQ( U.getField("py").nbOcts, nbOcts );
-  EXPECT_EQ( U.getField("pz").nbOcts, nbOcts );
+  EXPECT_EQ( U.getField("px").getShape().nbOcts, nbOcts );
+  EXPECT_EQ( U.getField("py").getShape().nbOcts, nbOcts );
+  EXPECT_EQ( U.getField("pz").getShape().nbOcts, nbOcts );
 
   uint32_t nbCellsPerOct = bx*by*bz;
   uint32_t expected_size = nbOcts*nbCellsPerOct;

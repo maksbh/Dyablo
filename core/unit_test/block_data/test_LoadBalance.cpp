@@ -126,9 +126,9 @@ level_max=5
 
     EXPECT_EQ( U.nbFields(), nbfields );
 
-    EXPECT_EQ( U.getField("px").nbOcts, nbOcts );
-    EXPECT_EQ( U.getField("py").nbOcts, nbOcts );
-    EXPECT_EQ( U.getField("pz").nbOcts, nbOcts );
+    EXPECT_EQ( U.getField("px").getShape().nbOcts, nbOcts );
+    EXPECT_EQ( U.getField("py").getShape().nbOcts, nbOcts );
+    EXPECT_EQ( U.getField("pz").getShape().nbOcts, nbOcts );
 
     uint32_t expected_size = nbOcts*bx*by*bz;
     EXPECT_EQ( U.getField("px").U.size(), expected_size );

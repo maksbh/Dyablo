@@ -167,8 +167,6 @@ public:
   using CellArray_patch = typename PatchManager_t::CellArray_patch;
 
 private:
-  template< typename View_t >
-  using CellArray_base = AMRBlockForeachCell_CellArray_impl::CellArray_base<View_t>;
   using CData = AMRBlockForeachCell_CData;
   AMRmesh& pmesh;
   // Struct constant parameters for all patches 
@@ -263,7 +261,6 @@ public:
     uint32_t bx = cdata.bx;
     uint32_t by = cdata.by;
     uint32_t bz = cdata.bz;
-    int nbCellsPerOct = bx*by*bz;
     int nbFields = fieldMgr.nbfields();
     int nbOcts = pmesh.getNumOctants();
     int nbGhosts = pmesh.getNumGhosts();
@@ -271,12 +268,9 @@ public:
 
     DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
-    DataArrayBlock U(name, nbCellsPerOct, nbFields, nbOcts );
-    DataArrayBlock Ughost(name+"ghost", nbCellsPerOct, nbFields, nbGhosts );
-
     const LightOctree& lmesh = pmesh.getLightOctree();
 
-    return CellArray_global_ghosted(CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm}, Ughost, lmesh);
+    return CellArray_global_ghosted(name, CellArray_shape{bx, by, bz, (uint32_t)nbFields, (uint32_t)nbOcts, (uint32_t)nbGhosts, (uint32_t)0, lmesh, true}, fm);
   }
   /**
    * Reserve a new temporary ghosted cell array local to each patch. 
