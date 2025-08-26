@@ -5,7 +5,25 @@ import sys
 from configparser import ConfigParser
 from scipy.signal import argrelmin
 
-
+class Results :
+    def __init__(self) :
+        self.times = []
+        self.distance = []
+        self.distance_theo = []
+        self.nb_photons = []
+        self.nb_photons_theo = []
+        self.ratio_distances = []
+        self.ratio_nb_photons = []
+        
+    def append(self, time, distance, distance_theo, nb_photons, nb_photons_theo) :
+        self.times.append(time)
+        self.distance.append(distance)
+        self.distance_theo.append(distance_theo)
+        self.nb_photons.append(nb_photons)
+        self.nb_photons_theo.append(nb_photons_theo)
+        self.ratio_distances.append((distance-distance_theo)/distance_theo)
+        self.ratio_nb_photons.append((nb_photons-nb_photons_theo)/nb_photons_theo)
+        
 ### Read ini file and build configuration
 def read_config(filename) :
     config = ConfigParser(inline_comment_prefixes=('#',';'))
@@ -68,9 +86,7 @@ def compute_diff(files, conf) :
   myr = 3600*24*365*1e6 #s
   mol = 6.02214076e23 
 
-  times = []
-  ratio_distances = []
-  ratio_nb_photons = []
+  results = Results()
 
   for f in files:
   
@@ -110,14 +126,12 @@ def compute_diff(files, conf) :
       index = -1
       distance = x[peaks[index]+1]
       
-      ratio_distances.append((distance-distance_theo)/distance_theo)
-      ratio_nb_photons.append((nb_photons-nb_photons_theo)/nb_photons_theo)
-      times.append(t)
+      results.append(t, distance, distance_theo, nb_photons, nb_photons_theo)    
 
       print('t=', t, ' distance_theo=', round(distance_theo,2), ' distance=', round(distance,2), ' ratio_distance=', round((distance-distance_theo)/distance_theo,2), 
             'nb_photons_theo=', round(nb_photons_theo,2), ' nb_photons=', round(nb_photons,2), ' ratio_photons=', round((nb_photons-nb_photons_theo)/nb_photons_theo,4) )
     
-  return times, ratio_distances, ratio_nb_photons
+  return results
 
 
 ############################################################################################
@@ -146,28 +160,34 @@ files = series[1:]
 
 conf = read_config(ini_filename)
 
-times, ratio_distances, ratio_nb_photons = compute_diff(files, conf)
+results = compute_diff(files, conf)
 
-last_ratio_distance = abs(ratio_distances[-1])
-last_ratio_nb_photons = abs(ratio_nb_photons[-1])
+last_ratio_distance = abs(results.ratio_distances[-1])
+last_ratio_nb_photons = abs(results.ratio_nb_photons[-1])
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
-ax1.plot(times, ratio_distances)
+
+ax1.plot(results.times, results.distance, label="distance")
+ax1.plot(results.times, results.distance_theo, label="distance_theo")
 ax1.set_xlabel('Time [Myr]')
-ax1.set_ylabel('(distance - distance_theo)/distance_theo')
+ax1.set_ylabel('(distance [Mpc]')
+ax1.set_title('Distance')
 ax1.set_title(f'L1 error = {last_ratio_distance:.4}')
 ax1.grid('.')
+ax1.legend(fancybox=True, framealpha=1, shadow=True, borderpad=1)
 
-ax2.plot(times, ratio_nb_photons)
+ax2.plot(results.times, results.nb_photons, label="nb_photons")
+ax2.plot(results.times, results.nb_photons_theo, label="nb_photons_theo")
 ax2.set_xlabel('Time [Myr]')
-ax2.set_ylabel('(nb_photons-nb_photons_theo)/nb_photons_theo')
+ax2.set_ylabel('Nb photons')
+ax2.set_title('Photons')
 ax2.set_title(f'L1 error = {last_ratio_nb_photons:.4}')
-ax2.grid()
+ax2.grid('.')
+ax2.legend(fancybox=True, framealpha=1, shadow=True, borderpad=1)
 
 plt.suptitle('Photons beam')
 plt.savefig(f'{png_filename}')
 fig.tight_layout()
-
 
 print( f'Exported {png_filename}' )
 print( f'Difference distance = {last_ratio_distance:.4}'  )
