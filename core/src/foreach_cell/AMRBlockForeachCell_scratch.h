@@ -17,16 +17,18 @@ using policy_t = Kokkos::TeamPolicy<>;
 
 class PatchManager;
 
-class CellArray_patch : public CellArray_global
+class CellArray_patch : public CellArray_base<false,false>
 {
 public:
   using Ref = CellArray_patch;
 
   KOKKOS_INLINE_FUNCTION
   CellArray_patch(){};
-  CellArray_patch(const CellArray_global& a, uint32_t nbVars) : CellArray_global(a), nbVars(nbVars) {}
-
-  uint32_t nbVars;
+  
+  KOKKOS_INLINE_FUNCTION
+  CellArray_patch( const Shape_t& s, const id2index_t& fm)
+  : CellArray_base( s, fm )
+  {}
 };
 
 /**
@@ -88,7 +90,8 @@ public:
   CellArray_patch allocate_tmp( const CellArray_patch::Ref& array_ref ) const
   {
     CellArray_patch res = array_ref;
-    res.U = CellArray_patch::View_t(this->pdata.team_member.team_scratch(SCRATCH_LEVEL), array_ref.bx*array_ref.by*array_ref.bz, array_ref.nbVars, 1);
+    const auto& s = array_ref.shape;
+    res.U = CellArray_patch::View_t(this->pdata.team_member.team_scratch(SCRATCH_LEVEL), s.bx*s.by*s.bz, s.nbFields, 1);
     return res;
   }
 };
@@ -116,8 +119,9 @@ public:
     uint32_t bz = cdata.bz+2*gz;
     DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
-    scratch_size += DataArrayBlock::shmem_size(bx*by*bz, nvars, 1);
-    return CellArray_patch({ DataArrayBlock(), bx, by, bz, 1, fm }, nvars);
+    scratch_size += CellArray_patch::View_t::shmem_size(bx*by*bz, nvars, 1);
+    CellArray_patch::Shape_t shape{bx, by, bz, (uint32_t)nvars, 1};
+    return CellArray_patch::Ref(shape, fm);
   }  
   
   template <typename Function>

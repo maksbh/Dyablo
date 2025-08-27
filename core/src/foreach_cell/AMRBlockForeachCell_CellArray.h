@@ -9,6 +9,8 @@ namespace AMRBlockForeachCell_CellArray_impl{
 
 // TODO remove
 struct  CellArray_shape;
+struct  CellArray_shape_local;
+struct  CellArray_shape_ghosted;
 
 /// Invalid index to rreturn as error value, use CellIndex::is_valid() to check for validity
 #define CELLINDEX_INVALID CellIndex{{0,true},0,0,0,0,0,0,CellIndex::INVALID}
@@ -406,11 +408,18 @@ struct CellIndex
 
   // TODO : remove legacy getNeighbor functions
   KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor( const offset_t& offset) const;
+  CellIndex getNeighbor( const offset_t& offset) const
+  {
+    return getNeighbor(offset, SearchMode_local(SearchMode_local::ASSERT));
+  }
 
   KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_shape& shape ) const;
+  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_shape_local& shape ) const;
   
+  KOKKOS_INLINE_FUNCTION
+  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_shape_ghosted& shape ) const;
+  
+
   template<typename Array_t>
   KOKKOS_INLINE_FUNCTION
   CellIndex getNeighbor_ghost( const offset_t& offset, const Array_t& array ) const
@@ -424,8 +433,6 @@ struct CellArray_shape
   uint32_t bx=0, by=0, bz=0;
   uint32_t nbFields=0;
   uint32_t nbOcts=0, nbGhosts=0, nbIntermediates=0;
-  LightOctree lmesh = LightOctree(); // TODO : remove legacy seach functions
-  bool has_lmesh = false; // TODO : remove legacy seach functions
 
   /**
    * Convert cell index used for another array into an index compatible with current shape. 
@@ -483,28 +490,44 @@ struct CellArray_shape
       return CellIndex{in.iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, (uint32_t)bx, (uint32_t)by, (uint32_t)bz, cell_status};
     }
   }
+};
 
-  // TODO : remove legacy convert_index functions
+// TODO : remove legacy getNeighbor methods
+struct CellArray_shape_local : public CellArray_shape
+{
   KOKKOS_INLINE_FUNCTION
   CellIndex convert_index(const CellIndex& iCell) const
   {
-    return convert_index( iCell, SearchMode_local(SearchMode_local::ASSERT) );
+    return CellArray_shape::convert_index( iCell, SearchMode_local(SearchMode_local::ASSERT) );
   }
 
   KOKKOS_INLINE_FUNCTION
   CellIndex convert_index_ghost(const CellIndex& iCell) const
   {
-    if ( this->has_lmesh )
-      return convert_index( iCell, SearchMode_neighbor( this->lmesh, SearchMode_neighbor::ORIGIN ) );
-    else
-      return convert_index( iCell, SearchMode_local(SearchMode_local::INVALID) );
+    return CellArray_shape::convert_index( iCell, SearchMode_local(SearchMode_local::INVALID) );
+  }
+};
+
+struct CellArray_shape_ghosted : public CellArray_shape
+{
+  LightOctree lmesh;
+
+  KOKKOS_INLINE_FUNCTION
+  CellIndex convert_index(const CellIndex& iCell) const
+  {
+    return CellArray_shape::convert_index( iCell, SearchMode_local(SearchMode_local::ASSERT) );
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  CellIndex convert_index_ghost(const CellIndex& iCell) const
+  {
+    return CellArray_shape::convert_index( iCell, SearchMode_neighbor( this->lmesh, SearchMode_neighbor::ORIGIN ) );
   }
 
   KOKKOS_INLINE_FUNCTION
   CellIndex convert_index_getNeighbor(const CellIndex& iCell) const
   {
-    DYABLO_ASSERT_KOKKOS_DEBUG( this->has_lmesh, "convert_index_getNeighbor called with no ghosts" );
-    return convert_index( iCell, SearchMode_neighbor( this->lmesh, SearchMode_neighbor::CLOSEST ) );
+    return CellArray_shape::convert_index( iCell, SearchMode_neighbor( this->lmesh, SearchMode_neighbor::CLOSEST ) );
   }
 };
 
@@ -519,7 +542,7 @@ template< bool has_ghosts_, bool has_intermediates_ >
 class CellArray_base
 {
 public:
-  using Shape_t = CellArray_shape;
+  using Shape_t = std::conditional_t< has_ghosts_, CellArray_shape_ghosted, CellArray_shape_local> ;
   using View_t = Kokkos::View<real_t***, Kokkos::LayoutLeft>;
   static constexpr bool has_ghosts = has_ghosts_;
   static constexpr bool has_intermediates = has_intermediates_;
@@ -528,17 +551,18 @@ public:
   Shape_t shape;
   id2index_t fm;
 
-  CellArray_base() = default;
-  CellArray_base( const CellArray_base& ) = default;
-  CellArray_base( CellArray_base&& ) = default;
-  CellArray_base& operator=( const CellArray_base& ) = default;
-  CellArray_base& operator=( CellArray_base&& ) = default;
-
-  template< typename T >
-  [[deprecated]] CellArray_base( T label, const Shape_t& s)
-  : CellArray_base(label, s, id2index_t(s.nbFields))
+protected: 
+  KOKKOS_INLINE_FUNCTION
+  CellArray_base( const Shape_t& s, const id2index_t& fm)
+    : shape(s), fm(fm)
   {}
 
+public:
+
+  KOKKOS_INLINE_FUNCTION
+  CellArray_base() = default;
+  
+  
   /**
    * Construct a CellArray from a shape and allocate views
    * @param label to label the Kokkos views
@@ -546,7 +570,7 @@ public:
    * Note: when has_ghosts or has_intermediates are false, number of ghosts or intermediates must be 0
    **/
   template< typename T >
-  CellArray_base( T label, const Shape_t& s, const id2index_t& fm)
+  CellArray_base( const T& label, const Shape_t& s, const id2index_t& fm)
   : shape(s), fm(fm)
   {
     DYABLO_ASSERT_HOST_RELEASE( has_ghosts || shape.nbGhosts==0, "CellArray_base : ghosts disabled but nbGhosts>0"  );
@@ -557,8 +581,6 @@ public:
     if constexpr( has_ghosts )
     { 
       // TODO : remove lmesh references
-      DYABLO_ASSERT_HOST_RELEASE( s.lmesh.getNumGhosts() == s.nbGhosts, "CellArray_base with ghosts lmesh not set!" )
-      DYABLO_ASSERT_HOST_RELEASE( s.has_lmesh, "CellArray_base with ghosts lmesh not set!" )
       Ughost = View_t(label, nbCellsPerOct, s.nbFields, s.nbGhosts);
     }
     if constexpr( has_intermediates )
@@ -585,7 +607,7 @@ public:
   }
 
   KOKKOS_INLINE_FUNCTION
-  operator CellArray_shape() const
+  operator Shape_t() const
   {
     return getShape();
   }
@@ -644,18 +666,15 @@ using CellArray_global_ghosted = CellArray_base<true, false>;
 
 // TODO remove legacy getNeighbor methods
 KOKKOS_INLINE_FUNCTION
-CellIndex CellIndex::getNeighbor( const offset_t& offset) const
+CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_shape_local& shape ) const
 {
-  return getNeighbor(offset, SearchMode_local(SearchMode_local::ASSERT));
+  return getNeighbor( offset, SearchMode_local(SearchMode_local::INVALID) );
 }
 
 KOKKOS_INLINE_FUNCTION
-CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_shape& shape ) const
+CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_shape_ghosted& shape ) const
 {
-  if( shape.has_lmesh )
-    return getNeighbor( offset, SearchMode_neighbor( shape.lmesh, SearchMode_neighbor::CLOSEST ) );
-  else
-    return getNeighbor( offset, SearchMode_local(SearchMode_local::INVALID) );
+  return getNeighbor( offset, SearchMode_neighbor( shape.lmesh, SearchMode_neighbor::CLOSEST ) );
 }
 
 } // namespace AMRBlockForeachCell_CellArray_impl

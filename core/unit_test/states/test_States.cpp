@@ -352,7 +352,7 @@ void test_ConsHydroState_setget()
 
   FieldManager field_manager({ConsHydroState::Irho, ConsHydroState::Ie_tot, ConsHydroState::Irho_vx, ConsHydroState::Irho_vy, ConsHydroState::Irho_vz});
 
-  CellArray_global U( std::string("U"), ForeachCell::CellArray_shape{bx, by, bz, (uint32_t)field_manager.nbfields(), (uint32_t)nbOcts}, field_manager.get_id2index());
+  CellArray_global U( std::string("U"), CellArray_global::Shape_t{bx, by, bz, (uint32_t)field_manager.nbfields(), (uint32_t)nbOcts}, field_manager.get_id2index());
 
   auto make_iCell = KOKKOS_LAMBDA( uint32_t iOct, uint32_t i, uint32_t j, uint32_t k )
   {

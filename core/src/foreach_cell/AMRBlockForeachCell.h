@@ -269,8 +269,7 @@ public:
     DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
     const LightOctree& lmesh = pmesh.getLightOctree();
-
-    return CellArray_global_ghosted(name, CellArray_shape{bx, by, bz, (uint32_t)nbFields, (uint32_t)nbOcts, (uint32_t)nbGhosts, (uint32_t)0, lmesh, true}, fm);
+    return CellArray_global_ghosted(name, CellArray_global_ghosted::Shape_t{{bx, by, bz, (uint32_t)nbFields, (uint32_t)nbOcts, (uint32_t)nbGhosts, (uint32_t)0}, lmesh}, fm);
   }
   /**
    * Reserve a new temporary ghosted cell array local to each patch. 

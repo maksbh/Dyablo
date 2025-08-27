@@ -114,7 +114,7 @@ public:
     DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
     // Do not initialize View to improve first-touch behavior
-    return CellArray_patch(CellArray_global(Kokkos::ViewAllocateWithoutInitializing(name), CellArray_shape{ bx, by, bz, (uint32_t)nvars, nbOctsPerGroup }, fm));
+    return CellArray_patch(CellArray_global(Kokkos::ViewAllocateWithoutInitializing(name), CellArray_patch::Shape_t{ bx, by, bz, (uint32_t)nvars, nbOctsPerGroup }, fm));
   }  
   
   template <typename Function>
