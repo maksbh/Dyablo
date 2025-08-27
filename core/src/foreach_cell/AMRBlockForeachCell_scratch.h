@@ -22,6 +22,7 @@ class CellArray_patch : public CellArray_global
 public:
   using Ref = CellArray_patch;
 
+  KOKKOS_INLINE_FUNCTION
   CellArray_patch(){};
   CellArray_patch(const CellArray_global& a, uint32_t nbVars) : CellArray_global(a), nbVars(nbVars) {}
 

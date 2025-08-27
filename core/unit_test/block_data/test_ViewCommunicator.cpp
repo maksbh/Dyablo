@@ -317,7 +317,7 @@ void run_test_reduce()
   using CellIndex = typename ForeachCell::CellIndex;
 
   foreach_cell.foreach_cell( "Fill_neighbors", U,
-    CELL_LAMBDA( const CellIndex& iCell )
+    KOKKOS_LAMBDA( const CellIndex& iCell )
   {
     auto fill_neighbor = [&](CellIndex::offset_t offset, VarIndex iVar)
     {
@@ -358,7 +358,7 @@ void run_test_reduce()
 
   int nerrors = 0;
   foreach_cell.reduce_cell( "check_values", U,
-    CELL_LAMBDA( const CellIndex& iCell, int& nerrors )
+    KOKKOS_LAMBDA( const CellIndex& iCell, int& nerrors )
   {
     constexpr real_t eps = 1e-10;
     real_t U_IU = U.at( iCell, IU );

@@ -257,6 +257,9 @@ public:
   id2index_t fm;
 
   KOKKOS_INLINE_FUNCTION
+  CellArray_base() = default;
+
+  KOKKOS_INLINE_FUNCTION
   int nbfields() const
   {
     return fm.nbfields();

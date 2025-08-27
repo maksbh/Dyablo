@@ -71,7 +71,7 @@ void run_test(int ndim)
 
   // Initialize U
   foreach_cell.foreach_cell( "Init_U", U,
-    CELL_LAMBDA( const ForeachCell::CellIndex& iCell )
+    KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
   {
     U.at(iCell, S) = cmd.getCellSize(iCell)[IX];
     auto pos = cmd.getCellCenter(iCell);
