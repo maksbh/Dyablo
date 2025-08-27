@@ -65,6 +65,7 @@ public:
   SearchMode_neighbor( const LightOctree& lmesh, SmallerNeighborMode mode )
   : lmesh(lmesh), _smaller_neighbor_mode(mode)
   {}
+  SearchMode_neighbor( const SearchMode_neighbor& ) = delete;
 
   KOKKOS_INLINE_FUNCTION
   SmallerNeighborMode smaller_neighbor_mode() const
@@ -78,7 +79,7 @@ public:
     return lmesh;
   }
 private:
-  LightOctree lmesh;
+  const LightOctree& lmesh;
   SmallerNeighborMode _smaller_neighbor_mode;
 };
 
