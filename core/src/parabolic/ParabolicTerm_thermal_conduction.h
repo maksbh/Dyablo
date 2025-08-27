@@ -125,8 +125,9 @@ public:
     };
 
     // Getting cell info
-    CellIndex iCell_Uin    = Uin.getShape().convert_index(iCell_Uout);
-    CellIndex iCell_Ugroup = Ugroup.convert_index(iCell_rhs);
+    ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );
+    CellIndex iCell_Uin    = Uin.getShape().convert_index(iCell_Uout, search_local);
+    CellIndex iCell_Ugroup = Ugroup.getShape().convert_index(iCell_rhs, search_local);
     auto size = cellmetadata.getCellSize(iCell_Uin);
     auto pos  = cellmetadata.getCellCenter(iCell_Uin);
     real_t V  = size[IX] * size[IY] * (ndim == 3 ? size[IZ] : 1.0);

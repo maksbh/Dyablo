@@ -30,7 +30,8 @@ void copyGhostBlockCellData(const Uin_t& Uin,
 
   GhostedArray::Shape_t Uin_shape = Uin.getShape();
 
-  CellIndex iCell_Uin = Uin_shape.convert_index_ghost(iCell_Ugroup);
+  ForeachCell::SearchMode_neighbor search_neighbor( patch.getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
+  CellIndex iCell_Uin = Uin_shape.convert_index(iCell_Ugroup, search_neighbor);
   if( iCell_Uin.is_boundary() )
   {
     ConsState res = bc_manager.template getBoundaryValue<ndim, State>(Uin, iCell_Uin, patch);

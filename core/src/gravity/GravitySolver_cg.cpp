@@ -354,12 +354,14 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
     {"gphi", IGPHI}
   });
 
+  ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );
+
   // Update force field in U from potential
   foreach_cell.foreach_cell( "Gravity_cg::construct_force_field", Uout.getShape(), 
     KOKKOS_LAMBDA(const CellIndex& iCell_Uout)
   { 
     auto size = cells.getCellSize(iCell_Uout);
-    CellIndex iCell_CGdata = CGdata.convert_index(iCell_Uout);
+    CellIndex iCell_CGdata = CGdata.getShape().convert_index(iCell_Uout, search_local);
 
     auto gradient = [&](ComponentIndex3D dir)
     {

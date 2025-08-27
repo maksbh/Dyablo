@@ -75,7 +75,8 @@ public:
     pos_t inv_size {1.0/size[IX], 1.0/size[IY], 1.0/size[IZ]};
 
     // Index in grouped array
-    auto iCell_Qgroup = Qgroup.convert_index(iCell_Uout);
+    ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );
+    auto iCell_Qgroup = Qgroup.getShape().convert_index(iCell_Uout, search_local);
     PrimHydroState q;
     getPrimitiveState<ndim>(Qgroup, iCell_Qgroup, q);
 

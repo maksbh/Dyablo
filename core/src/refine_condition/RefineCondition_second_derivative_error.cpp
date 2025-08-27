@@ -145,7 +145,8 @@ public:
 
       patch.foreach_cell(Uin.getShape(), CELL_LAMBDA(const CellIndex& iCell_U)
       { 
-        CellIndex iCell_Qgroup = Qgroup.convert_index(iCell_U);
+        ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );
+        CellIndex iCell_Qgroup = Qgroup.getShape().convert_index(iCell_U, search_local);
 
         real_t f_max = 0;
 

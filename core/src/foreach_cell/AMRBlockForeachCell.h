@@ -32,6 +32,12 @@ public:
   : cdata( cdata ), lmesh(pmesh.getLightOctree())
   {}
 
+  KOKKOS_INLINE_FUNCTION
+  const LightOctree& getLightOctree() const
+  {
+    return lmesh;
+  }
+
   /// Get the physical size of the cell
   KOKKOS_INLINE_FUNCTION
   pos_t getCellSize( const CellIndex& iCell ) const
@@ -160,6 +166,8 @@ public:
   using CellArray_global = AMRBlockForeachCell_CellArray_impl::CellArray_global;
   using CellArray_shape = AMRBlockForeachCell_CellArray_impl::CellArray_shape;
   using CellArray_global_ghosted = AMRBlockForeachCell_CellArray_impl::CellArray_global_ghosted;
+  using SearchMode_local = AMRBlockForeachCell_CellArray_impl::SearchMode_local;
+  using SearchMode_neighbor = AMRBlockForeachCell_CellArray_impl::SearchMode_neighbor;
   using CellMetaData = AMRBlockForeachCell_CellMetaData;
   friend CellMetaData;
 
