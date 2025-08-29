@@ -7,10 +7,7 @@
 namespace dyablo {
 namespace AMRBlockForeachCell_CellArray_impl{
 
-// TODO remove
 struct  CellArray_shape;
-struct  CellArray_shape_local;
-struct  CellArray_shape_ghosted;
 
 /// Invalid index to rreturn as error value, use CellIndex::is_valid() to check for validity
 #define CELLINDEX_INVALID CellIndex{{0,true},0,0,0,0,0,0,CellIndex::INVALID}
@@ -404,28 +401,6 @@ struct CellIndex
        && k == c2.k
        && status == c2.status);
   }
-
-  // TODO : remove legacy getNeighbor functions
-  KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor( const offset_t& offset) const
-  {
-    return getNeighbor(offset, SearchMode_local(SearchMode_local::ASSERT));
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_shape_local& shape ) const;
-  
-  KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor_ghost( const offset_t& offset, const CellArray_shape_ghosted& shape ) const;
-  
-
-  template<typename Array_t>
-  KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor_ghost( const offset_t& offset, const Array_t& array ) const
-  {
-    return getNeighbor_ghost( offset, array.getShape() );
-  }
-
 };
 struct CellArray_shape
 {
@@ -494,16 +469,6 @@ struct CellArray_shape
   }
 };
 
-// TODO : remove legacy getNeighbor methods
-struct CellArray_shape_local : public CellArray_shape
-{
-};
-
-struct CellArray_shape_ghosted : public CellArray_shape
-{
-  LightOctree lmesh;
-};
-
 /**
  * Abstraction for an array containing cell values
  * Cells are indexed by abstracted CellIndexes and 
@@ -515,7 +480,7 @@ template< bool has_ghosts_, bool has_intermediates_ >
 class CellArray_base
 {
 public:
-  using Shape_t = std::conditional_t< has_ghosts_, CellArray_shape_ghosted, CellArray_shape_local> ;
+  using Shape_t = CellArray_shape;
   using View_t = Kokkos::View<real_t***, Kokkos::LayoutLeft>;
   static constexpr bool has_ghosts = has_ghosts_;
   static constexpr bool has_intermediates = has_intermediates_;
@@ -553,7 +518,6 @@ public:
     U = View_t(label, nbCellsPerOct, s.nbFields, s.nbOcts);
     if constexpr( has_ghosts )
     { 
-      // TODO : remove lmesh references
       Ughost = View_t(label, nbCellsPerOct, s.nbFields, s.nbGhosts);
     }
     if constexpr( has_intermediates )
@@ -617,19 +581,6 @@ public:
 
 using CellArray_global = CellArray_base<false, false>;
 using CellArray_global_ghosted = CellArray_base<true, false>;
-
-// TODO remove legacy getNeighbor methods
-KOKKOS_INLINE_FUNCTION
-CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_shape_local& shape ) const
-{
-  return getNeighbor( offset, SearchMode_local(SearchMode_local::INVALID) );
-}
-
-KOKKOS_INLINE_FUNCTION
-CellIndex CellIndex::getNeighbor_ghost( const offset_t& offset, const CellArray_shape_ghosted& shape ) const
-{
-  return getNeighbor( offset, SearchMode_neighbor( shape.lmesh, SearchMode_neighbor::CLOSEST ) );
-}
 
 } // namespace AMRBlockForeachCell_CellArray_impl
 
