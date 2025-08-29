@@ -291,6 +291,11 @@ public:
       DYABLO_ASSERT_HOST_RELEASE( astart == 1.0, "cosmology is disabled but cosmology/astart = " << astart << " != 1" );
     }
 
+    // Light velocity fraction in code units
+    real_t c_rad = configMap.getValue_in_code_unit<Units::Velocity>("rad", "c_rad", "speedoflight");
+    real_t ctilde = Units::physical_to_supercomoving<Units::Velocity>( c_rad, m_scalar_data.get<real_t>("aexp") );
+    configMap.getValue<real_t>("cosmology", "ctilde", ctilde);
+
     this->m_scalar_data.set("iter", m_iter_start);
     {
       real_t t0 = configMap.getValue<real_t>("run", "tStart", t0_default);

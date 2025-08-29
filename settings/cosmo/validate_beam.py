@@ -57,12 +57,11 @@ def read_config(filename) :
     
     source_position = config.getfloat('rad', 'source_position')
     spawn_rate = config.getfloat('rad', 'spawn_rate')
-    cfrac = config.getfloat('cosmology', 'clight_fraction')
-
+    ctilde = config.getfloat('cosmology', 'ctilde')
 
     conf = {"bx":bx, "by":by, "bz":bz, "lmin":lmin, "lmax":lmax, "cor_x":cor_x, "cor_y":cor_y, 
             "cor_z":cor_z, "xmin":xmin, "xmax":xmax, "ymin":ymin, "ymax":ymax, "zmin":zmin, "zmax":zmax, "Nx":Nx, "Ny":Ny, "Nz":Nz, "dz":dz,
-            "source_position":source_position, "spawn_rate":spawn_rate, "cfrac":cfrac}
+            "source_position":source_position, "spawn_rate":spawn_rate, "ctilde":ctilde}
 
     return conf
 
@@ -79,12 +78,7 @@ def compute_diff(files, conf) :
   x0 = conf["source_position"]/5
 
   # speed of light fraction
-  cfrac = conf["cfrac"]
-
-  mpc = 3.085678e22 #m
-  c = 299792458*cfrac #m/s
-  myr = 3600*24*365*1e6 #s
-  mol = 6.02214076e23 
+  ctilde = conf["ctilde"]
 
   results = Results()
 
@@ -109,7 +103,7 @@ def compute_diff(files, conf) :
       nb_photons = np.sum(erad)*dx3
 
       # Distance = x0 + (vitesse de la lumière x temps de simu)
-      distance_theo = x0 + t*c*myr/mpc 
+      distance_theo = x0 + t*ctilde 
 
       # Compute derivative
       x = np.linspace(conf["xmin"], conf["xmax"], conf["Nz"])
