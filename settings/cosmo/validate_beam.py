@@ -1,9 +1,12 @@
 import pyablo
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import sys
 from configparser import ConfigParser
 from scipy.signal import argrelmin
+
+matplotlib.use("Agg")
 
 class Results :
     def __init__(self) :
@@ -165,23 +168,20 @@ ax1.plot(results.times, results.distance, label="distance")
 ax1.plot(results.times, results.distance_theo, label="distance_theo")
 ax1.set_xlabel('Time [Myr]')
 ax1.set_ylabel('(distance [Mpc]')
-ax1.set_title('Distance')
 ax1.set_title(f'L1 error = {last_ratio_distance:.4}')
-ax1.grid('.')
+ax1.grid()
 ax1.legend(fancybox=True, framealpha=1, shadow=True, borderpad=1)
 
 ax2.plot(results.times, results.nb_photons, label="nb_photons")
 ax2.plot(results.times, results.nb_photons_theo, label="nb_photons_theo")
 ax2.set_xlabel('Time [Myr]')
 ax2.set_ylabel('Nb photons')
-ax2.set_title('Photons')
 ax2.set_title(f'L1 error = {last_ratio_nb_photons:.4}')
-ax2.grid('.')
+ax2.grid()
 ax2.legend(fancybox=True, framealpha=1, shadow=True, borderpad=1)
 
-plt.suptitle('Photons beam')
-plt.savefig(f'{png_filename}')
 fig.tight_layout()
+plt.savefig(f'{png_filename}', dpi=100)
 
 print( f'Exported {png_filename}' )
 print( f'Difference distance = {last_ratio_distance:.4}'  )
@@ -194,4 +194,3 @@ if( last_ratio_distance > target_precision ):
 if( last_ratio_nb_photons > target_precision ):
   print( f'Precision target not met for photons conservation {last_ratio_nb_photons:.4} > {target_precision:.4}'  )
   exit(1)
-  
