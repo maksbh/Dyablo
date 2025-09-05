@@ -33,6 +33,7 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/parabolic/ParabolicUpdate_explicit.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/source_terms/SourceUpdate_Cooling_FF.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/source_terms/SourceUpdate_GLM.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/post_treatments/PostTreatment_divB.cpp
 )
 
 set( ic_src
