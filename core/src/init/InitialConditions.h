@@ -30,6 +30,7 @@ class AnalyticalFormula_MHD_blast;
 class AnalyticalFormula_MHD_rotor;
 class AnalyticalFormula_MHD_RayleighTaylor;
 class AnalyticalFormula_MHD_Brio_Wu;
+class AnalyticalFormula_MHD_isodensity_vortex;
 
 // Particles
 class InitialConditions_simple_particles;
@@ -77,6 +78,7 @@ bool dyablo::InitialConditionsFactory::init()
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_rotor> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_RayleighTaylor> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_Brio_Wu> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_MHD_isodensity_vortex> );
   
   // Cosmo
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_Zeldovitch_pancake> );
