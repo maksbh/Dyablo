@@ -255,7 +255,7 @@ void run_test_reduce_partial_blocks()
     UserData::FieldAccessor Uin = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}, {"dummy", Dummy}} );
 
     foreach_cell.foreach_cell( "Fill_neighbors", U.getShape(),
-      CELL_LAMBDA( const CellIndex& iCell )
+      KOKKOS_LAMBDA( const CellIndex& iCell )
     {
       auto fill_neighbor = [&](CellIndex::offset_t offset, VarIndex iVar)
       {
@@ -292,7 +292,7 @@ void run_test_reduce_partial_blocks()
     });
 
     foreach_cell.foreach_ghost_cell( "Fill_dummy_ghosts", U.getShape(),
-      CELL_LAMBDA( const CellIndex& iCell )
+      KOKKOS_LAMBDA( const CellIndex& iCell )
     {
       Uin.at( iCell, Dummy ) = 99;
     });
@@ -308,7 +308,7 @@ void run_test_reduce_partial_blocks()
 
   int nerrors = 0;
   foreach_cell.reduce_cell( "check_values", U.getShape(),
-    CELL_LAMBDA( const CellIndex& iCell, int& nerrors )
+    KOKKOS_LAMBDA( const CellIndex& iCell, int& nerrors )
   {
     constexpr real_t eps = 1e-10;
     real_t U_IU = Ua.at( iCell, Px );

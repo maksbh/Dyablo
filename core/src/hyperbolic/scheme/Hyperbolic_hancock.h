@@ -64,7 +64,7 @@ public:
     // TODO : remove this and copy Uin->Uout in timeloop or field creation logic
     foreach_cell.foreach_cell( "Hyperbolic_euler::init",
       Uout.getShape(),
-      CELL_LAMBDA(const CellIndex &iCell) 
+      KOKKOS_LAMBDA(const CellIndex &iCell) 
     {
       ConsState uC = policy.getConsState(Uin, iCell);
       policy.setConsState(Uout, iCell, uC);
@@ -73,7 +73,7 @@ public:
     // Setting the ghosts to 0 to accumulate fluxes
     foreach_cell.foreach_ghost_cell( "Hyperbolic_euler::resetting_ghosts",
       Uout.getShape(),
-      CELL_LAMBDA(const CellIndex &iCell) 
+      KOKKOS_LAMBDA(const CellIndex &iCell) 
     {
       ConsState empty_state{};
       policy.setConsState(Uout, iCell, empty_state);
