@@ -8,7 +8,7 @@ The MPI Library is used for distributed parallelism and compute kernels using sh
 
 Dyablo is also build with modularity and ease of use in mind to allow physicists to easily add new kernels written with abstract interfaces to access and modify the AMR mesh. 
 
-Modularity is also key to use state-of-the-art libraries interchangeably, reuse existing work and allow compatibility with external tools for vizualization or post-processing for instance. In Dyablo, the AMR mesh can be managed by the PABLO external library or by the custom implementation in written in Kokkos. This modularity enables us to plug in other external libraries to manage the AMR mesh or to perform IO, vizualization or post-processing operations. For now vizualisation outputs are handled by the HDF5 library but other backends can be integrated to Dyablo through plug-ins.
+Modularity is also key to use state-of-the-art libraries interchangeably, reuse existing work and allow compatibility with external tools for vizualization or post-processing for instance. Originally Dyablo used the PABLO external library for AMR but now uses a custom implementation written in Kokkos. This modularity enables us to plug in other external libraries to manage the AMR mesh or to perform IO, vizualization or post-processing operations. For now vizualisation outputs are handled by the HDF5 library but other backends can be integrated to Dyablo through plug-ins.
 
 # How to build ?
 
@@ -28,7 +28,7 @@ git submodule update --init
 
 For the latest version of Dyablo, we recommend that you use the `dev` (default) branch . 
 
-NOTE : If you don't have access to github from the machine (e.g at TGCC), you will need to populate the `external/` folder manually with [kokkos](https://github.com/kokkos/kokkos) and [backward-cpp](https://github.com/bombela/backward-cpp.git). If you want to build unit-tests you also need [gtest](https://github.com/google/googletest). If you want to enable the legacy PABLO backend for AMR, you also need [bitpit](https://github.com/pkestene/bitpit.git).
+NOTE : If you don't have access to github from the machine (e.g at TGCC), you will need to populate the `external/` folder manually with [kokkos](https://github.com/kokkos/kokkos) and [backward-cpp](https://github.com/bombela/backward-cpp.git). If you want to build unit-tests you also need [gtest](https://github.com/google/googletest).
  
 ## build dyablo
 

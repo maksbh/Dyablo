@@ -96,14 +96,15 @@ std::shared_ptr<AMRmesh> mesh_amrgrid_semiperiodic_sphere()
   {
     int ndim = 3;   
 
-    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,true}, level_min, level_max);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{false,false,true}, level_min, level_max);
 
     for(int level=level_min+1; level<level_max; level++)
     {
+      const auto lmesh_host = amr_mesh->getStorage();
       for( uint32_t iOct=0; iOct<amr_mesh->getNumOctants(); iOct++ )
       {
-        auto oct_pos = amr_mesh->getCoordinates(iOct);
-        real_t oct_size = amr_mesh->getSize(iOct)[0];
+        auto oct_pos = lmesh_host.getCorner({iOct, false});
+        real_t oct_size = lmesh_host.getSize({iOct, false})[0];
         
         for( uint32_t c=0; c<bx*by*bz; c++ )
         {

@@ -1,6 +1,3 @@
-#
-# euler_pablo test executable
-#
 set(EXE_NAME "dyablo")
 add_executable(${EXE_NAME}
   ${CMAKE_SOURCE_DIR}/src/dyablo_main.cpp
@@ -20,11 +17,9 @@ target_link_libraries(${EXE_NAME}
   Kokkos::kokkos
   dl
   monitoring
-  BITPIT::BITPIT)
+  )
 
 if (DYABLO_USE_MPI)  
-  target_compile_definitions(${EXE_NAME} PUBLIC BITPIT_ENABLE_MPI)
-
   target_link_libraries(${EXE_NAME} mpiUtils)
 endif()
 

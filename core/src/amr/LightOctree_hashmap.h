@@ -13,7 +13,26 @@
 
 namespace dyablo { 
 
+namespace {
 
+LightOctree_storage<>::pos_t get_first_pos( const LightOctree_storage<>& storage )
+{
+    using pos_t = LightOctree_storage<>::pos_t;
+    Kokkos::View<real_t[3]> pos_device("pos");
+    Kokkos::parallel_for("get_first_oct_corner", 1,
+        KOKKOS_LAMBDA(int i)
+    {
+        auto p = storage.getCorner({(uint32_t)0,false});
+        pos_device(0) = p[0];
+        pos_device(1) = p[1];
+        pos_device(2) = p[2];
+    });
+    auto pos_host = Kokkos::create_mirror_view(pos_device);
+    Kokkos::deep_copy(pos_host, pos_device);
+    return pos_t{pos_host(0),pos_host(1),pos_host(2)};
+}
+
+};
 
 class LightOctree_hashmap : public LightOctree_base{
 public:
@@ -36,12 +55,11 @@ public:
         private_init();
     }
 
-    template < typename AMRmesh_t >
-    LightOctree_hashmap( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
-    : storage( *pmesh ),
+    LightOctree_hashmap( const AMRmesh* pmesh, uint8_t level_min, uint8_t level_max )
+    : storage( pmesh->getStorage().template deep_copy<Storage_t::MemorySpace>() ),
       oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
       min_level(level_min), max_level(level_max),
-      is_periodic( {pmesh->getPeriodic(2*IX), pmesh->getPeriodic(2*IY), pmesh->getPeriodic(2*IZ)} ),
+      is_periodic( {pmesh->getPeriodic(IX), pmesh->getPeriodic(IY), pmesh->getPeriodic(IZ)} ),
       morton_intervals( "morton_intervals", pmesh->getMpiComm().MPI_Comm_size()+1 )
     {    
         private_init();
@@ -50,7 +68,7 @@ public:
         morton_t first_morton;
         {
             int ndim = getNdim();
-            auto pos = pmesh->getCoordinates((uint32_t)0);
+            pos_t pos = get_first_pos(storage);
             index_t<3> logical_coords;
             uint32_t octant_count = std::pow(2, max_level );
             real_t octant_size = 1.0/octant_count;

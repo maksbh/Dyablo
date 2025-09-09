@@ -24,7 +24,7 @@ public:
                           const ForeachCell::CellArray_global_ghosted::Shape_t& shape, 
                           int ghost_count, 
                           const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-  : Impl(mesh.getMesh(), shape, ghost_count, mpi_comm)
+  : Impl(mesh, shape, ghost_count, mpi_comm)
   {}
 
   static std::string name()
@@ -80,9 +80,6 @@ public:
 
 };
 
-// GhostCommunicator partial block implementation is only compatible with AMRmesh_hashmap_new, use full block otherwise
-using GhostCommunicator = GhostCommunicator_impl< std::conditional_t< std::is_same_v<AMRmesh::Impl_t, AMRmesh_hashmap_new>, 
-                                                                      GhostCommunicator_partial_blocks, 
-                                                                      GhostCommunicator_full_blocks > >;
+using GhostCommunicator = GhostCommunicator_partial_blocks;
 
 }// namespace dyablo

@@ -5,74 +5,75 @@
 #include <vector>
 
 #include "amr/AMRmesh.h"
+#include "amr/LightOctree.h"
+#include "kokkos_shared.h"
 
 namespace dyablo{
 namespace debug{
 
-inline void output_vtk( const std::string& name, const AMRmesh& mesh )
+inline void output_vtk( const std::string& name, AMRmesh& mesh )
 {
   auto print_array = []( std::ostream& out, const auto& v )
   {
-    for( const auto& e : v )
-      out << e << " ";
+    auto v_host = Kokkos::create_mirror_view(v);
+    Kokkos::deep_copy( v_host, v );
+
+    for( size_t i=0; i<v_host.size(); i++ )
+      out << v_host(i) << " ";
     out << std::endl;
   };
 
-  std::string filename = name+"_"+std::to_string(mesh.getRank())+".vtu";
+  int mpi_rank = mesh.getMpiComm().MPI_Comm_rank();
+  std::string filename = name+"_"+std::to_string(mpi_rank)+".vtu";
 
   std::cout << "DEBUG OUPUT MESH " << filename << std::endl;
  
-  uint32_t nofCubes = mesh.getNumOctants() + mesh.getNumGhosts();
+  uint32_t nbOcts = mesh.getNumOctants();
+  uint32_t nbGhosts = mesh.getNumGhosts();
+  uint32_t nofCubes = nbOcts + nbGhosts;
 
-  std::vector<int> cells_is_ghost(nofCubes);
-  std::vector<int> cells_iOct(nofCubes);
+  Kokkos::View<int*> cells_is_ghost("cells_is_ghost", nofCubes);
+  Kokkos::View<int*> cells_iOct("cells_iOct", nofCubes);
 
-  std::vector<double> nodes_Coordinates(nofCubes*8*3);
-  std::vector<uint32_t> cells_Connectivity(nofCubes*8);
-  std::vector<uint32_t> cells_offsets(nofCubes);
-  std::vector<int> cells_types(nofCubes, 11);
+  Kokkos::View<double*> nodes_Coordinates("nodes_Coordinates", nofCubes*8*3);
+  Kokkos::View<uint32_t*> cells_Connectivity("cells_Connectivity", nofCubes*8);
+  Kokkos::View<uint32_t*> cells_offsets("cells_offsets", nofCubes);
+  Kokkos::View<int*> cells_types("cells_types", nofCubes);
 
-  for(uint32_t i=0; i<nofCubes; i++)
+  const LightOctree& lmesh = mesh.getLightOctree();
+
+  Kokkos::parallel_for( "init_vtk_arrays", nofCubes,
+    KOKKOS_LAMBDA( int i )
   {
-    cells_iOct[i] = i;
+    bool isGhost = i>=nbOcts;
+    LightOctree::OctantIndex iOct { i - isGhost*nbOcts, isGhost };
 
-    real_t px, py, pz;
-    real_t size_x, size_y, size_z;
+    cells_iOct(i) = i;
+    cells_is_ghost(i) = (int)isGhost;
+    cells_types(i) = 11;
 
-    if( i<mesh.getNumOctants() )
-    {
-      px = mesh.getCoordinates(i)[0];
-      py = mesh.getCoordinates(i)[1];
-      pz = mesh.getCoordinates(i)[2];
-      size_x = mesh.getSize(i)[0];
-      size_y = mesh.getSize(i)[1];
-      size_z = mesh.getSize(i)[2];
-    }
-    else
-    {
-      uint32_t iOct = i-mesh.getNumOctants();
-      px = mesh.getCoordinatesGhost(iOct)[0];
-      py = mesh.getCoordinatesGhost(iOct)[1];
-      pz = mesh.getCoordinatesGhost(iOct)[2];
-      size_x = mesh.getSizeGhost(iOct)[0];
-      size_y = mesh.getSizeGhost(iOct)[1];
-      size_z = mesh.getSizeGhost(iOct)[2];
-      cells_is_ghost[i] = 1;
-    }
+    auto pos = lmesh.getCorner( iOct );
+    auto size = lmesh.getSize( iOct );
+    real_t px = pos[0];
+    real_t py = pos[1];
+    real_t pz = pos[2];
+    real_t size_x = size[0];
+    real_t size_y = size[1];
+    real_t size_z = size[2];
 
     for( int16_t dz=0; dz<2; dz++ )
     for( int16_t dy=0; dy<2; dy++ )
     for( int16_t dx=0; dx<2; dx++ )
     {
       int di = dx + 2*dy + 4*dz;
-      nodes_Coordinates[3*(8*i+di) + 0] = px + size_x * dx;
-      nodes_Coordinates[3*(8*i+di) + 1] = py + size_y * dy;
-      nodes_Coordinates[3*(8*i+di) + 2] = pz + size_z * dz;
-      cells_Connectivity[8*i+di] = 8*i+di;
+      nodes_Coordinates(3*(8*i+di) + 0) = px + size_x * dx;
+      nodes_Coordinates(3*(8*i+di) + 1) = py + size_y * dy;
+      nodes_Coordinates(3*(8*i+di) + 2) = pz + size_z * dz;
+      cells_Connectivity(8*i+di) = 8*i+di;
     }
 
-    cells_offsets[i] = 8*i+8;
-  }
+    cells_offsets(i) = 8*i+8;
+  });
 
   std::ofstream out( filename );
   out << "<?xml version=\"1.0\"?>"                                                      << std::endl;

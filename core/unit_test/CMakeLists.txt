@@ -31,12 +31,9 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
     dyablo_units
     Kokkos::kokkos
     monitoring
-    BITPIT::BITPIT
     gtest)
 
   if (DYABLO_USE_MPI)
-    target_compile_definitions(${UNIT_TEST_NAME} PUBLIC BITPIT_ENABLE_MPI)
-    
     target_link_libraries(${UNIT_TEST_NAME} PUBLIC mpiUtils)
   endif()
 
@@ -78,10 +75,6 @@ dyablo_add_test(utest_AMRmesh ON
 
 dyablo_add_test(utest_LightOctree OFF
   amr/test_LightOctree.cpp
-  main.cpp)
-
-dyablo_add_test(utest_CopyGhostBlockCellData ON 
-  legacy/test_CopyGhostBlockCellData.cpp
   main.cpp)
 
 dyablo_add_test(utest_ViewCommunicator ON

@@ -35,7 +35,6 @@ real_t expected_conservativity_percent( const std::string& HyperbolicUpdate_id )
   {
     {"HydroUpdate_hancock", 1},
     {"MHDUpdate_hancock", 1},
-    {"HydroUpdate_legacy", 1},
     // Add custom conservativity target for non-conservative Solvers
   };
   real_t expected_default = 1e-10;
@@ -101,7 +100,6 @@ struct DiagosticsFunctor {
 std::shared_ptr<AMRmesh> init_amr_mesh( ConfigMap& configMap )
 {
   int ndim = configMap.getValue<int>("mesh", "ndim", -1); // ndim was set prior to calling init_amr_mesh()
-  int codim = ndim;
   BoundaryConditionType bxmin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmin", BC_PERIODIC);
   BoundaryConditionType bxmax  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_xmax", BC_PERIODIC);
   BoundaryConditionType bymin  = configMap.getValue<BoundaryConditionType>("mesh","boundary_type_ymin", BC_PERIODIC);
@@ -115,7 +113,7 @@ std::shared_ptr<AMRmesh> init_amr_mesh( ConfigMap& configMap )
   };
   int amr_level_min = configMap.getValue<int>("amr","level_min", 2);
   int amr_level_max = configMap.getValue<int>("amr","level_max", 4);
-  return std::make_shared<AMRmesh>( ndim, codim, periodic, amr_level_min, amr_level_max );
+  return std::make_shared<AMRmesh>( ndim, periodic, amr_level_min, amr_level_max );
 }
 
 void run_test(int ndim, std::string HyperbolicUpdate_id ) {

@@ -7,7 +7,6 @@
 
 #include "mpi/ViewCommunicator.h"
 
-#include "legacy/utils_block.h"
 #include "amr/AMRmesh.h"
 #include "utils/io/AMRMesh_output_vtk.h"
 
@@ -26,6 +25,12 @@ real_t& at(const DataArrayBlock::HostMirror& U, uint32_t c, uint32_t f, uint32_t
 {
   return U(c,f,iOct);
 }
+KOKKOS_INLINE_FUNCTION
+real_t& at(const DataArray& U, uint32_t c, uint32_t f, uint32_t iOct )
+{
+  return U(iOct,f);
+}
+
 int extent(const DataArrayBlock& U, int i)
 {
   return U.extent(i);
@@ -39,6 +44,11 @@ Kokkos::LayoutLeft layout<DataArrayBlock>(int bx, int by, int bz, int nbfields, 
 real_t& at(const DataArray::HostMirror& U, uint32_t c, uint32_t f, uint32_t iOct )
 {
   return U(iOct,f);
+}
+KOKKOS_INLINE_FUNCTION
+real_t& at(const DataArrayBlock& U, uint32_t c, uint32_t f, uint32_t iOct )
+{
+  return U(c,f,iOct);
 }
 int extent(const DataArray& U, int i)
 {
@@ -68,7 +78,7 @@ void run_test()
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     int ndim = 3;
-    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, 3, 7);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{false,false,false}, 3, 7);
     //amr_mesh->setBalanceCodimension(ndim);
     //uint32_t idx = 0;
     //amr_mesh->setBalance(idx,true);
@@ -80,19 +90,19 @@ void run_test()
     //amr_mesh->setPeriodic(5);
 
     debug::output_vtk("before_initial", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt1", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt2", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt3", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt4", *amr_mesh);
@@ -108,11 +118,12 @@ void run_test()
   Array_t U("U", Ulayout );
   uint32_t nbCellsPerOct = extent(U, 0);  
   { // Initialize U
-    typename Array_t::HostMirror U_host = Kokkos::create_mirror_view(U);
-    for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
+    const LightOctree& lmesh = amr_mesh->getLightOctree(); 
+    Kokkos::parallel_for( "init_U", nbOcts,
+      KOKKOS_LAMBDA(uint32_t iOct)
     {
-      auto oct_pos = amr_mesh->getCoordinates(iOct);
-      real_t oct_size = amr_mesh->getSize(iOct)[0];
+      auto oct_pos = lmesh.getCorner({iOct, false});
+      real_t oct_size = lmesh.getSize({iOct, false})[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -120,12 +131,11 @@ void run_test()
         uint32_t cy = (c - cz*bx*by)/bx;
         uint32_t cx = c - cz*bx*by - cy*bx;
 
-        at(U_host, c, IX, iOct) = oct_pos[IX] + cx*oct_size/bx;
-        at(U_host, c, IY, iOct) = oct_pos[IY] + cy*oct_size/by;
-        at(U_host, c, IZ, iOct) = oct_pos[IZ] + cz*oct_size/bz;
+        at(U, c, IX, iOct) = oct_pos[IX] + cx*oct_size/bx;
+        at(U, c, IY, iOct) = oct_pos[IY] + cy*oct_size/by;
+        at(U, c, IZ, iOct) = oct_pos[IZ] + cz*oct_size/bz;
       }
-    }
-    Kokkos::deep_copy( U, U_host );
+    });
   }
 
   dyablo::ViewCommunicator ghost_communicator = ViewCommunicator::from_mesh( *amr_mesh );
@@ -153,10 +163,12 @@ void run_test()
     auto Ughost_host = Kokkos::create_mirror_view(Ughost);
     Kokkos::deep_copy(Ughost_host, Ughost);
 
+    auto lmesh_host = amr_mesh->getStorage();
+
     for( uint32_t iGhost=0; iGhost<nGhosts; iGhost++ )
     {
-      auto oct_pos = amr_mesh->getCoordinatesGhost(iGhost);
-      real_t oct_size = amr_mesh->getSizeGhost(iGhost)[0];
+      auto oct_pos = lmesh_host.getCorner({iGhost, true});
+      real_t oct_size = lmesh_host.getSize({iGhost, true})[0];
       
       for( uint32_t c=0; c<nbCellsPerOct; c++ )
       {
@@ -255,7 +267,7 @@ void run_test_reduce()
   std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
   {
     int ndim = 3;
-    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{true,true,true}, 3, 7);
+    amr_mesh = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{true,true,true}, 3, 7);
     //amr_mesh->setBalanceCodimension(ndim);
     //uint32_t idx = 0;
     //amr_mesh->setBalance(idx,true);
@@ -267,19 +279,19 @@ void run_test_reduce()
     //amr_mesh->setPeriodic(5);
 
     debug::output_vtk("before_initial", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt1", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt2", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt3", *amr_mesh);
-    if( amr_mesh->getRank() == 0 )
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
       amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
     amr_mesh->adapt();
     debug::output_vtk("after_adapt4", *amr_mesh);

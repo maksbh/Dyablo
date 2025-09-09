@@ -1,7 +1,4 @@
 set( core_src
-    ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_pablo.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh_hashmap_new.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_base.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_mean.cpp
@@ -59,15 +56,6 @@ set( ic_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_zeldovitch_pancake.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_zeldovitch_particles.cpp
 )
-     
-set( legacy_src
-    ${CMAKE_CURRENT_SOURCE_DIR}/legacy/CopyGhostBlockCellData.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/legacy/MarkOctantsHydroFunctor.cpp
-    # ${CMAKE_CURRENT_SOURCE_DIR}/legacy/io_utils.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/compute_dt/Compute_dt_legacy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/refine_condition/RefineCondition_legacy.cpp
-    #${CMAKE_CURRENT_SOURCE_DIR}/legacy/MapUserData_legacy.cpp
-)
 
 set( mpi_src
     ${CMAKE_CURRENT_SOURCE_DIR}/mpi/ViewCommunicator.cpp
@@ -83,15 +71,13 @@ set( hdf5_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_tiled_restart.cpp
 )
 
-add_library( dyablo_core ${core_src} ${ic_src} ${legacy_src} )
+add_library( dyablo_core ${core_src} ${ic_src})
 target_include_directories( dyablo_core PUBLIC . )
 target_link_libraries( dyablo_core PUBLIC
     Kokkos::kokkos
-    BITPIT::BITPIT
 )
 
 if (DYABLO_USE_MPI)
-    target_compile_definitions(dyablo_core PUBLIC BITPIT_ENABLE_MPI)
     target_link_libraries( dyablo_core PUBLIC mpiUtils)
     target_sources( dyablo_core PRIVATE ${mpi_src} )
 endif (DYABLO_USE_MPI)

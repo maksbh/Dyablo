@@ -3,6 +3,7 @@
 #include "Kokkos_Core.hpp"
 #include "userdata_utils.h"
 #include "amr/AMRmesh.h"
+#include "utils/misc/Dyablo_assert.h"
 
 namespace dyablo {
 
@@ -25,26 +26,9 @@ class ViewCommunicator
 public: 
     static ViewCommunicator from_mesh( const AMRmesh& mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
     {
-      return from_mesh(mesh.getMesh(), mpi_comm);
-    }
-
-    static ViewCommunicator from_mesh( const AMRmesh_hashmap_new& mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-    {
       auto gm = mesh.getGhostMap();
       return ViewCommunicator( gm.send_sizes, gm.send_iOcts, mpi_comm );
     }
-    
-    static ViewCommunicator from_mesh( const AMRmesh_hashmap& mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-    {
-      return ViewCommunicator( mesh.getBordersPerProc(), mpi_comm );
-    }
-
-#ifdef DYABLO_COMPILE_PABLO
-    static ViewCommunicator from_mesh( const AMRmesh_pablo& mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-    {
-      return ViewCommunicator( mesh.getBordersPerProc(), mpi_comm );
-    }
-#endif
 
     /**
      * Create a new ViewCommunicator using a view containing the target domain for each local object

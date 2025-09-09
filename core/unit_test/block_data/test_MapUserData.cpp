@@ -124,10 +124,11 @@ void check_position(MapDataTestParams &test_params) {
   Kokkos::deep_copy(Uhost_pz, U.getField("pz").U);
   Kokkos::deep_copy(Uhost_size_initial, U.getField("size_initial").U);
 
+  const auto lmesh_host = amr_mesh->getStorage();
   for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
   {
-    auto oct_pos = amr_mesh->getCoordinates(iOct);
-    real_t oct_size = amr_mesh->getSize(iOct)[0];
+    auto oct_pos = lmesh_host.getCorner({iOct, false});
+    real_t oct_size = lmesh_host.getSize({iOct, false})[0];
     
     for( uint32_t c=0; c<nbCellsPerOct; c++ )
     {
@@ -189,10 +190,11 @@ void check_linear(MapDataTestParams &test_params) {
   Kokkos::deep_copy(Uhost_py, U.getField("py").U);
   Kokkos::deep_copy(Uhost_pz, U.getField("pz").U);
 
+  const auto& lmesh_host = amr_mesh->getStorage();
   for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
   {
-    auto oct_pos = amr_mesh->getCoordinates(iOct);
-    real_t oct_size = amr_mesh->getSize(iOct)[0];
+    auto oct_pos = lmesh_host.getCorner({iOct, false});
+    real_t oct_size = lmesh_host.getSize({iOct, false})[0];
     
     for( uint32_t c=0; c<nbCellsPerOct; c++ )
     {
@@ -244,7 +246,7 @@ void run_test(int ndim, std::string mapUserData_id)
   std::shared_ptr<AMRmesh> amr_mesh;
   //solver->amr_mesh 
   {
-    amr_mesh = std::make_shared<AMRmesh>(ndim, ndim, std::array<bool,3>{false,false,false}, level_min, level_max );
+    amr_mesh = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{false,false,false}, level_min, level_max );
     amr_mesh->adaptGlobalRefine();    
     amr_mesh->loadBalance();
 
@@ -254,7 +256,7 @@ void run_test(int ndim, std::string mapUserData_id)
       uint32_t nbOcts = amr_mesh->getNumOctants();
       amr_mesh->setMarker(nbOcts-1 , 1);
     }
-    amr_mesh->adapt(true);
+    amr_mesh->adapt();
     amr_mesh->loadBalance();
   }
 
@@ -328,7 +330,7 @@ void run_test(int ndim, std::string mapUserData_id)
     // // Refine a random octant in the middle
     amr_mesh->setMarker(nbOcts/2 , 1);
 
-    amr_mesh->adapt(true);
+    amr_mesh->adapt();
   }
   
   std::cout << "Remapping user data..." << std::endl;

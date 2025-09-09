@@ -16,7 +16,7 @@
  * - "Magic bits" method
  * - "Lookup table" method
  *
- * Here, we only use the "Magic bits" method, also used PABLO.
+ * Here, we only use the "Magic bits" method.
  * 
  * Other interesting references:
  * - libmorton, https://github.com/Forceflow/libmorton

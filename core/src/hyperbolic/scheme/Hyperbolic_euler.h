@@ -267,7 +267,7 @@ public:
     // Reducing the ghosts to accumulate the flux in the data arrays 
     int ghost_count = 1;
     GhostCommunicator_partial_blocks ghost_comm ( 
-      foreach_cell.get_amr_mesh().getMesh(),
+      foreach_cell.get_amr_mesh(),
       Uout.getShape(),
       ghost_count );
     ghost_comm.reduce_ghosts( Uout );

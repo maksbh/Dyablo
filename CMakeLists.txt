@@ -9,11 +9,9 @@ endif()
 ###################################################################
 # Use the CMake Superbuild pattern to help build dependencies 
 # before building Dyablo.
-# Uses ExternalProject_add to build dependencies :
-# - bitpit
+# Uses ExternalProject_add to build dependencies 
 # (Kokkos is compiled as a subdyrectory in Dyablo)
 # external dependencies are also verified
-# - bitpit : libxml2, MPI
 # - Dyablo : MPI, HDF5
 # Dependencies may be verified twice (here and when compilig Dyablo externalproject)
 # The intent is to find as much external dependency errors at configure time as possible
@@ -33,16 +31,7 @@ option (DYABLO_ENABLE_UNIT_TESTING "Enable unit testing" OFF)
 option (DYABLO_USE_MPI "Activate / want MPI build" ON)
 option (DYABLO_USE_HDF5 "build HDF5 input/output support" ON)
 option (DYABLO_USE_MPI_CUDA_AWARE_ENFORCED "Some MPI cuda-aware implementation are not well detected; use this to enforce" OFF)
-option (DYABLO_USE_PABLO "Use AMRmesh_pablo for AMR (forces DYABLO_COMPILE_PABLO=ON)" OFF )
-if(DYABLO_USE_PABLO)
-  set (DYABLO_COMPILE_PABLO ON CACHE BOOL "Compile Bitpit and PABLO backends" FORCE )
-else()
-  option (DYABLO_COMPILE_PABLO "Compile Bitpit and PABLO backends" OFF)
-endif()
-option (DYABLO_USE_INTERNAL_BITPIT "Compile bitpit from source in external/bitpit" ON)
 set( DYABLO_CXX_COMPILER  ${CMAKE_CXX_COMPILER} CACHE STRING "compiler used to build dyablo")
-set( BITPIT_COMPILER  ${CMAKE_CXX_COMPILER} CACHE STRING "compiler used to build bitpit when DYABLO_USE_INTERNAL_BITPIT=ON")
-option ( DYABLO_HIDE_BITPIT_COMPILATION "Don't show bitpit compilation log in console" ON )
 option (DYABLO_USE_INTERNAL_KOKKOS "Use internal Kokkos from external/kokkos" ON)
 option (Kokkos_ENABLE_CUDA "Enable Kokkos::CUDA backend" OFF)
 option (Kokkos_ENABLE_SYCL "Enable Kokkos::SYCL backend" OFF)
@@ -53,61 +42,6 @@ set( DYABLO_CMAKE_ARGS "" CACHE STRING "Additional cmake command line arguments 
 include (ExternalProject)
 set (DYABLO_EXTERNALPROJECT_DEPENDENCIES)
 set (DYABLO_CMAKE_ARGS_ ${DYABLO_CMAKE_ARGS})
-
-if( DYABLO_COMPILE_PABLO )
-  if( DYABLO_USE_INTERNAL_BITPIT )
-  message( STATUS "== Setup Bitpit ExternalProject ==" )
-
-    # verify bitpit dependencies
-    find_package( LibXml2 REQUIRED )
-    if(DYABLO_USE_MPI)
-      find_package( MPI REQUIRED COMPONENTS C CXX )
-    endif()
-
-    find_package(Git REQUIRED)
-
-    set_property(DIRECTORY PROPERTY EP_BASE ${CMAKE_BINARY_DIR}/external)
-    ExternalProject_Add (bitpit_external
-      SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/bitpit
-      UPDATE_COMMAND ""
-      CMAKE_ARGS
-        -DGIT_EXECUTABLE=${GIT_EXECUTABLE}
-        -DCMAKE_CXX_COMPILER=${BITPIT_COMPILER}
-        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        -DMPI_C_COMPILER=${MPI_C_COMPILER}
-        -DMPI_CXX_COMPILER=${MPI_CXX_COMPILER}
-        -DLIBXML2_LIBRARY=${LIBXML2_LIBRARY}
-        -DBITPIT_ENABLE_INTEGRATION_TESTS=OFF
-        -DBITPIT_ENABLE_MPI=${DYABLO_USE_MPI}
-        -DBITPIT_MODULE_LA=OFF
-        -DBITPIT_MODULE_CG=OFF
-        -DBITPIT_MODULE_DISCRETIZATION=OFF
-        -DBITPIT_MODULE_LEVELSET=OFF
-        -DBITPIT_MODULE_PATCHKERNEL=OFF
-        -DBITPIT_MODULE_POD=OFF
-        -DBITPIT_MODULE_RBF=OFF
-        -DBITPIT_MODULE_SA=OFF
-        -DBITPIT_MODULE_SURFUNSTRUCTURED=OFF
-        -DBITPIT_MODULE_VOLCARTESIAN=OFF
-        -DBITPIT_MODULE_VOLOCTREE=OFF
-        -DBITPIT_MODULE_VOLUNSTRUCTURED=OFF
-        -DBITPIT_MODULE_POINTCLOUD=OFF
-        -DBITPIT_MODULE_LINEUNSTRUCTURED=OFF
-      LOG_CONFIGURE ${DYABLO_HIDE_BITPIT_COMPILATION}
-      LOG_BUILD ${DYABLO_HIDE_BITPIT_COMPILATION}
-      LOG_INSTALL ${DYABLO_HIDE_BITPIT_COMPILATION}
-    )
-
-    list( APPEND DYABLO_EXTERNALPROJECT_DEPENDENCIES bitpit_external )
-    set( BITPIT_VERSION_SHORT "1.9" )
-    set( DYABLO_BITPIT_DIR "${CMAKE_BINARY_DIR}/external/Install/bitpit_external/lib/cmake/bitpit-${BITPIT_VERSION_SHORT}" )
-  else( DYABLO_USE_INTERNAL_BITPIT )
-    # Find installed bitpit
-    find_package(BITPIT CONFIG REQUIRED)
-    set( DYABLO_BITPIT_DIR ${BITPIT_DIR} )
-  endif()
-endif()
 
 if( DYABLO_USE_INTERNAL_KOKKOS )
   # Read list from ${Kokkos_ARCH} and set appropriate -DKokkos_ARCH_*=ON
@@ -158,8 +92,6 @@ list (APPEND DYABLO_CMAKE_ARGS_
   -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
   -DDYABLO_ENABLE_UNIT_TESTING=${DYABLO_ENABLE_UNIT_TESTING}
-  -DDYABLO_USE_PABLO=${DYABLO_USE_PABLO}
-  -DDYABLO_COMPILE_PABLO=${DYABLO_COMPILE_PABLO}
   -DDYABLO_USE_MPI=${DYABLO_USE_MPI}
   -DDYABLO_USE_HDF5=${DYABLO_USE_HDF5}
   -DDYABLO_USE_MPI_CUDA_AWARE_ENFORCED=${DYABLO_USE_MPI_CUDA_AWARE_ENFORCED}
@@ -167,7 +99,6 @@ list (APPEND DYABLO_CMAKE_ARGS_
   -DKokkos_ENABLE_CUDA=${Kokkos_ENABLE_CUDA}
   -DKokkos_ENABLE_SYCL=${Kokkos_ENABLE_SYCL}
   -DKokkos_ENABLE_HIP=${Kokkos_ENABLE_HIP}
-  -DBITPIT_DIR=${DYABLO_BITPIT_DIR}
   -DKokkos_DIR=${DYABLO_KOKKOS_DIR}
 )
 
@@ -195,7 +126,7 @@ endif()
 message(  ${DYABLO_CMAKE_ARGS_} )
 
 message( WARNING "This is not an error, just a reminder: 
-CMake superbuild is meant to help you setup dyablo by compiling dependencies (PABLO, etc...) before configuring the actual Dyablo cmake project.
+CMake superbuild is meant to help you setup dyablo by compiling dependencies before configuring the actual Dyablo cmake project.
 CMake variables are not forwarded to the actual Dyablo CMake project : if you wish to setup dyablo with custom variables (such as CMAKE_CXX_FLAGS), you need to modify the CMakeCache (with cmake-gui or ccmake for instance) from subdirectory ${CMAKE_CURRENT_BINARY_DIR}/dyablo" )
 
 if( CMAKE_CXX_FLAGS )
