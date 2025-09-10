@@ -88,9 +88,9 @@ enum VarIndex_CG
  * @param offset[in]: offset applied prior to calling the method to get iCell_U
  * @return the value of the variable at iCell_U 
 */
-template< typename Array_t >
+template< typename Array_t, typename SearchMode_t >
 KOKKOS_INLINE_FUNCTION
-real_t get_value(const Array_t& U, const CellIndex& iCell_U, VarIndex var, const CellIndex::offset_t& offset)
+real_t get_value(const Array_t& U, const CellIndex& iCell_U, VarIndex var, const CellIndex::offset_t& offset, const SearchMode_t& search_mode)
 {
   constexpr int ndim = 3;
   if( iCell_U.is_boundary() )
@@ -107,8 +107,8 @@ real_t get_value(const Array_t& U, const CellIndex& iCell_U, VarIndex var, const
   {
     real_t sum = 0;
     int nbCells =
-    foreach_smaller_neighbor<ndim, true>( // TODO : select enable_different_block=false when block-based
-      iCell_U, offset, U.getShape(), 
+    foreach_smaller_neighbor<ndim>(
+      iCell_U, offset, search_mode, 
       [&](const ForeachCell::CellIndex& iCell_ghost)
     {
       sum += U.at(iCell_ghost, var);
@@ -129,9 +129,9 @@ real_t get_value(const Array_t& U, const CellIndex& iCell_U, VarIndex var, const
  * @param boundarycondition[in]: boundary conditions to apply outside of the domain
  * @return the value of (Ax)_i with i being the value of iCell_CGdata
  */
-template< typename Array_t >
+template< typename Array_t, typename SearchMode_t >
 KOKKOS_INLINE_FUNCTION
-real_t matprod(const Array_t& GCdata, const CellIndex& iCell_CGdata, VarIndex var, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
+real_t matprod(const Array_t& GCdata, const SearchMode_t& search_neighbor, const CellIndex& iCell_CGdata, VarIndex var, real_t dx, real_t dy, real_t dz, const Kokkos::Array<BoundaryConditionType, 3>& boundarycondition)
 {
   //constexpr int ndim = 3;
 
@@ -142,8 +142,8 @@ real_t matprod(const Array_t& GCdata, const CellIndex& iCell_CGdata, VarIndex va
   {
     CellIndex::offset_t off_L{}; off_L[dir] = -1;
     CellIndex::offset_t off_R{}; off_R[dir] = +1;
-    CellIndex iCell_L = iCell_CGdata.getNeighbor_ghost(off_L, GCdata.getShape());
-    CellIndex iCell_R = iCell_CGdata.getNeighbor_ghost(off_R, GCdata.getShape());
+    CellIndex iCell_L = iCell_CGdata.getNeighbor(off_L, search_neighbor);
+    CellIndex iCell_R = iCell_CGdata.getNeighbor(off_R, search_neighbor);
     real_t S = (dx*dy*dz)/ddir[dir];
 
     real_t hl = ddir[dir];
@@ -153,8 +153,8 @@ real_t matprod(const Array_t& GCdata, const CellIndex& iCell_CGdata, VarIndex va
     if( iCell_L.level_diff()==1 ) hl *= 1.5; 
     if( iCell_R.level_diff()==1 ) hr *= 1.5;
 
-    real_t dvar_L = S*( GCdata.at(iCell_CGdata, var) - get_value( GCdata, iCell_L, var, off_L ) )/hl;
-    real_t dvar_R = S*( get_value( GCdata, iCell_R, var, off_R ) - GCdata.at(iCell_CGdata, var) )/hr;
+    real_t dvar_L = S*( GCdata.at(iCell_CGdata, var) - get_value( GCdata, iCell_L, var, off_L, search_neighbor  ) )/hl;
+    real_t dvar_R = S*( get_value( GCdata, iCell_R, var, off_R, search_neighbor ) - GCdata.at(iCell_CGdata, var) )/hr;
     
     if( boundarycondition[dir] == BC_ABSORBING && iCell_L.is_boundary() ) dvar_L = 0;
     if( boundarycondition[dir] == BC_ABSORBING && iCell_R.is_boundary() ) dvar_R = 0;
@@ -261,12 +261,14 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
   foreach_cell.reduce_cell( "Gravity_cg::init_gc", CGdata, 
     KOKKOS_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_r, real_t& update_b, real_t& update_r_dot_z )
   {
+    ForeachCell::SearchMode_neighbor search_neighbor( cells.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
     // Get gravity potential from last iteration as approximate solution
     CGdata.at(iCell_CGdata, CG_PHI) = Uin.at(iCell_CGdata, IGPHI);
     auto cell_size = cells.getCellSize(iCell_CGdata);
     real_t bi = b(Uin, iCell_CGdata, rho_mean, four_Pi_G, cell_size);
 
-    real_t r = bi - matprod(Uin, iCell_CGdata, IGPHI, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition);
+    real_t r = bi - matprod(Uin, search_neighbor, iCell_CGdata, IGPHI, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition);
     CGdata.at(iCell_CGdata, CG_IR) = r; // r = b-A*x0
     real_t z = r/Aii(Uin, iCell_CGdata, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition); // z = M^(-1)r
     //CGdata.at(iCell_CGdata, CG_IZ) = z;
@@ -295,10 +297,11 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
     foreach_cell.reduce_cell( "Gravity_cg::pAp", CGdata, 
       KOKKOS_LAMBDA(const CellIndex& iCell_CGdata, real_t& pAp)
     {
+      ForeachCell::SearchMode_neighbor search_neighbor( cells.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
       auto cell_size = cells.getCellSize(iCell_CGdata);
 
       real_t pi = CGdata.at(iCell_CGdata, CG_IP) ;
-      real_t Api = matprod(CGdata, iCell_CGdata, CG_IP, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition) ;
+      real_t Api = matprod(CGdata, search_neighbor, iCell_CGdata, CG_IP, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition) ;
       real_t piApi = pi*Api;
       pAp += piApi;
     }, Kokkos::Sum<real_t>(pAp));
@@ -313,10 +316,11 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
     foreach_cell.reduce_cell( "Gravity_cg::alpha", CGdata, 
       KOKKOS_LAMBDA(const CellIndex& iCell_CGdata, real_t& update_Rnext, real_t& update_r_dot_z_next)
     {
+      ForeachCell::SearchMode_neighbor search_neighbor( cells.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
       auto cell_size = cells.getCellSize(iCell_CGdata);
       real_t alpha = r_dot_z/pAp;
       CGdata.at(iCell_CGdata, CG_PHI) += alpha*CGdata.at(iCell_CGdata, CG_IP);
-      real_t r = CGdata.at(iCell_CGdata, CG_IR) - alpha*matprod(CGdata, iCell_CGdata, CG_IP, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition);
+      real_t r = CGdata.at(iCell_CGdata, CG_IR) - alpha*matprod(CGdata, search_neighbor, iCell_CGdata, CG_IP, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition);
       CGdata.at(iCell_CGdata, CG_IR) = r;
       real_t z = r/Aii(Uin, iCell_CGdata, cell_size[IX], cell_size[IY], cell_size[IZ], boundarycondition); // z = M^(-1)r
       //CGdata.at(iCell_CGdata, CG_IZ) = z;
@@ -360,6 +364,7 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
   foreach_cell.foreach_cell( "Gravity_cg::construct_force_field", Uout.getShape(), 
     KOKKOS_LAMBDA(const CellIndex& iCell_Uout)
   { 
+    ForeachCell::SearchMode_neighbor search_neighbor( cells.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
     auto size = cells.getCellSize(iCell_Uout);
     CellIndex iCell_CGdata = CGdata.getShape().convert_index(iCell_Uout, search_local);
 
@@ -369,10 +374,10 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
       Uout.at(iCell_Uout, IGPHI) = phi_C;
       CellIndex::offset_t off_L = {}; off_L[dir] = -1;
       CellIndex::offset_t off_R = {}; off_R[dir] = +1;
-      CellIndex iCell_L = iCell_CGdata.getNeighbor_ghost(off_L, CGdata);
-      CellIndex iCell_R = iCell_CGdata.getNeighbor_ghost(off_R, CGdata);
-      real_t phi_L = get_value( CGdata, iCell_L, CG_PHI, off_L );
-      real_t phi_R = get_value( CGdata, iCell_R, CG_PHI, off_R );
+      CellIndex iCell_L = iCell_CGdata.getNeighbor(off_L, search_neighbor);
+      CellIndex iCell_R = iCell_CGdata.getNeighbor(off_R, search_neighbor);
+      real_t phi_L = get_value( CGdata, iCell_L, CG_PHI, off_L, search_neighbor );
+      real_t phi_R = get_value( CGdata, iCell_R, CG_PHI, off_R, search_neighbor );
 
       // If neighbor is bigger h (which was dx_small) becomes ( dx_small/2 + dx_big/2 = 3/2*dx_small )
       real_t hl = size[dir];

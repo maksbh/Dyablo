@@ -98,6 +98,8 @@ public:
     foreach_cell.foreach_cell("HyperbolicUpdate_hancock_oneneighbor::compute_slopes", Q, 
       KOKKOS_LAMBDA(const CellIndex& iCell_Q)
     { 
+      ForeachCell::SearchMode_neighbor search_neighbor( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
       PrimState qC = policy.getPrimState( Q, iCell_Q );
       auto compute_slope = [&](ComponentIndex3D dir)
       {
@@ -105,7 +107,7 @@ public:
         {
           CellIndex::offset_t offset{};
           offset[dir] = side;
-          CellIndex iCell_n0 = iCell_Q.getNeighbor_ghost( offset, Q.getShape() );
+          CellIndex iCell_n0 = iCell_Q.getNeighbor( offset, search_neighbor);
           int level_diff = iCell_n0.level_diff();
 
           PrimState q;
@@ -119,7 +121,7 @@ public:
           else //if (level_diff < 0)
           {
             int subcell_count = 
-            foreach_smaller_neighbor(ndim, iCell_n0, offset, Q.getShape(),
+            foreach_smaller_neighbor(ndim, iCell_n0, offset, search_neighbor,
               [&](const CellIndex& iCell_n) {
                 PrimState qloc = policy.getPrimState(Q, iCell_n);
                 q += qloc;
@@ -164,6 +166,8 @@ public:
     foreach_cell.foreach_cell("HyperbolicUpdate_hancock_oneneighbor::flux_and_update", Q, 
       KOKKOS_LAMBDA(const CellIndex& iCell)
     { 
+      ForeachCell::SearchMode_neighbor search_neighbor( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
       ForeachCell::CellMetaData::pos_t cell_size = cellmetadata.getCellSize(iCell);
       ForeachCell::CellMetaData::pos_t pos_c = cellmetadata.getCellCenter(iCell);
 
@@ -172,7 +176,7 @@ public:
       {
         CellIndex::offset_t offset{};
         offset[dir] = sign;
-        CellIndex iCell_n0 = iCell.getNeighbor_ghost( offset, Q );
+        CellIndex iCell_n0 = iCell.getNeighbor( offset, search_neighbor );
 
         // Reconstruct state at position off{xyz} in iCell (normalized positions in [-1,1], (0,0,0) is center of cell )
         using real_offset = Kokkos::Array<real_t, 3>;
@@ -258,7 +262,7 @@ public:
           for( int8_t dj=0; dj<dj_count; dj++ )
           for( int8_t di=0; di<di_count; di++ )
           {            
-            CellIndex iCell_n = iCell_n0.getNeighbor_ghost({di,dj,dk}, Q);
+            CellIndex iCell_n = iCell_n0.getNeighbor({di,dj,dk}, search_neighbor);
 
             // Reconstruct in state at center of neighbor cell's interface
             real_offset offset_c{

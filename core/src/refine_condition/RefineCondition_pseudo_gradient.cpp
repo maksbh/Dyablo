@@ -36,6 +36,8 @@ public:
   {
     using CellIndex = ForeachCell::CellIndex;
 
+    ForeachCell::SearchMode_neighbor search_neighbor( cells.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
     /**
      * Indicator - scalar gradient.
      *
@@ -58,7 +60,7 @@ public:
     {
       CellIndex::offset_t offset{};
       offset[dir] = sign;
-      CellIndex iCell_n = iCell.getNeighbor_ghost( offset, Uin.getShape() );
+      CellIndex iCell_n = iCell.getNeighbor( offset, search_neighbor );
 
       real_t diff_max = 0;
 
@@ -79,7 +81,7 @@ public:
           for( int8_t dj=0; dj<dj_count; dj++ )
           for( int8_t di=0; di<di_count; di++ )
           {
-              CellIndex iCell_n_smaller = iCell_n.getNeighbor_ghost({di,dj,dk}, Uin.getShape()); // This assumes that siblings are in same block
+              CellIndex iCell_n_smaller = iCell_n.getNeighbor({di,dj,dk}, search_neighbor); // This assumes that siblings are in same block
               real_t diff = indicator_scalar_gradient( Uin.at(iCell, ID), Uin.at(iCell_n_smaller, ID)); 
               diff_max = FMAX( diff_max, diff );
           }

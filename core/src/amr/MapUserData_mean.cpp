@@ -17,22 +17,27 @@ public:
     : MapUserData_base( configMap, foreach_cell, timers)
   {}
   
-  // ~MapUserData_mean(){}
+  ~MapUserData_mean(){}
 
-  // void save_old_mesh() override
-  // {
-  //   MapUserData_base::save_old_mesh();
-  // }
+  void save_old_mesh(UserData& user_data) override
+  {
+    MapUserData_base::save_old_mesh(user_data);
+    this->cellmetadata_old = std::make_unique<ForeachCell::CellMetaData>(foreach_cell.getCellMetaData());
+  }
 
   void remap_aux( const UserData::FieldAccessor& Uin, const UserData::FieldAccessor& Uout, const CellIndexRemapper& remapper ) override
   {
     using CellIndex = ForeachCell::CellIndex;
     int nbfields = Uin.nbFields();
     int ndim = foreach_cell.getDim(); 
+
+    ForeachCell::CellMetaData &cellmetadata_in = *(this->cellmetadata_old);
       
     foreach_cell.foreach_cell( "MapUserData_mean::remap", Uout.getShape(),
       KOKKOS_LAMBDA( const CellIndex& iCell_Uout )
     {
+      ForeachCell::SearchMode_neighbor search_neighbor_in( cellmetadata_in.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
       CellIndex iCell_Uin = remapper.get_old_cell( iCell_Uout );
 
       if( iCell_Uin.level_diff() >= 0 )
@@ -50,13 +55,15 @@ public:
           for(int8_t dy=0; dy<2; dy++)
             for(int8_t dx=0; dx<2; dx++)
             {
-              CellIndex iCell_Uin_n = iCell_Uin.getNeighbor_ghost({dx,dy,dz}, Uin.getShape());
+              CellIndex iCell_Uin_n = iCell_Uin.getNeighbor({dx,dy,dz}, search_neighbor_in);
               for(int ivar=0; ivar<nbfields; ivar++)
                 Uout.at_ivar( iCell_Uout, ivar ) += Uin.at_ivar( iCell_Uin_n, ivar ) / nsubcells;
             }
       }
     });
   }
+protected:
+  std::unique_ptr<ForeachCell::CellMetaData> cellmetadata_old;
 };
 
 } // namespace dyablo;
