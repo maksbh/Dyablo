@@ -302,16 +302,21 @@ public:
   private:
     uint32_t _bx, _by, _bz, nbOcts;
   public:
-  IterationSpace_fullArray_impl(const CellArray_shape& iter_space)
+    IterationSpace_fullArray_impl(const CellArray_shape& iter_space)
     : _bx(iter_space.bx),_by(iter_space.by),_bz(iter_space.bz),nbOcts(ghosts?iter_space.nbGhosts:iter_space.nbOcts)
     {}
 
+    KOKKOS_INLINE_FUNCTION
     uint32_t bx() const         { return _bx; }
+    KOKKOS_INLINE_FUNCTION
     uint32_t by() const         { return _by; }
+    KOKKOS_INLINE_FUNCTION
     uint32_t bz() const         { return _bz; }
 
+    KOKKOS_INLINE_FUNCTION
     uint32_t iOct_count() const { return nbOcts;}
 
+    KOKKOS_INLINE_FUNCTION
     CellIndex getCellIndex(uint32_t iOct, uint32_t i, uint32_t j, uint32_t k) const
     {
       CellIndex iCell = {{iOct,ghosts}, i, j, k, bx(), by(), bz()};
