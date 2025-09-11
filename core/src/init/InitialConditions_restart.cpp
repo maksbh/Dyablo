@@ -92,7 +92,7 @@ public:
     hsize_t dims[rank], maxdims[rank];
     H5Sget_simple_extent_dims( filespace, dims, maxdims );
     
-    Kokkos::LayoutLeft layout_file = view.layout();
+    Kokkos::LayoutLeft layout_file{};
     for(int i=0; i<rank; i++)
         layout_file.dimension[rank-1-i] = dims[i];
     T view_file(name, layout_file);

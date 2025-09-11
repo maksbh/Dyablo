@@ -79,7 +79,7 @@ namespace userdata_utils{
     static_assert( DataArray_t::rank == DataArray_right_t::rank, "Rank Mismatch" );
 
     // Realloc U with the correct number of octants
-    auto layout_U = U.layout();
+    typename DataArray_t::array_layout layout_U{};
     for(int i=0; i<rank; i++)
     {
       if( i < iOct_pos )
@@ -130,7 +130,7 @@ namespace userdata_utils{
     static_assert( DataArray_t::rank == DataArray_right_t::rank, "Rank Mismatch" );
 
     // Realloc U_right_iOct with the correct number of octants
-    auto layout_right_iOct = U.layout();
+    typename DataArray_right_t::array_layout layout_right_iOct{};
     for(int i=0; i<rank-1; i++)
     {
       if( i < iOct_pos )
