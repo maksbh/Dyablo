@@ -18,19 +18,11 @@ public:
     foreach_cell(foreach_cell),
     ndim(configMap.getValue<int>("mesh", "ndim", 2))
   {}
-
-  /** 
-   * @brief Returns the name of all the new derived fields
-   */
+  
   std::vector<std::string> get_fields_names() const {
     return {"divB"};
   }
 
-  /**
-   * @brief Computes the derived fields and stores the result into a field
-   * 
-   * @param U the UserData structure
-   */
   void compute_derived_fields( OutputArray &out, const UserData &U ) const {
     
     using FieldAccessor = UserData::FieldAccessor;
