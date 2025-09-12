@@ -134,9 +134,9 @@ public:
     std::cout << "Initialize User Data..." << std::endl;
     ForeachCell foreach_cell(*amr_mesh, *configMap);
     U = foreach_cell.allocate_ghosted_array("U", fieldMgr);
-    int bx = U.bx;
-    int by = U.by;
-    int bz = U.bz;
+    int bx = U.getShape().bx;
+    int by = U.getShape().by;
+    int bz = U.getShape().bz;
     uint32_t nbCellsPerOct = bx*by*bz;
     auto fm = fieldMgr.get_id2index();
     { 
@@ -174,9 +174,9 @@ TEST_F(TestBoundaryConditions, getBoundaryPosAndOffset) {
   // For treating boundary conditions, indices are shifted by the size of a block
   // Hence, the inside of the block starts at i,j,k = (bx,by,bz) and ends at (2bx-1,2by-1,2bz-1) 
   // included
-  int bx=U.bx;
-  int by=U.by;
-  int bz=U.bz;
+  int bx=U.getShape().bx;
+  int by=U.getShape().by;
+  int bz=U.getShape().bz;
   CellIndex c1 = make_boundary_cellindex(0, 0, 0, -1, -1, -1, bx, by, bz);
   CellIndex c2 = make_boundary_cellindex(0, 0, 0, -2, -2, -2, bx, by, bz);
   CellIndex c3 = make_boundary_cellindex(bx-1, by-1, bz-1, 1, 1, 1, bx, by, bz);
@@ -227,9 +227,9 @@ TEST_F(TestBoundaryConditions, getBoundaryPosAndOffset) {
  */
 TEST_F(TestBoundaryConditions, absorbingBoundaries) {
   // Defining indices
-  int bx = U.bx;
-  int by = U.by;
-  int bz = U.bz;
+  int bx = U.getShape().bx;
+  int by = U.getShape().by;
+  int bz = U.getShape().bz;
   using pos_t = Kokkos::Array<int, 3>;
 
   // Cells from which the boundary cells are created
@@ -290,9 +290,9 @@ TEST_F(TestBoundaryConditions, absorbingBoundaries) {
  */
 TEST_F(TestBoundaryConditions, reflectingBoundaries) {
   // Defining indices
-  int bx = U.bx;
-  int by = U.by;
-  int bz = U.bz;
+  int bx = U.getShape().bx;
+  int by = U.getShape().by;
+  int bz = U.getShape().bz;
   using pos_t = Kokkos::Array<int, 3>;
 
   // Cells from which the boundary cells are created

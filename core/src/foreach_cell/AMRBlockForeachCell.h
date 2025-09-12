@@ -167,8 +167,6 @@ public:
   using CellArray_patch = typename PatchManager_t::CellArray_patch;
 
 private:
-  template< typename View_t >
-  using CellArray_base = AMRBlockForeachCell_CellArray_impl::CellArray_base<View_t>;
   using CData = AMRBlockForeachCell_CData;
   AMRmesh& pmesh;
   // Struct constant parameters for all patches 
@@ -263,7 +261,6 @@ public:
     uint32_t bx = cdata.bx;
     uint32_t by = cdata.by;
     uint32_t bz = cdata.bz;
-    int nbCellsPerOct = bx*by*bz;
     int nbFields = fieldMgr.nbfields();
     int nbOcts = pmesh.getNumOctants();
     int nbGhosts = pmesh.getNumGhosts();
@@ -271,12 +268,8 @@ public:
 
     DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
-    DataArrayBlock U(name, nbCellsPerOct, nbFields, nbOcts );
-    DataArrayBlock Ughost(name+"ghost", nbCellsPerOct, nbFields, nbGhosts );
-
     const LightOctree& lmesh = pmesh.getLightOctree();
-
-    return CellArray_global_ghosted(CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm}, Ughost, lmesh);
+    return CellArray_global_ghosted(name, CellArray_global_ghosted::Shape_t{{bx, by, bz, (uint32_t)nbFields, (uint32_t)nbOcts, (uint32_t)nbGhosts, (uint32_t)0}, lmesh}, fm);
   }
   /**
    * Reserve a new temporary ghosted cell array local to each patch. 
@@ -303,18 +296,48 @@ public:
     patchmanager.foreach_patch(kernel_name, f);
   }
 
+  template<bool ghosts>
+  class IterationSpace_fullArray_impl
+  {
+  private:
+    uint32_t _bx, _by, _bz, nbOcts;
+  public:
+    IterationSpace_fullArray_impl(const CellArray_shape& iter_space)
+    : _bx(iter_space.bx),_by(iter_space.by),_bz(iter_space.bz),nbOcts(ghosts?iter_space.nbGhosts:iter_space.nbOcts)
+    {}
+
+    KOKKOS_INLINE_FUNCTION
+    uint32_t bx() const         { return _bx; }
+    KOKKOS_INLINE_FUNCTION
+    uint32_t by() const         { return _by; }
+    KOKKOS_INLINE_FUNCTION
+    uint32_t bz() const         { return _bz; }
+
+    KOKKOS_INLINE_FUNCTION
+    uint32_t iOct_count() const { return nbOcts;}
+
+    KOKKOS_INLINE_FUNCTION
+    CellIndex getCellIndex(uint32_t iOct, uint32_t i, uint32_t j, uint32_t k) const
+    {
+      CellIndex iCell = {{iOct,ghosts}, i, j, k, bx(), by(), bz()};
+      return iCell;
+    }
+  };
+  using IterationSpace_fullArray = IterationSpace_fullArray_impl<false>;
+  using IterationSpace_fullArray_ghost = IterationSpace_fullArray_impl<true>;
+
   /**
    * Same as a single foreach_cell inside foreach_patch with no temporaries
    * Patch policy is ignored here
    **/
-  template <typename Function>
-  void foreach_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f) const
+  template <typename IterationSpace_t, typename Function>
+  void foreach_cell(const std::string& kernel_name, const IterationSpace_t& iter_space, const Function& f) const
   {
-    uint32_t bx = iter_space.bx;
-    uint32_t by = iter_space.by;
-    uint32_t bz = iter_space.bz;
+    uint32_t bx = iter_space.bx();
+    uint32_t by = iter_space.by();
+    uint32_t bz = iter_space.bz();
     uint32_t nbCellsPerBlock = bx*by*bz;
-    uint32_t nbOcts = pmesh.getNumOctants();
+    uint32_t nbOcts = iter_space.iOct_count();
 
     Kokkos::parallel_for( kernel_name, 
       Kokkos::RangePolicy<>(0,nbCellsPerBlock*nbOcts), 
@@ -327,39 +350,11 @@ public:
       uint32_t j = (index - k*bx*by)/bx;
       uint32_t i = index - j*bx - k*bx*by;
 
-      CellIndex iCell = {{iOct,false}, i, j, k, bx, by, bz};
+      CellIndex iCell = iter_space.getCellIndex(iOct, i, j, k);
+
       f( iCell );
     });
   }
-
-  /**
-   * Calls the user defined function f for each MPI-ghost in the current domain
-   **/
-  template <typename Function>
-  void foreach_ghost_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f) const
-  {
-    uint32_t bx = iter_space.bx;
-    uint32_t by = iter_space.by;
-    uint32_t bz = iter_space.bz;
-    uint32_t nbCellsPerBlock = bx*by*bz;
-    uint32_t nbGhosts = pmesh.getNumGhosts();
-
-    Kokkos::parallel_for( kernel_name, 
-      Kokkos::RangePolicy<>(0,nbCellsPerBlock*nbGhosts), 
-      KOKKOS_LAMBDA( uint32_t index )
-    {
-      uint32_t iOct_ghost = index/nbCellsPerBlock;
-      index = index%nbCellsPerBlock;
-
-      uint32_t k = index/(bx*by);
-      uint32_t j = (index - k*bx*by)/bx;
-      uint32_t i = index - j*bx - k*bx*by;
-
-      CellIndex iCell = {{iOct_ghost,true}, i, j, k, bx, by, bz};
-      f( iCell );
-    });
-  }
-
 
   /**
    * Call the user-defined function f for each cell and perform a reduction with the provided reducer
@@ -370,14 +365,14 @@ public:
    * @param reducer is a Kokkos reducer (eg: Kokkos::Sum<double>) this is the last parameter used in Kokkos::parallel_reduce
    *                (it cannot be just a scalar to perform the default sum operation)
    **/
-  template <typename Function, typename... Reducer_t>
-  void reduce_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f, const Reducer_t&... reducer) const
+  template <typename IterationSpace_t, typename Function, typename... Reducer_t>
+  void reduce_cell(const std::string& kernel_name, const IterationSpace_t& iter_space, const Function& f, const Reducer_t&... reducer) const
   {
-    uint32_t bx = iter_space.bx;
-    uint32_t by = iter_space.by;
-    uint32_t bz = iter_space.bz;
+    uint32_t bx = iter_space.bx();
+    uint32_t by = iter_space.by();
+    uint32_t bz = iter_space.bz();
     uint32_t nbCellsPerBlock = bx*by*bz;
-    uint32_t nbOcts = pmesh.getNumOctants();
+    uint32_t nbOcts = iter_space.iOct_count();
 
     Kokkos::parallel_reduce( kernel_name, 
       Kokkos::RangePolicy<>(0,nbCellsPerBlock*nbOcts),
@@ -390,16 +385,59 @@ public:
       uint32_t j = (index - k*bx*by)/bx;
       uint32_t i = index - j*bx - k*bx*by;
 
-      CellIndex iCell = {{iOct,false}, i, j, k, bx, by, bz};
+      CellIndex iCell = iter_space.getCellIndex(iOct, i, j, k);
       f( iCell, update... );
     }, reducer...);
   }
 
   /// Use Kokkos::Sum as default reducer for reduce_cell
-  template <typename Function, typename... Value_t>
-  void reduce_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f, Value_t&... reducer) const
+  template <typename IterationSpace_t, typename Function, typename... Value_t>
+  void reduce_cell(const std::string& kernel_name, const IterationSpace_t& iter_space, const Function& f, Value_t&... reducer) const
   {
     reduce_cell(kernel_name, iter_space, f, Kokkos::Sum<Value_t>(reducer)...);
+  }
+
+  // TODO : remove legacy functions
+  template <typename Function>
+  void foreach_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f) const
+  {
+    return foreach_cell(kernel_name, IterationSpace_fullArray(iter_space), f);
+  }
+
+  template <typename Function>
+  void foreach_cell(const std::string& kernel_name, const CellArray_global_ghosted::Shape_t& iter_space, const Function& f) const
+  {
+    return foreach_cell(kernel_name, IterationSpace_fullArray(iter_space), f);
+  }
+
+  template <typename Function>
+  void foreach_cell(const std::string& kernel_name, const CellArray_global_ghosted& iter_space, const Function& f) const
+  {
+    return foreach_cell(kernel_name, IterationSpace_fullArray(iter_space), f);
+  }
+
+  template <typename Function>
+  void foreach_ghost_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f) const
+  {
+    return foreach_cell(kernel_name, IterationSpace_fullArray_ghost(iter_space), f);
+  }
+
+  template <typename Function, typename... Reducer_t>
+  void reduce_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f, const Reducer_t&... reducer) const
+  {
+    reduce_cell(kernel_name, IterationSpace_fullArray(iter_space), f, reducer...);
+  }
+
+  template <typename Function, typename... Reducer_t>
+  void reduce_cell(const std::string& kernel_name, const CellArray_global_ghosted::Shape_t& iter_space, const Function& f, const Reducer_t&... reducer) const
+  {
+    reduce_cell(kernel_name, IterationSpace_fullArray(iter_space), f, reducer...);
+  }
+
+  template <typename Function, typename... Reducer_t>
+  void reduce_cell(const std::string& kernel_name, const CellArray_global_ghosted& iter_space, const Function& f, const Reducer_t&... reducer) const
+  {
+    reduce_cell(kernel_name, IterationSpace_fullArray(iter_space), f, reducer...);
   }
 };
 
