@@ -162,12 +162,21 @@ public:
 
     std::vector<std::string> derived_fields_ids = configMap.getValue<std::vector<std::string>>("output", "derived_fields", {});
     {
+      std::map<std::string, std::string> field_names;
       for( std::string df_id : derived_fields_ids )
       {
         derived_fields.push_back(DerivedFieldsFactory::make_instance(df_id, 
           configMap,
           foreach_cell,
           timers));
+
+        // Checking that we don't have multiple derived-fields with the same name
+        auto &df = derived_fields.back();
+        for (auto name: df->get_fields_names()) {
+          DYABLO_ASSERT_HOST_RELEASE(field_names.count(name) == 0, 
+                                     "ERROR ! Derived field " << name << " is present in plugins " << df_id << " and " << field_names[name]);
+          field_names[name] = df_id;
+        }
       }     
     } 
   }
@@ -497,6 +506,11 @@ R"xml(
       for (auto& df: derived_fields) {
         timers.get("DerivedFields").start();
         auto var_names = df->get_fields_names();
+        
+        // Checking var names are not in U
+        for (auto name: var_names)
+          DYABLO_ASSERT_HOST_RELEASE(!U_.has_field(name), "ERROR ! Derived field " << name << " is already present as an active field");
+        
         uint32_t nfields = var_names.size();
         id2index_t fm(nfields);
         CellArray_global df_data( std::string("DerivedData_")+var_names.at(0), CellArray_global::Shape_t{bx, by, bz, nfields, nbOcts_local}, fm);
