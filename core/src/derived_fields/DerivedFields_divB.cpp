@@ -1,13 +1,16 @@
-#include "PostTreatment_base.h"
+#include "DerivedFields_base.h"
 #include "../foreach_cell/ForeachCell_utils.h"
 
 namespace dyablo {
 
-class PostTreatment_divB : public PostTreatment
+/**
+ * @brief Derived field plugin computing the divergence of the magnetic field
+ */
+class DerivedFields_divB : public DerivedFields
 {
 public:
 
-  PostTreatment_divB(
+  DerivedFields_divB(
         ConfigMap& configMap, 
         ForeachCell& foreach_cell,  
         Timers& timers )
@@ -17,18 +20,18 @@ public:
   {}
 
   /** 
-   * @brief Returns the name of all the fields used by this post-treatment
+   * @brief Returns the name of all the new derived fields
    */
   std::vector<std::string> get_fields_names() const {
     return {"divB"};
   }
 
   /**
-   * @brief Computes the post-treatment and stores the result into a field
+   * @brief Computes the derived fields and stores the result into a field
    * 
    * @param U the UserData structure
    */
-  void compute_post_treatment( OutputArray &out, const UserData &U ) const {
+  void compute_derived_fields( OutputArray &out, const UserData &U ) const {
     
     using FieldAccessor = UserData::FieldAccessor;
     using CellIndex = ForeachCell::CellIndex;
@@ -45,7 +48,7 @@ public:
 
     int ndim = this->ndim;
 
-    foreach_cell.foreach_cell("PostTreatment divB",
+    foreach_cell.foreach_cell("DerivedFields::divB",
                               Uin.getShape(),
                               CELL_LAMBDA(const CellIndex &iCell) 
     {
@@ -136,6 +139,6 @@ private:
 
 } //namespace dyablo
 
-FACTORY_REGISTER(dyablo::PostTreatmentFactory, 
-                 dyablo::PostTreatment_divB, 
-                 "PostTreatment_divB");
+FACTORY_REGISTER(dyablo::DerivedFieldsFactory, 
+                 dyablo::DerivedFields_divB, 
+                 "DerivedFields_divB");

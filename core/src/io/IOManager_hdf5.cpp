@@ -14,7 +14,7 @@
 #include "utils/monitoring/Timers.h"
 #include "utils/config/named_enum.h"
 
-#include "post_treatments/PostTreatment.h"
+#include "derived_fields/DerivedFields.h"
 
 #include "filesystem"
 
@@ -160,11 +160,11 @@ public:
     std::string filepath = output_dir + "/" + filename_prefix;
     main_xdmf_fd = MainXmfFile( filepath + "_main.xmf" );
 
-    std::vector<std::string> post_treatments_ids = configMap.getValue<std::vector<std::string>>("output", "post_treatments", {});
+    std::vector<std::string> derived_fields_ids = configMap.getValue<std::vector<std::string>>("output", "derived_fields", {});
     {
-      for( std::string pt_id : post_treatments_ids )
+      for( std::string df_id : derived_fields_ids )
       {
-        post_treatments.push_back(PostTreatmentFactory::make_instance(pt_id, 
+        derived_fields.push_back(DerivedFieldsFactory::make_instance(df_id, 
           configMap,
           foreach_cell,
           timers));
@@ -200,7 +200,7 @@ private:
 
   OutputRealType output_real_type;
 
-  std::vector<std::unique_ptr<PostTreatment>> post_treatments;
+  std::vector<std::unique_ptr<DerivedFields>> derived_fields;
 };
 
 namespace{
@@ -333,10 +333,10 @@ R"xml(
       } 
     }
 
-    // Adding post-treatment variables
-    for (auto &p: post_treatments) {
-      auto post_treatment_var_names = p->get_fields_names();
-      for (auto var_name: post_treatment_var_names) {
+    // Adding derived-fields variables
+    for (auto &df: derived_fields) {
+      auto derived_fields_names = df->get_fields_names();
+      for (auto var_name: derived_fields_names) {
         output_attr_xml(xmf_type_attr<output_real_t>(), var_name);
       }
     }
@@ -488,30 +488,30 @@ R"xml(
       }
     }   
 
-    // Outputting post-treatments
+    // Outputting derived-fields
     {
       using CellArray_global = ForeachCell::CellArray_global;
       using CellIndex = ForeachCell::CellIndex;
 
-      Kokkos::View<output_real_t*, Kokkos::LayoutLeft> tmp_view("PostTreatmentData", local_num_cells);
-      for (auto& p: post_treatments) {
-        timers.get("PostTreatment").start();
-        auto var_names = p->get_fields_names();
+      Kokkos::View<output_real_t*, Kokkos::LayoutLeft> tmp_view("DerivedFieldsData", local_num_cells);
+      for (auto& df: derived_fields) {
+        timers.get("DerivedFields").start();
+        auto var_names = df->get_fields_names();
         uint32_t nfields = var_names.size();
         id2index_t fm(nfields);
-        CellArray_global post_data( std::string("DerivedData_")+var_names.at(0), CellArray_global::Shape_t{bx, by, bz, nfields, nbOcts_local}, fm);
-        p->compute_post_treatment( post_data, U_ );
+        CellArray_global df_data( std::string("DerivedData_")+var_names.at(0), CellArray_global::Shape_t{bx, by, bz, nfields, nbOcts_local}, fm);
+        df->compute_derived_fields( df_data, U_ );
 
         for (int id_var=0; id_var < nfields; id_var++) {
           foreach_cell.foreach_cell("Convert to output format", 
-                                    post_data.getShape(), 
+                                    df_data.getShape(), 
                                     CELL_LAMBDA(const CellIndex &iCell) {
                                       uint32_t iCell_lin = linearize_iCell( iCell );
-                                      tmp_view(iCell_lin) = static_cast<output_real_t>(post_data.at_ivar(iCell, id_var));
+                                      tmp_view(iCell_lin) = static_cast<output_real_t>(df_data.at_ivar(iCell, id_var));
                                     });
           hdf5_writer.collective_write( var_names[id_var], tmp_view );
         }
-        timers.get("PostTreatment").stop();
+        timers.get("DerivedFields").stop();
       }
     }
   }

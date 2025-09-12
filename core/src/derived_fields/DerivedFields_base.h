@@ -12,19 +12,19 @@
 namespace dyablo{
 
 
-class PostTreatment{
+class DerivedFields{
 public:
   using OutputArray = ForeachCell::CellArray_global;
-  // PostTreatment(
+  // DerivedFields(
   //     ConfigMap& configMap,
   //     ForeachCell& foreach_cell,  
   //     Timers& timers);
   virtual std::vector<std::string> get_fields_names() const = 0;
-  virtual void compute_post_treatment( OutputArray &out, const UserData &U ) const = 0;
-  virtual ~PostTreatment(){}
+  virtual void compute_derived_fields( OutputArray &out, const UserData &U ) const = 0;
+  virtual ~DerivedFields(){}
 };
 
-using PostTreatmentFactory = RegisteringFactory<PostTreatment, 
+using DerivedFieldsFactory = RegisteringFactory<DerivedFields, 
   ConfigMap&,
   ForeachCell&, 
   Timers&>;
