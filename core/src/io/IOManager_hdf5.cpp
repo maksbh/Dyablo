@@ -14,6 +14,8 @@
 #include "utils/monitoring/Timers.h"
 #include "utils/config/named_enum.h"
 
+#include "derived_fields/DerivedFields.h"
+
 #include "filesystem"
 
 enum OutputRealType {
@@ -157,6 +159,26 @@ public:
 
     std::string filepath = output_dir + "/" + filename_prefix;
     main_xdmf_fd = MainXmfFile( filepath + "_main.xmf" );
+
+    std::vector<std::string> derived_fields_ids = configMap.getValue<std::vector<std::string>>("output", "derived_fields", {});
+    {
+      std::map<std::string, std::string> field_names;
+      for( std::string df_id : derived_fields_ids )
+      {
+        derived_fields.push_back(DerivedFieldsFactory::make_instance(df_id, 
+          configMap,
+          foreach_cell,
+          timers));
+
+        // Checking that we don't have multiple derived-fields with the same name
+        auto &df = derived_fields.back();
+        for (auto name: df->get_fields_names()) {
+          DYABLO_ASSERT_HOST_RELEASE(field_names.count(name) == 0, 
+                                     "ERROR ! Derived field " << name << " is present in plugins " << df_id << " and " << field_names[name]);
+          field_names[name] = df_id;
+        }
+      }     
+    } 
   }
 
   void save_snapshot( const UserData& U_, ScalarSimulationData& scalar_data )
@@ -186,6 +208,8 @@ private:
   const real_t zmin, zmax;
 
   OutputRealType output_real_type;
+
+  std::vector<std::unique_ptr<DerivedFields>> derived_fields;
 };
 
 namespace{
@@ -279,9 +303,7 @@ R"xml(<?xml version="1.0" ?>
       base_filename.c_str()
     );
 
-    for( const std::string& var_name : write_varnames )
-    {
-      auto output_attr_xml = [&]( const std::string& type_str )
+    auto output_attr_xml = [&]( const std::string& type_str, const std::string &var_name )
       {
         fprintf(fd, 
 R"xml(
@@ -296,26 +318,36 @@ R"xml(
         );
       };
 
+    for( const std::string& var_name : write_varnames )
+    {
       if( var_name == "ioct" )
       {
-        output_attr_xml(xmf_type_attr<uint64_t>());       
+        output_attr_xml(xmf_type_attr<uint64_t>(), var_name);       
       }
       else if( var_name == "level" )
       {
-        output_attr_xml(xmf_type_attr<LightOctree::level_t>());       
+        output_attr_xml(xmf_type_attr<LightOctree::level_t>(), var_name);       
       }
       else if( var_name == "rank" )
       {
-        output_attr_xml(xmf_type_attr<int>());       
+        output_attr_xml(xmf_type_attr<int>(), var_name);       
       }
       else if( U_.has_field(var_name) )
       {
-        output_attr_xml(xmf_type_attr<output_real_t>());
+        output_attr_xml(xmf_type_attr<output_real_t>(), var_name);
       }
       else
       {
         std::cout << "WARNING : Output variable requested but not enabled : '" << var_name << "'" << std::endl; 
       } 
+    }
+
+    // Adding derived-fields variables
+    for (auto &df: derived_fields) {
+      auto derived_fields_names = df->get_fields_names();
+      for (auto var_name: derived_fields_names) {
+        output_attr_xml(xmf_type_attr<output_real_t>(), var_name);
+      }
     }
 
     fprintf(fd, 
@@ -448,7 +480,7 @@ R"xml(
         hdf5_writer.collective_write("rank", rank);
       }
       else
-      { 
+      {
         if( U_.has_field(var_name) )
         { 
           Kokkos::View< output_real_t*, Kokkos::LayoutLeft > tmp_view(var_name, local_num_cells);
@@ -464,6 +496,38 @@ R"xml(
         }
       }
     }   
+
+    // Outputting derived-fields
+    {
+      using CellArray_global = ForeachCell::CellArray_global;
+      using CellIndex = ForeachCell::CellIndex;
+
+      Kokkos::View<output_real_t*, Kokkos::LayoutLeft> tmp_view("DerivedFieldsData", local_num_cells);
+      for (auto& df: derived_fields) {
+        timers.get("DerivedFields").start();
+        auto var_names = df->get_fields_names();
+        
+        // Checking var names are not in U
+        for (auto name: var_names)
+          DYABLO_ASSERT_HOST_RELEASE(!U_.has_field(name), "ERROR ! Derived field " << name << " is already present as an active field");
+        
+        uint32_t nfields = var_names.size();
+        id2index_t fm(nfields);
+        CellArray_global df_data( std::string("DerivedData_")+var_names.at(0), CellArray_global::Shape_t{bx, by, bz, nfields, nbOcts_local}, fm);
+        df->compute_derived_fields( df_data, U_ );
+
+        for (int id_var=0; id_var < nfields; id_var++) {
+          foreach_cell.foreach_cell("Convert to output format", 
+                                    df_data.getShape(), 
+                                    CELL_LAMBDA(const CellIndex &iCell) {
+                                      uint32_t iCell_lin = linearize_iCell( iCell );
+                                      tmp_view(iCell_lin) = static_cast<output_real_t>(df_data.at_ivar(iCell, id_var));
+                                    });
+          hdf5_writer.collective_write( var_names[id_var], tmp_view );
+        }
+        timers.get("DerivedFields").stop();
+      }
+    }
   }
 
   for( const auto& p : write_particle_attributes )
