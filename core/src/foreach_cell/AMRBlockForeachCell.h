@@ -405,6 +405,12 @@ public:
   }
 
   template <typename Function>
+  void foreach_cell(const std::string& kernel_name, const CellArray_global::Shape_t& iter_space, const Function& f) const
+  {
+    return foreach_cell(kernel_name, IterationSpace_fullArray(iter_space), f);
+  }
+
+  template <typename Function>
   void foreach_cell(const std::string& kernel_name, const CellArray_global_ghosted::Shape_t& iter_space, const Function& f) const
   {
     return foreach_cell(kernel_name, IterationSpace_fullArray(iter_space), f);
