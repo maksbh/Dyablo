@@ -1,5 +1,5 @@
 #include "DerivedFields_base.h"
-#include "../foreach_cell/ForeachCell_utils.h"
+#include "foreach_cell/ForeachCell_utils.h"
 
 namespace dyablo {
 
