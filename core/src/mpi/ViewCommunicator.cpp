@@ -23,7 +23,7 @@ void ViewCommunicator::private_init_domains(const Kokkos::View< int* > domains)
     domains.size(),
     KOKKOS_LAMBDA( int i )
   {
-    Kokkos::atomic_increment( &send_sizes( domains(i) ) );
+    Kokkos::atomic_inc( &send_sizes( domains(i) ) );
   });
   Kokkos::deep_copy( send_sizes_host, send_sizes );
   
