@@ -56,14 +56,17 @@ def read_config(filename) :
     Ny = by*cor_y
     Nz = bz*cor_z
 
+    dx = (xmax-xmin)/Nx
+    dy = (ymax-ymin)/Ny
     dz = (zmax-zmin)/Nz
-    
+
     source_position = config.getfloat('rad', 'source_position')
     spawn_rate = config.getfloat('rad', 'spawn_rate')
     ctilde = config.getfloat('cosmology', 'ctilde')
 
     conf = {"bx":bx, "by":by, "bz":bz, "lmin":lmin, "lmax":lmax, "cor_x":cor_x, "cor_y":cor_y, 
-            "cor_z":cor_z, "xmin":xmin, "xmax":xmax, "ymin":ymin, "ymax":ymax, "zmin":zmin, "zmax":zmax, "Nx":Nx, "Ny":Ny, "Nz":Nz, "dz":dz,
+            "cor_z":cor_z, "xmin":xmin, "xmax":xmax, "ymin":ymin, "ymax":ymax, "zmin":zmin, "zmax":zmax, "Nx":Nx, "Ny":Ny, "Nz":Nz, 
+            "dx":dx, "dy":dy, "dz":dz,
             "source_position":source_position, "spawn_rate":spawn_rate, "ctilde":ctilde}
 
     return conf
@@ -75,7 +78,7 @@ def read_config(filename) :
 def compute_diff(files, conf) :
 
   # Middle position in pixels
-  pos = (int)(conf["Nx"]/2)
+  pos = (int)(conf["Ny"]/2)
 
   # x position of the source in Mpc
   x0 = conf["source_position"]/5
@@ -87,7 +90,7 @@ def compute_diff(files, conf) :
 
   for f in files:
   
-      dx3 = conf['xmax'] * conf['xmax'] * conf['xmax'] /conf['Nx']/conf['Nx']/conf['Nx'] 
+      volume = (conf['xmax']-conf['xmin']) * (conf['ymax']-conf['ymin'])  * (conf['zmax']-conf['zmin'])  /conf['Nx']/conf['Ny']/conf['Nz']
       
       # Read snapshot
       snap = reader.readSnapshot(f) 
@@ -103,13 +106,13 @@ def compute_diff(files, conf) :
       t = snap.getTime()
       
       nb_photons_theo = conf["spawn_rate"] * t
-      nb_photons = np.sum(erad)*dx3
+      nb_photons = np.sum(erad)*volume
 
       # Distance = x0 + (vitesse de la lumière x temps de simu)
       distance_theo = x0 + t*ctilde 
 
       # Compute derivative
-      x = np.linspace(conf["xmin"], conf["xmax"], conf["Nz"])
+      x = np.linspace(conf["xmin"], conf["xmax"], conf["Nx"])
       dx = np.diff(x,1)
       dy = np.diff(sum,1)
       dv = np.array(dy/dx)
