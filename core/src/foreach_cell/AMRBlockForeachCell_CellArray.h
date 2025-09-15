@@ -211,7 +211,7 @@ struct CellIndex
     int32_t j = this->j + offset[IY];
     int32_t k = this->k + offset[IZ];
 
-    if( i<0 || i>=bx || j<0 || j>=by || k<0 || k>=bz )
+    if( i<0 || i>=(int32_t)bx || j<0 || j>=(int32_t)by || k<0 || k>=(int32_t)bz )
     {
       // Index is outside of block : find neighbor?
       if constexpr (std::is_same_v<SearchMode, SearchMode_local>)
@@ -457,6 +457,9 @@ struct CellArray_shape
     int32_t i = in.i + gx;
     int32_t j = in.j + gy;
     int32_t k = in.k + gz;
+    int32_t bx = this->bx;
+    int32_t by = this->by;
+    int32_t bz = this->bz;
 
     if( i<0 || i>=bx || j<0 || j>=by || k<0 || k>=bz )
     { 
@@ -614,7 +617,7 @@ public:
   }
 
   KOKKOS_INLINE_FUNCTION
-  real_t& at_ivar( const CellIndex& iCell, int ivar ) const
+  real_t& at_ivar( const CellIndex& iCell, uint32_t ivar ) const
   {
     DYABLO_ASSERT_KOKKOS_DEBUG(ivar < shape.nbFields, "at_ivar : out of range");
     DYABLO_ASSERT_KOKKOS_DEBUG(shape.bx == iCell.bx, "bx mismatch icell vs array");

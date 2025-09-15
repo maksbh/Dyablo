@@ -516,7 +516,7 @@ R"xml(
         CellArray_global df_data( std::string("DerivedData_")+var_names.at(0), CellArray_global::Shape_t{bx, by, bz, nfields, nbOcts_local}, fm);
         df->compute_derived_fields( df_data, U_ );
 
-        for (int id_var=0; id_var < nfields; id_var++) {
+        for (uint32_t id_var=0; id_var < nfields; id_var++) {
           foreach_cell.foreach_cell("Convert to output format", 
                                     df_data.getShape(), 
                                     CELL_LAMBDA(const CellIndex &iCell) {

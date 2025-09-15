@@ -43,7 +43,7 @@ inline void output_vtk( const std::string& name, AMRmesh& mesh )
   const LightOctree& lmesh = mesh.getLightOctree();
 
   Kokkos::parallel_for( "init_vtk_arrays", nofCubes,
-    KOKKOS_LAMBDA( int i )
+    KOKKOS_LAMBDA( uint32_t i )
   {
     bool isGhost = i>=nbOcts;
     LightOctree::OctantIndex iOct { i - isGhost*nbOcts, isGhost };
