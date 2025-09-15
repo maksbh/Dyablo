@@ -355,3 +355,196 @@ TEST(dyablo, test_GhostCommunicator_partial_blocks_reduce)
   using namespace dyablo;
   run_test_reduce_partial_blocks<GhostCommunicator_impl<GhostCommunicator_partial_blocks>>();
 }
+
+template< typename GhostCommunicator_t >
+void test_GhostCommunicator_subset()
+{
+  using namespace dyablo;
+
+  std::cout << "// =========================================\n";
+  std::cout << "// Testing GhostCommunicator ("<<GhostCommunicator_t::name()<<") ...\n";
+  std::cout << "// =========================================\n";
+
+  std::cout << "Create mesh..." << std::endl;
+  std::shared_ptr<AMRmesh> amr_mesh; //solver->amr_mesh 
+  {
+    int ndim = 3;
+    amr_mesh = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{false,false,false}, 3, 7);
+    //amr_mesh->setBalanceCodimension(ndim);
+    //uint32_t idx = 0;
+    //amr_mesh->setBalance(idx,true);
+    // mr_mesh->setPeriodic(0);
+    // amr_mesh->setPeriodic(1);
+    // amr_mesh->setPeriodic(2);
+    // amr_mesh->setPeriodic(3);
+    //amr_mesh->setPeriodic(4);
+    //amr_mesh->setPeriodic(5);
+
+    debug::output_vtk("before_initial", *amr_mesh);
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt1", *amr_mesh);
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt2", *amr_mesh);
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt3", *amr_mesh);
+    if( amr_mesh->getMpiComm().MPI_Comm_rank() == 0 )
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+    amr_mesh->adapt();
+    debug::output_vtk("after_adapt4", *amr_mesh);
+  }
+
+  uint32_t bx = 8;
+  uint32_t by = 8;
+  uint32_t bz = 8;
+  ConfigMap configMap ("");
+  configMap.getValue<uint32_t>("amr", "bx", bx);
+  configMap.getValue<uint32_t>("amr", "by", by);
+  configMap.getValue<uint32_t>("amr", "bz", bz);
+  
+  ForeachCell foreach_cell(*amr_mesh, configMap);  
+  UserData U ( configMap, foreach_cell );
+
+  const LightOctree& lmesh = amr_mesh->getLightOctree();
+
+  U.new_fields({"px", "level", "py", "pz"});
+
+  enum VarIndex_test{Px,Py,Pz,Level};
+  UserData::FieldAccessor Ua = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+  UserData::FieldAccessor Ulevel = U.getAccessor( {{"level", Level}} );
+
+  for( int level=amr_mesh->get_level_min(); level<=amr_mesh->get_level_max(); level++ )
+  {
+    std::cout << "Initialize User Data level " << level << " ..." << std::endl;
+
+    { // Initialize U
+      const ForeachCell::CellMetaData& cells = foreach_cell.getCellMetaData();
+      foreach_cell.foreach_cell( "Init_U", U.getShape(),
+        KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
+      {
+        auto c = cells.getCellCenter( iCell );
+        Ua.at(iCell, Px) = c[IX];
+        Ua.at(iCell, Py) = c[IY];
+        Ua.at(iCell, Pz) = c[IZ];
+        Ulevel.at(iCell, Level) = level;
+      });
+    }
+
+    GhostCommunicator_t ghost_communicator( *amr_mesh, U.getShape(), 2 );
+    // Compute subset ghosts at level
+    uint32_t nbGhosts_level = 0;
+    Kokkos::parallel_reduce( "count_ghosts_at_level", lmesh.getNumGhosts(),
+      KOKKOS_LAMBDA( uint32_t iOct, uint32_t& nbGhosts_level )
+    {
+      if( lmesh.getLevel({iOct, true}) == level )
+        nbGhosts_level++;
+    }, nbGhosts_level);
+    Kokkos::View<uint32_t*> subset_iocts("subset_iocts", nbGhosts_level);
+    Kokkos::parallel_scan( "count_ghosts_at_level", lmesh.getNumGhosts(),
+      KOKKOS_LAMBDA( uint32_t iOct, uint32_t& iGhost_level, bool final )
+    {
+      if( lmesh.getLevel({iOct, true}) == level )
+      {
+        if( final )
+          subset_iocts( iGhost_level ) = iOct;
+        iGhost_level++;
+      }
+    });    
+    // Create subset
+    using Subset_t = typename GhostCommunicator_t::OctSubset;
+    Subset_t subset_level( ghost_communicator, subset_iocts );
+    
+    ghost_communicator.exchange_ghosts( Ua );
+    ghost_communicator.exchange_ghosts_subset( Ulevel, subset_level );
+  }
+
+  // test that ghosts have the right value
+  auto cells = foreach_cell.getCellMetaData();
+
+  int error_count = 0;
+  foreach_cell.reduce_cell( "test_neighbors", Ua.getShape(),
+    KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell, int& error_count )
+  {
+    ForeachCell::SearchMode_neighbor search_neighbor( cells.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
+    auto check_value = [&](const CellIndex& iCell)
+    {
+      auto test_equal = [&](real_t a, real_t b)
+      {
+        //EXPECT_DOUBLE_EQ(a, b);
+        if( a != b )
+        {
+          error_count++;
+          printf("%f != %f\n", a, b);
+        }
+      };
+
+      auto pos = cells.getCellCenter(iCell);
+      test_equal( pos[IX], Ua.at(iCell, Px) );
+      test_equal( pos[IY], Ua.at(iCell, Py) );
+      test_equal( pos[IZ], Ua.at(iCell, Pz) );
+
+      if(iCell.iOct.isGhost)
+        test_equal( iCell.iOct.isGhost?lmesh.getLevel(iCell.iOct):6.0, Ulevel.at(iCell, Level) );
+    }; 
+
+    auto test_offset = [&]( CellIndex::offset_t offset, int ghost_width )
+    {
+      CellIndex iCell_n = iCell.getNeighbor( offset, search_neighbor );
+      if( !iCell_n.is_local() && !iCell_n.is_boundary() )
+      {
+        if( iCell_n.level_diff() >= 0 )
+        {
+          check_value(iCell_n);
+
+          // Check other neighbors (in same block)
+          for( int i=1; i<ghost_width; i++ )
+          {
+            CellIndex::offset_t offset_nn{(int8_t)(offset[IX]*i),(int8_t)(offset[IY]*i),(int8_t)(offset[IZ]*i)};
+            CellIndex iCell_nn = iCell_n + offset_nn;
+
+            check_value(iCell_nn);
+          }
+        }
+        else
+        {
+          foreach_smaller_neighbor<3>( iCell_n, offset, search_neighbor,
+          [&]( const CellIndex& iCell_ns )
+          {
+            check_value(iCell_ns);
+
+            // Check other neighbors (in same block)
+            for( int i=1; i<ghost_width; i++ )
+            {
+              CellIndex::offset_t offset_nn{(int8_t)(offset[IX]*i),(int8_t)(offset[IY]*i),(int8_t)(offset[IZ]*i)};
+              CellIndex iCell_nn = iCell_ns + offset_nn;
+
+              check_value(iCell_nn);
+            }
+          });    
+        }
+      }
+    };
+
+    test_offset( { 1, 0, 0}, 2 );
+    test_offset( {-1, 0, 0}, 2 );
+    test_offset( { 0, 1, 0}, 2 );
+    test_offset( { 0,-1, 0}, 2 );
+    test_offset( { 0, 0, 1}, 2 );
+    test_offset( { 0, 0,-1}, 2 );
+    
+  }, error_count);
+
+  EXPECT_EQ(0, error_count);
+}
+
+TEST(dyablo, test_GhostCommunicator_full_blocks_subset)
+{
+  using namespace dyablo;
+  test_GhostCommunicator_subset<GhostCommunicator_impl<GhostCommunicator_full_blocks>>();
+}

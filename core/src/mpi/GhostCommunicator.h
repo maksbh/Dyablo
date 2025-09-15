@@ -11,7 +11,7 @@ template< typename Impl >
 /***
  * Interface to implement for a GhostCommunicator
  ***/
-class GhostCommunicator_impl : protected Impl
+class GhostCommunicator_impl : public Impl
 {
 public:
   /**
@@ -38,6 +38,8 @@ public:
     return Impl::getNumGhosts();
   }
 
+  using OctSubset = typename Impl::OctSubset;
+
   /***
    * Send ghosts cells for the selected Fields in the accessor
    * Ghosts from other fields in UserData WILL NOT be modified
@@ -57,6 +59,11 @@ public:
   void exchange_ghosts( const ForeachCell::CellArray_global_ghosted& U ) const
   {
     Impl::exchange_ghosts(U);
+  }
+
+  void exchange_ghosts_subset( const UserData::FieldAccessor& U, const OctSubset& subset ) const
+  {
+    Impl::exchange_ghosts_subset(U, subset);
   }
 
 

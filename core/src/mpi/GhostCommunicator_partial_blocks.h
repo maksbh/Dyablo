@@ -108,6 +108,14 @@ public:
       });
     }
 
+    struct OctSubset
+    {
+      OctSubset(const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts );
+    };
+
+    template< typename CellArray_t >
+    void exchange_ghosts_subset( const CellArray_t& U, const OctSubset& subset ) const;
+
     /**
      * TODO : doc
      **/
