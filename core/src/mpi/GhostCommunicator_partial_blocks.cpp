@@ -2,6 +2,21 @@
 
 namespace dyablo {
 
+struct GhostCommunicator_partial_blocks::Pdata
+{
+  MpiComm mpi_comm;
+
+  uint32_t m_local_ghost_octants; // Number of octants to allocate for ghosts
+  std::vector<int> m_send_cell_count; // number of cells to send to each process
+  std::vector<int> m_recv_cell_count; // number of cells to recv from each process
+  Kokkos::View< uint32_t* > m_send_iOct; // send_iOct(ighost) iOct of cell to pack to position ighost in send buffer
+  Kokkos::View< uint32_t* > m_send_iCell; // send_iCell(ighost) iCell of cell to pack to position ighost in send buffer
+  Kokkos::View< uint32_t* > m_recv_iOct; // recv_iOct(ighost) iOct of cell to unpack from position ighost in recv buffer
+  Kokkos::View< uint32_t* > m_recv_iCell; // recv_iCell(ighost) iCell of cell to unpack from position ighost in recv buffer
+};
+
+namespace{
+
 void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t ghost_count, 
                                 Kokkos::View<uint32_t*>& facemask_count, Kokkos::View<uint32_t**, Kokkos::LayoutRight>& facemask_iCells )
 {
@@ -99,13 +114,7 @@ void precompute_facemask_cells( uint32_t bx, uint32_t by, uint32_t bz, uint32_t 
 }
 
 
-GhostCommunicator_partial_blocks::GhostCommunicator_partial_blocks( const AMRmesh& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm )
-  : mpi_comm(mpi_comm)
-{
-  init(amr_mesh, shape, ghost_count, mpi_comm);
-}
-
-void GhostCommunicator_partial_blocks::init( const AMRmesh& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm )
+void init( GhostCommunicator_partial_blocks::Pdata& pdata, const AMRmesh& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm )
 {
   using GhostMap_t = AMRmesh::GhostMap_t;
 
@@ -255,13 +264,204 @@ void GhostCommunicator_partial_blocks::init( const AMRmesh& amr_mesh, const Fore
     });
   }
 
-  this->m_send_cell_count = send_sizes;
-  this->m_recv_cell_count = recv_sizes;
-  this->m_send_iOct = send_iOct;
-  this->m_send_iCell = send_iCell; 
-  this->m_recv_iOct = recv_iOcts;
-  this->m_recv_iCell = recv_iCell;
-  this->m_local_ghost_octants = local_octant_count;
+  pdata.m_send_cell_count = send_sizes;
+  pdata.m_recv_cell_count = recv_sizes;
+  pdata.m_send_iOct = send_iOct;
+  pdata.m_send_iCell = send_iCell; 
+  pdata.m_recv_iOct = recv_iOcts;
+  pdata.m_recv_iCell = recv_iCell;
+  pdata.m_local_ghost_octants = local_octant_count;
+}
+
+template< typename CellArray_t >
+void exchange_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, const CellArray_t& U)
+{
+  using CellIndex = ForeachCell::CellIndex;
+
+  uint32_t num_vars = U.nbFields(); // number of vars for each cell
+
+  // Number of values to send are cell_count * num_vars 
+  std::vector<int> send_sizes = pdata.m_send_cell_count;
+  for( auto& v : send_sizes )
+    v*=num_vars;
+  std::vector<int> recv_sizes = pdata.m_recv_cell_count;  
+  for( auto& v : recv_sizes )
+    v*=num_vars;
+
+  const Kokkos::View< uint32_t* >& send_iOct = pdata.m_send_iOct;
+  const Kokkos::View< uint32_t* >& send_iCell = pdata.m_send_iCell;
+  const Kokkos::View< uint32_t* >& recv_iOct = pdata.m_recv_iOct;
+  const Kokkos::View< uint32_t* >& recv_iCell = pdata.m_recv_iCell;
+  uint32_t total_send_size = send_iOct.size(), total_recv_size = recv_iOct.size(); // send/recv buffer size (number of cells)    
+  uint32_t bx=U.getShape().bx, by=U.getShape().by, bz=U.getShape().bz ; // Block size
+
+  if( num_vars*total_send_size == 0 )
+    return;
+
+  Kokkos::View< real_t*, Kokkos::LayoutLeft > send_buffer("exchange_ghosts::send_buffer", num_vars*total_send_size );
+
+  Kokkos::parallel_for("exchange_ghosts::pack", total_send_size*num_vars,
+    KOKKOS_LAMBDA( uint32_t ipack )
+  {
+    uint32_t ighost = ipack/num_vars;
+    uint32_t ivar = ipack%num_vars;
+
+    uint32_t iOct = send_iOct(ighost);
+    uint32_t iCell = send_iCell(ighost);
+    uint32_t i = iCell%bx; 
+    uint32_t j = (iCell/bx)%by; 
+    uint32_t k = (iCell/bx)/by;
+
+    CellIndex cell_index { {iOct, false}, i, j, k, bx, by, bz };
+    send_buffer( ipack ) = U.at_ivar( cell_index, ivar );
+  });
+
+
+  Kokkos::View< real_t* > recv_buffer("exchange_ghosts::recv_buffer", num_vars*total_recv_size ); 
+#ifdef MPI_IS_CUDA_AWARE 
+  Kokkos::fence();
+  pdata.mpi_comm.MPI_Alltoallv( send_buffer.data(), send_sizes.data(), recv_buffer.data(), recv_sizes.data() );
+  Kokkos::fence();
+#else
+  {
+    auto send_buffer_host = Kokkos::create_mirror_view(send_buffer);
+    auto recv_buffer_host = Kokkos::create_mirror_view(recv_buffer);
+
+    Kokkos::deep_copy(send_buffer_host, send_buffer);
+    pdata.mpi_comm.MPI_Alltoallv( send_buffer_host.data(), send_sizes.data(), recv_buffer_host.data(), recv_sizes.data() );
+    Kokkos::deep_copy(recv_buffer, recv_buffer_host);
+  }  
+#endif
+
+  Kokkos::parallel_for("exchange_ghosts::unpack", total_recv_size*num_vars,
+    KOKKOS_LAMBDA( uint32_t ipack )
+  {
+    uint32_t ighost = ipack/num_vars;
+    uint32_t ivar = ipack%num_vars;
+
+    uint32_t iOct = recv_iOct(ighost);
+    uint32_t iCell = recv_iCell(ighost);
+    uint32_t i = iCell%bx; 
+    uint32_t j = (iCell/bx)%by; 
+    uint32_t k = (iCell/bx)/by;
+
+    CellIndex cell_index { {iOct, true}, i, j, k, bx, by, bz };
+    U.at_ivar( cell_index, ivar ) = recv_buffer( ipack );
+  });
+}
+
+template< typename CellArray_t >
+void reduce_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, CellArray_t& U)
+{
+  using CellIndex = ForeachCell::CellIndex;
+
+  uint32_t num_vars = U.nbFields(); // number of vars for each cell
+
+  // Note : sends and recvs counts are swapped for reduce
+
+  // Number of values to send are cell_count * num_vars 
+  std::vector<int> send_sizes = pdata.m_recv_cell_count;
+  for( auto& v : send_sizes )
+    v*=num_vars;
+  std::vector<int> recv_sizes = pdata.m_send_cell_count;  
+  for( auto& v : recv_sizes )
+    v*=num_vars;
+
+  const Kokkos::View< uint32_t* >& send_iOct = pdata.m_recv_iOct;
+  const Kokkos::View< uint32_t* >& send_iCell = pdata.m_recv_iCell;
+  const Kokkos::View< uint32_t* >& recv_iOct = pdata.m_send_iOct;
+  const Kokkos::View< uint32_t* >& recv_iCell = pdata.m_send_iCell;
+  uint32_t total_send_size = send_iOct.size(), total_recv_size = recv_iOct.size(); // send/recv buffer size (number of cells)    
+  uint32_t bx=U.getShape().bx, by=U.getShape().by, bz=U.getShape().bz ; // Block size
+  
+  if( num_vars*total_send_size == 0 )
+    return;
+
+  Kokkos::View< real_t*, Kokkos::LayoutLeft > send_buffer("reduce_ghosts::send_buffer", num_vars*total_send_size );
+
+  Kokkos::parallel_for("reduce_ghosts::pack", total_send_size*num_vars,
+    KOKKOS_LAMBDA( uint32_t ipack )
+  {
+    uint32_t ighost = ipack/num_vars;
+    uint32_t ivar = ipack%num_vars;
+
+    uint32_t iOct = send_iOct(ighost);
+    uint32_t iCell = send_iCell(ighost);
+    uint32_t i = iCell%bx; 
+    uint32_t j = (iCell/bx)%by; 
+    uint32_t k = (iCell/bx)/by;
+
+    CellIndex cell_index { {iOct, true}, i, j, k, bx, by, bz };
+    send_buffer( ipack ) = U.at_ivar( cell_index, ivar );
+  });
+  
+  Kokkos::View< real_t* > recv_buffer("exchange_ghosts::recv_buffer", num_vars*total_recv_size ); 
+#ifdef MPI_IS_CUDA_AWARE 
+  Kokkos::fence();
+  pdata.mpi_comm.MPI_Alltoallv( send_buffer.data(), send_sizes.data(), recv_buffer.data(), recv_sizes.data() );
+  Kokkos::fence();
+#else
+  {
+    auto send_buffer_host = Kokkos::create_mirror_view(send_buffer);
+    auto recv_buffer_host = Kokkos::create_mirror_view(recv_buffer);
+
+    Kokkos::deep_copy(send_buffer_host, send_buffer);
+    pdata.mpi_comm.MPI_Alltoallv( send_buffer_host.data(), send_sizes.data(), recv_buffer_host.data(), recv_sizes.data() );
+    Kokkos::deep_copy(recv_buffer, recv_buffer_host);
+  }  
+#endif
+
+  Kokkos::parallel_for("reduce_ghosts::unpack", total_recv_size*num_vars,
+    KOKKOS_LAMBDA( uint32_t ipack )
+  {
+    uint32_t ighost = ipack/num_vars;
+    uint32_t ivar = ipack%num_vars;
+
+    uint32_t iOct = recv_iOct(ighost);
+    uint32_t iCell = recv_iCell(ighost);
+    uint32_t i = iCell%bx; 
+    uint32_t j = (iCell/bx)%by; 
+    uint32_t k = (iCell/bx)/by;
+
+    CellIndex cell_index { {iOct, false}, i, j, k, bx, by, bz };
+    Kokkos::atomic_add( &U.at_ivar( cell_index, ivar ), recv_buffer( ipack ) );
+  });
+}
+
+} // namespace
+
+GhostCommunicator_partial_blocks::GhostCommunicator_partial_blocks( const AMRmesh& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm )
+  : pdata(std::make_unique<Pdata>(Pdata{mpi_comm}))
+{
+  init(*pdata, amr_mesh, shape, ghost_count, mpi_comm);
+}
+
+GhostCommunicator_partial_blocks::~GhostCommunicator_partial_blocks()
+{}
+
+uint32_t GhostCommunicator_partial_blocks::getNumGhosts() const
+{
+  return pdata->m_local_ghost_octants;
+}
+
+void GhostCommunicator_partial_blocks::exchange_ghosts( const UserData::FieldAccessor& U) const
+{
+  exchange_ghosts_aux(*pdata, U);
+}
+
+void GhostCommunicator_partial_blocks::exchange_ghosts( const ForeachCell::CellArray_global_ghosted& U) const
+{
+  exchange_ghosts_aux(*pdata, U);
+}
+
+void GhostCommunicator_partial_blocks::reduce_ghosts( UserData::FieldAccessor& U) const
+{
+  reduce_ghosts_aux(*pdata, U);
+}
+
+void GhostCommunicator_partial_blocks::reduce_ghosts( ForeachCell::CellArray_global_ghosted& U) const
+{
+  reduce_ghosts_aux(*pdata,U);
 }
 
 } // namespace dyablo
