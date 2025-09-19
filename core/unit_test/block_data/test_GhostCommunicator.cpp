@@ -548,3 +548,9 @@ TEST(dyablo, test_GhostCommunicator_full_blocks_subset)
   using namespace dyablo;
   test_GhostCommunicator_subset<GhostCommunicator_impl<GhostCommunicator_full_blocks>>();
 }
+
+TEST(dyablo, test_GhostCommunicator_partial_blocks_subset)
+{
+  using namespace dyablo;
+  test_GhostCommunicator_subset<GhostCommunicator_impl<GhostCommunicator_partial_blocks>>();
+}
