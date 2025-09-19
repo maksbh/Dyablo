@@ -80,7 +80,7 @@ public:
           // Smaller neighbor
           else {
             Bm = 0.0;
-            foreach_sibling(ndim, iCell_m, Uin.getShape(), [&](const CellIndex iCell_smaller) 
+            foreach_smaller_neighbor(ndim, iCell, off_m, Uin.getShape(), [&](const CellIndex iCell_smaller) 
             {
               Bm += Uin.at(iCell_smaller, IB);
             });
@@ -104,7 +104,7 @@ public:
           // Samller neighbor
           else {
             Bp = 0.0;
-            foreach_sibling(ndim, iCell_p, Uin.getShape(), [&](const CellIndex iCell_smaller) 
+            foreach_smaller_neighbor(ndim, iCell, off_p, Uin.getShape(), [&](const CellIndex iCell_smaller) 
             {
               Bp += Uin.at(iCell_smaller, IB);
             });
