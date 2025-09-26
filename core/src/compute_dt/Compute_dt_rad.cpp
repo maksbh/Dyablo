@@ -12,7 +12,7 @@ public:
                         ForeachCell& foreach_cell,
                         Timers& timers )
   : foreach_cell(foreach_cell),
-    ctilde_a0(configMap.getValue<real_t>( "cosmology", "ctilde" ) / configMap.getValue<real_t>( "cosmology", "astart" ))
+    c_rad( configMap.getValue_in_code_unit<Units::Velocity>("rad", "c_rad", "speedoflight") )
   {
     real_t default_cfl = 0.5;
     if (configMap.hasValue("hydro", "cfl")) {
@@ -25,7 +25,7 @@ public:
   void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
   {
     real_t aexp = scalar_data.get<real_t>("aexp");
-    real_t ctilde = this->ctilde_a0 * aexp;
+    real_t ctilde = Units::physical_to_supercomoving<Units::Velocity>(this->c_rad , aexp);
 
     auto cells = foreach_cell.getCellMetaData();
 
@@ -57,7 +57,7 @@ public:
 
 private:
   ForeachCell& foreach_cell;
-  real_t ctilde_a0;
+  real_t c_rad;
   real_t cfl;
   
 };

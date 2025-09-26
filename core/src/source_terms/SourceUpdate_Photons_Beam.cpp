@@ -11,7 +11,7 @@ private:
   ForeachCell& foreach_cell;
   real_t source_position;
   real_t spawn_rate;
-  real_t ctilde;
+  real_t c_rad;
 
   using SpawnRate = decltype( Units::mol()/Units::code_units().getUnit<Units::Time>() );
 
@@ -23,7 +23,7 @@ public:
   :  foreach_cell(foreach_cell),
      source_position(configMap.getValue_in_code_unit<Units::Length>("rad", "source_position", 5.0)),
      spawn_rate(configMap.getValue_in_code_unit<SpawnRate>("rad", "spawn_rate", "1e56 atom/s")),
-     ctilde(configMap.getValue<real_t>("cosmology", "ctilde", 0.1))
+     c_rad( configMap.getValue_in_code_unit<Units::Velocity>("rad", "c_rad", "speedoflight") )
   { }
 
   void update( UserData &U, ScalarSimulationData& scalar_data)
@@ -34,7 +34,8 @@ public:
     real_t dt = scalar_data.get<real_t>("dt");
 
     pos_t source_position {this->source_position/5.0, this->source_position, this->source_position};
-    real_t ctilde = this->ctilde;
+    real_t aexp = scalar_data.get<real_t>("aexp");
+    real_t ctilde = Units::physical_to_supercomoving<Units::Velocity>(this->c_rad , aexp);
     real_t spawn_rate = this->spawn_rate;
 
     enum VarIndex_Beam{In_rad, In_fx_rad, In_fy_rad, In_fz_rad};

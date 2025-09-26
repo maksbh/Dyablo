@@ -51,12 +51,12 @@ struct HyperbolicPolicy_Rad_Params
   {
     return {
       .ndim = configMap.getValue<int>("mesh", "ndim", 3),
-      .ctilde_a0 = configMap.getValue<real_t>( "cosmology", "ctilde" ) / configMap.getValue<real_t>( "cosmology", "astart" ),
+      .c_rad = configMap.getValue_in_code_unit<Units::Velocity>("rad", "c_rad", "speedoflight"),
     };
   }
 
   int ndim;
-  real_t ctilde_a0;
+  real_t c_rad;
 };
 
 class HyperbolicPolicy_State_Rad
@@ -162,7 +162,7 @@ public:
 class HyperbolicPolicy_RiemannSolver_Rad_M1
 {
 private:
-  real_t ctilde_a0;
+  real_t c_rad;
   struct ScalarData_t 
   {
     real_t aexp;
@@ -174,7 +174,7 @@ public:
   using ConsState = State::ConsState;
 
   HyperbolicPolicy_RiemannSolver_Rad_M1( const HyperbolicPolicy_Rad_Params& params, const ScalarSimulationData& scalar_data_dict )
-  : ctilde_a0(params.ctilde_a0),
+  : c_rad(params.c_rad),
     scalar_data( {.aexp = scalar_data_dict.get<real_t>("aexp")} )
   {}
 
@@ -183,7 +183,7 @@ public:
   {
     qL = swapComponents(qL, dir);
     qR = swapComponents(qR, dir);
-    real_t ctilde = this->ctilde_a0 * scalar_data.aexp;
+    real_t ctilde = Units::physical_to_supercomoving<Units::Velocity>(this->c_rad , scalar_data.aexp);
     ConsState flux = riemann_M1(qL, qR, ctilde);
     flux = swapComponents(flux, dir);
     return flux;
