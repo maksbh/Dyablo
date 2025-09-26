@@ -62,7 +62,7 @@ def read_config(filename) :
 
     source_position = config.getfloat('rad', 'source_position')
     spawn_rate = config.getfloat('rad', 'spawn_rate')
-    ctilde = config.getfloat('cosmology', 'ctilde')
+    ctilde = config.getfloat('rad', 'c_rad')
 
     conf = {"bx":bx, "by":by, "bz":bz, "lmin":lmin, "lmax":lmax, "cor_x":cor_x, "cor_y":cor_y, 
             "cor_z":cor_z, "xmin":xmin, "xmax":xmax, "ymin":ymin, "ymax":ymax, "zmin":zmin, "zmax":zmax, "Nx":Nx, "Ny":Ny, "Nz":Nz, 
