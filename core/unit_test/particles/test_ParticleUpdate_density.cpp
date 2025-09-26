@@ -167,11 +167,11 @@ void run_test(int ndim, std::string particle_update_density_id)
 
 } // namespace dyablo
 
-class Test_Mass_Assignment_Scheme
+class Test_ParticleUpdate_density
   : public testing::TestWithParam<std::tuple<int, std::string>> 
 {};
 
-TEST_P(Test_Mass_Assignment_Scheme, getCell_works)
+TEST_P(Test_ParticleUpdate_density, rho_mean_is_correct)
 {
   int ndim = std::get<0>(GetParam());
   std::string density_name = std::get<1>(GetParam());
@@ -179,12 +179,12 @@ TEST_P(Test_Mass_Assignment_Scheme, getCell_works)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    Test_Mass_Assignment_Scheme, Test_Mass_Assignment_Scheme,
+    Test_ParticleUpdate_density, Test_ParticleUpdate_density,
     testing::Combine(
         testing::Values(2,3),
         testing::Values("ParticleUpdate_NGP_density", "ParticleUpdate_CIC_density")
     ),
-    [](const testing::TestParamInfo<Test_Mass_Assignment_Scheme::ParamType>& info) {
+    [](const testing::TestParamInfo<Test_ParticleUpdate_density::ParamType>& info) {
       int ndim = std::get<0>(info.param);
       std::string scheme = std::get<1>(info.param);
       std::string name = (ndim == 2 ? "2D_" : "3D_") + scheme;

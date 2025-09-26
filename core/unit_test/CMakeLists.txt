@@ -126,8 +126,8 @@ dyablo_add_test(utest_Particles ON
   particles/test_Particles.cpp
   main.cpp)
 
-dyablo_add_test(utest_Mass_Assignment_Scheme ON
-  particles/test_Mass_Assignment_Scheme.cpp
+dyablo_add_test(utest_ParticleUpdate_density ON
+  particles/test_ParticleUpdate_density.cpp
   main.cpp)
 
 ## Implementations registered to a factory that are contained in a separate static library have to be thourouhly tested
