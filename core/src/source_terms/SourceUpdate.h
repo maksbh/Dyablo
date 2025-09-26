@@ -6,6 +6,7 @@ namespace dyablo {
 
 class SourceUpdate_Cooling_FF;
 class SourceUpdate_GLM;
+class SourceUpdate_Photons_Beam;
 
 } //namespace dyablo 
 
@@ -15,7 +16,7 @@ inline bool dyablo::SourceUpdateFactory::init()
 {
   DECLARE_REGISTERED(dyablo::SourceUpdate_Cooling_FF);
   DECLARE_REGISTERED(dyablo::SourceUpdate_GLM);
-
+  DECLARE_REGISTERED(dyablo::SourceUpdate_Photons_Beam);
   return true;
 }
 
