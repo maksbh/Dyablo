@@ -25,7 +25,7 @@ public:
     gamma0(configMap.getValue<real_t>("hydro", "gamma0", 1.4)),
     smallr(configMap.getValue<real_t>("hydro", "smallr", 1e-10)),
     smallc(configMap.getValue<real_t>("hydro", "smallc", 1e-10)),
-    smallp(smallc * smallc / gamma0)
+    smallp(configMap.getValue<real_t>("hydro", "smallp", 1e-10))
   {
     {
       const AMRmesh& pmesh = foreach_cell.get_amr_mesh();
@@ -110,8 +110,8 @@ public:
     {
       // Mean mass for a raw cell used for refinement
       double Lbox = (xmax-xmin);
-      double mass0 = rhoc * omegam/(Lbox*Lbox*Lbox);
-      std::cout << "COSMO mass0=" << mass0 << std::endl;
+      double mass0 = rhoc * omegam * (dx * dx * dx);
+      std::cout << "mean mass per cell (code Units)=" << mass0 << std::endl;
 
       real_t mass_coarsen_factor = configMap.getValue<real_t>("cosmology", "mass_coarsen_factor", 0.1);
       real_t mass_refine_factor = configMap.getValue<real_t>("cosmology", "mass_refine_factor", 1.0);
