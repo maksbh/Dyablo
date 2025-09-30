@@ -10,6 +10,7 @@ class InitialConditions_simple_particles : public InitialConditions{
     //ForeachCell& foreach_cell;
     ForeachParticle foreach_particle;
     real_t gamma0;
+    std::string array_name;
     int npart;
     Kokkos::View<double*> px,py,pz,vx,vy,vz,mass;
 public:
@@ -20,6 +21,7 @@ public:
   : //foreach_cell(foreach_cell),
     foreach_particle( foreach_cell.get_amr_mesh(), configMap ),
     gamma0(configMap.getValue<real_t>("hydro", "gamma0", 1.4)),
+    array_name(configMap.getValue<std::string>("simple_particles", "name", array_name)),
     npart(configMap.getValue<int>("simple_particles", "npart", 1)),
     px( "px", npart ), py( "py", npart ), pz( "pz", npart ), 
     vx( "vx", npart ), vy( "vy", npart ), vz( "vz", npart ), 
@@ -56,21 +58,21 @@ public:
 
     int npart_local = (rank==0) ? npart : 0;
 
-    U.new_ParticleArray("particles", npart_local);
-    U.new_ParticleAttribute("particles", "vx");
-    U.new_ParticleAttribute("particles", "vy");
-    U.new_ParticleAttribute("particles", "vz");
-    U.new_ParticleAttribute("particles", "mass");
+    U.new_ParticleArray(array_name, npart_local);
+    U.new_ParticleAttribute(array_name, "vx");
+    U.new_ParticleAttribute(array_name, "vy");
+    U.new_ParticleAttribute(array_name, "vz");
+    U.new_ParticleAttribute(array_name, "mass");
 
     if (rank == 0) { 
 
-      const ForeachParticle::ParticleArray& P = U.getParticleArray("particles"); 
+      const ForeachParticle::ParticleArray& P = U.getParticleArray(array_name); 
 
       enum VarIndex_particle{
         IVX, IVY, IVZ, IM
       };
 
-      const UserData::ParticleAccessor Pdata = U.getParticleAccessor("particles", 
+      const UserData::ParticleAccessor Pdata = U.getParticleAccessor(array_name, 
                                               {{"vx", IVX}, 
                                                {"vy", IVY},
                                                {"vz", IVZ},
@@ -98,7 +100,7 @@ public:
 
     }
 
-    U.distributeParticles("particles");
+    U.distributeParticles(array_name);
   }  
 }; 
 
