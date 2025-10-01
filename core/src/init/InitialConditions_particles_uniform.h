@@ -14,8 +14,9 @@ protected:
     std::vector<real_t> values;
 
     /// Simple Constructor to build deriverd InitialConditions with static values with static fields and values
-    InitialConditions_particles_uniform(const ForeachParticle& foreach_particle)
-    : foreach_particle(foreach_particle)
+    InitialConditions_particles_uniform(ConfigMap& configMap, 
+                                        ForeachCell& foreach_cell)
+    : foreach_particle(foreach_cell.get_amr_mesh(), configMap)
     {}
 
 public:
@@ -23,7 +24,7 @@ public:
         ConfigMap& configMap, 
         ForeachCell& foreach_cell,  
         Timers& timers )
-        :  InitialConditions_particles_uniform(ForeachParticle(foreach_cell.get_amr_mesh(), configMap))
+        :  InitialConditions_particles_uniform(configMap, foreach_cell)
     {
         this->attributes = configMap.getValue<std::vector<std::string>>( "InitialConditions_particles_uniform", "attributes" );
         this->values = configMap.getValue<std::vector<real_t>>( "InitialConditions_particles_uniform", "values" );
@@ -76,6 +77,7 @@ public:
             std::vector<UserData::ParticleAccessor::AttributeInfo> attr_info; 
             // Attributes Values for this Array
             Kokkos::View<real_t*> array_values("particle_values", nb_attr); 
+            auto array_values_host = Kokkos::create_mirror_view(array_values); 
             
             for( const auto& pair : attributes )
             {
@@ -88,8 +90,10 @@ public:
                 VarIndex ivar = attr_info.size();
                 attr_info.push_back( {attr_name, ivar} ); 
                 
-                array_values( ivar ) = values[ ini_ivar ];
+                array_values_host( ivar ) = values[ ini_ivar ];
             }
+
+            Kokkos::deep_copy( array_values, array_values_host );
 
             auto P = U.getParticleAccessor( array_name, attr_info );
 
@@ -98,7 +102,7 @@ public:
             { 
                 for( int i=0; i<nb_attr; i++ )
                 {
-                    P.at_ivar( iPart, i ) = array_values( i );
+                    P.at( iPart, i ) = array_values( i );
                 }
             });
         }
