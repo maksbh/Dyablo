@@ -23,7 +23,7 @@ public:
   : //foreach_cell(foreach_cell),
     foreach_particle( foreach_cell.get_amr_mesh(), configMap ),
     gamma0(configMap.getValue<real_t>("hydro", "gamma0", 1.4)),
-    array_name(configMap.getValue<std::string>("simple_particles", "array_name", array_name)),
+    array_name(configMap.getValue<std::string>("simple_particles", "array_name", "particles")),
     npart(configMap.getValue<int>("simple_particles", "npart", 1)),
     px( "px", npart ), py( "py", npart ), pz( "pz", npart ), 
     attribute_names(configMap.getValue< std::vector<std::string> >("simple_particles", "attributes", {"vx","vy","vz","mass"})),
