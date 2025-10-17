@@ -1,5 +1,7 @@
 set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/user_data/UserData_fields.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/user_data/UserData_particles.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_base.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_mean.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_linear.cpp
