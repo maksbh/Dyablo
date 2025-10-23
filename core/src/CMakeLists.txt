@@ -52,6 +52,7 @@ set( ic_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_MHD_rayleigh_taylor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_simple_particles.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_particle_grid.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_particles_uniform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_grafic_fields.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/wholesun/InitialConditions_C91.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/wholesun/InitialConditions_tri_layer.cpp

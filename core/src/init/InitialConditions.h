@@ -33,6 +33,7 @@ class AnalyticalFormula_MHD_RayleighTaylor;
 // Particles
 class InitialConditions_simple_particles;
 class InitialConditions_particle_grid;
+class InitialConditions_particles_uniform;
 
 // Cosmology
 class InitialConditions_grafic_fields;
@@ -58,6 +59,7 @@ bool dyablo::InitialConditionsFactory::init()
 
   DECLARE_REGISTERED( dyablo::InitialConditions_simple_particles );
   DECLARE_REGISTERED( dyablo::InitialConditions_particle_grid );
+  DECLARE_REGISTERED( dyablo::InitialConditions_particles_uniform );
   
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_blast> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_implode> );
