@@ -40,23 +40,23 @@ public:
   LightOctree_storage<MemorySpace_t> deep_copy() const
   {
     const LightOctree_storage& storage = *this;
-    LightOctree_storage<MemorySpace_t> res( storage.getNdim(), storage.getNumOctants(), storage.getNumGhosts(), storage.level_min, storage.coarse_grid_size );
+    LightOctree_storage<MemorySpace_t> res( storage.getNdim(), storage.getNumOctants(), storage.getNumGhosts(), storage.getNumIntermediates(), storage.getNumIntermediateGhosts(), storage.level_min, storage.coarse_grid_size );
     Kokkos::deep_copy( res.oct_data, storage.oct_data );
     return res;
   }
 
   // Create an empty LightOctree_storage
-  LightOctree_storage( int ndim, uint32_t numOctants, uint32_t numGhosts, level_t level_min, const coarse_grid_size_t& coarse_grid_size )
-  : ndim(ndim), numOctants(numOctants), numGhosts(numGhosts), level_min(level_min),
-    coarse_grid_size(coarse_grid_size),
-    oct_data("LightOctree_storage", numOctants+numGhosts, oct_data_field_t::OCT_DATA_COUNT)
-  {}
+  LightOctree_storage( int ndim, uint32_t numLocalLeaves, uint32_t numGhostLeaves,  uint32_t numLocalIntermediates, uint32_t numGhostIntermediates, level_t level_min, const coarse_grid_size_t& coarse_grid_size )
+  : LightOctree_storage(ndim, numLocalLeaves, numGhostLeaves, numLocalIntermediates, numGhostIntermediates, level_min)
+  {
+    this->coarse_grid_size = coarse_grid_size;
+  }
 
   // Create an empty LightOctree_storage (full coarse grid version)
-  LightOctree_storage( int ndim, uint32_t numOctants, uint32_t numGhosts, level_t level_min)
-  : ndim(ndim), numOctants(numOctants), numGhosts(numGhosts), level_min(level_min),
+  LightOctree_storage( int ndim, uint32_t numLocalLeaves, uint32_t numGhostLeaves,  uint32_t numLocalIntermediates, uint32_t numGhostIntermediates, level_t level_min )
+  : ndim(ndim), numLocalLeaves(numLocalLeaves), numGhostLeaves(numGhostLeaves), numLocalIntermediates(numLocalIntermediates), numGhostIntermediates(numGhostIntermediates), level_min(level_min),
     coarse_grid_size( { (1U << level_min), (1U << level_min), (ndim==3)?(1U << level_min):1 }  ),
-    oct_data("LightOctree_storage", numOctants+numGhosts, oct_data_field_t::OCT_DATA_COUNT)
+    oct_data("LightOctree_storage", numLocalLeaves+numGhostLeaves+numLocalIntermediates+numGhostIntermediates, oct_data_field_t::OCT_DATA_COUNT)
   {}
 
 public:
@@ -64,15 +64,29 @@ public:
   KOKKOS_INLINE_FUNCTION 
   uint32_t getNumOctants() const
   {
-      return numOctants;
+    return numLocalLeaves;
   }
 
   //! @copydoc LightOctree_base::getNumGhosts()
   KOKKOS_INLINE_FUNCTION 
   uint32_t getNumGhosts() const
   {
-      return numGhosts;
+    return numGhostLeaves;
   }
+
+  //! @copydoc LightOctree_base::getNumIntermediates()
+  KOKKOS_INLINE_FUNCTION 
+  uint32_t getNumIntermediates() const
+  {
+      return numLocalIntermediates;
+  }  
+
+  //! @copydoc LightOctree_base::getNumIntermediateGhosts()
+  KOKKOS_INLINE_FUNCTION 
+  uint32_t getNumIntermediateGhosts() const
+  {
+      return numGhostIntermediates;
+  }  
 
   //! @copydoc LightOctree_base::getNdim()
   KOKKOS_INLINE_FUNCTION 
@@ -128,13 +142,13 @@ public:
   //! @copydoc LightOctree_base::getLevel()
   KOKKOS_INLINE_FUNCTION level_t getLevel(const OctantIndex& iOct)  const
   {
-      return oct_data(get_ioct_local(iOct), ILEVEL);
+      return oct_data(OctantIndex_to_iOctLocal(iOct), ILEVEL);
   }
 
   KOKKOS_INLINE_FUNCTION
   Kokkos::Array<logical_coord_t, 3> get_logical_coords( const OctantIndex& iOct )  const
   {
-    uint32_t iOct_local = get_ioct_local(iOct);
+    uint32_t iOct_local = OctantIndex_to_iOctLocal(iOct);
     return {
         oct_data(iOct_local, ICORNERX),
         oct_data(iOct_local, ICORNERY),
@@ -147,7 +161,7 @@ public:
             logical_coord_t ix, logical_coord_t iy, logical_coord_t iz, 
             level_t level ) const
   {
-    uint32_t iOct_local = get_ioct_local(iOct);
+    uint32_t iOct_local = OctantIndex_to_iOctLocal(iOct);
     oct_data(iOct_local, ICORNERX) = ix;
     oct_data(iOct_local, ICORNERY) = iy;
     oct_data(iOct_local, ICORNERZ) = iz;
@@ -158,20 +172,41 @@ public:
   {
     return Kokkos::subview( 
       oct_data, 
-      std::make_pair( (uint32_t)0, getNumOctants() ),
+      std::make_pair( (uint32_t)0, 
+                      getNumOctants() ),
       Kokkos::ALL() );
   }
 
-  oct_data_t getGhostSubview() const
+  oct_data_t getLocalIntermediatesSubview() const
   {
     return Kokkos::subview( 
       oct_data, 
-      std::make_pair( getNumOctants(), getNumOctants()+getNumGhosts() ),
+      std::make_pair( getNumOctants(), 
+                      getNumOctants()+getNumIntermediates() ),
+      Kokkos::ALL() );
+  }
+
+  oct_data_t getAllLocalsSubview() const
+  {
+    return Kokkos::subview( 
+      oct_data, 
+      std::make_pair( (uint32_t)0, 
+                      getNumOctants()+getNumIntermediates() ),
+      Kokkos::ALL() );
+  }
+
+  oct_data_t getAllGhostsSubview() const
+  {
+    return Kokkos::subview( 
+      oct_data, 
+      std::make_pair( getNumOctants()+getNumIntermediates(), 
+                      getNumOctants()+getNumIntermediates()+getNumGhosts()+getNumIntermediateGhosts() ),
       Kokkos::ALL() );
   }
 
   int ndim;
-  uint32_t numOctants, numGhosts; //! Number of local octants (no ghosts), Number of ghosts.
+  uint32_t numLocalLeaves, numGhostLeaves; //! Number of local leaf octants (no ghosts), Number of leaf ghosts.
+  uint32_t numLocalIntermediates, numGhostIntermediates; //! Number of local intermediate octants (no ghosts), Number of intermediate ghosts.
   level_t level_min;
   coarse_grid_size_t coarse_grid_size;
 
@@ -188,10 +223,43 @@ public:
   oct_data_t oct_data;
   
   KOKKOS_INLINE_FUNCTION 
-  uint32_t get_ioct_local(const OctantIndex& oct) const
+  uint32_t OctantIndex_to_iOctLocal(const OctantIndex& oct) const
   {
-      // Ghosts are stored after non-ghosts
-      return OctantIndex::OctantIndex_to_iOctLocal(oct, numOctants);
+    // Octants are stored in this order : local leaves, local intermediates, ghost leaves, ghost intermediates
+    if( !oct.isGhost )
+    {
+      return oct.iOct + oct.isIntermediate * this->numLocalLeaves;
+    }
+    else // if(oct.isGhost)
+    {
+      return oct.iOct + (this->numLocalLeaves + this->numLocalIntermediates) + oct.isIntermediate * this->numGhostLeaves;
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION 
+  OctantIndex iOctLocal_to_OctantIndex(uint32_t ioct_local) const 
+  { 
+    uint32_t total_local = (this->getNumOctants() + this->getNumIntermediates());
+
+    bool ghost = ioct_local >= total_local;
+    uint32_t iOct = ioct_local - ghost * total_local;
+
+    bool intermediate = false;
+    if( ghost && iOct >= this->getNumGhosts() )
+    {
+      intermediate = true;
+      iOct -= this->getNumGhosts();
+    }
+    else if( !ghost && iOct >= this->getNumOctants() )
+    {
+      intermediate = true;
+      iOct -= this->getNumOctants();
+    }
+    return OctantIndex{
+      .iOct = iOct, 
+      .isGhost=ghost,
+      .isIntermediate=intermediate,
+    };
   }
 };
 

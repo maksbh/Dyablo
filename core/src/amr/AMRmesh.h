@@ -76,6 +76,11 @@ public:
   /// Get total number of octants across all MPI process
   uint64_t getGlobalNumOctants() const;
 
+  /// Get number of local octants
+  uint32_t getNumIntermediates() const;
+  /// Get number of ghost octants
+  uint32_t getNumIntermediateGhosts() const;
+
   /// Get the global id associated to local octant idx
   uint64_t getGlobalIdx( uint32_t idx ) const;
 

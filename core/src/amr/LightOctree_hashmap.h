@@ -57,7 +57,7 @@ public:
 
     LightOctree_hashmap( const AMRmesh* pmesh, uint8_t level_min, uint8_t level_max )
     : storage( pmesh->getStorage().template deep_copy<Storage_t::MemorySpace>() ),
-      oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()),
+      oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()+storage.getNumIntermediates()+storage.getNumIntermediateGhosts()),
       min_level(level_min), max_level(level_max),
       is_periodic( {pmesh->getPeriodic(IX), pmesh->getPeriodic(IY), pmesh->getPeriodic(IZ)} ),
       morton_intervals( "morton_intervals", pmesh->getMpiComm().MPI_Comm_size()+1 )
@@ -93,15 +93,17 @@ public:
     {
         const Storage_t& storage = this->storage;
         const oct_map_t& oct_map = this->oct_map;
-        uint32_t nbOcts = storage.getNumOctants();
-        uint32_t numOctants_tot = nbOcts + storage.getNumGhosts();
+        uint32_t numOctants_tot = storage.getNumOctants()
+                                + storage.getNumGhosts()
+                                + storage.getNumIntermediates()
+                                + storage.getNumIntermediateGhosts();
 
         // Put octants into hashmap on device
         Kokkos::parallel_for( "LightOctree_hashmap::hash",
                             Kokkos::RangePolicy<>(0, numOctants_tot),
                             KOKKOS_LAMBDA(uint32_t ioct_local)
         {   
-            OctantIndex iOct = OctantIndex::iOctLocal_to_OctantIndex( ioct_local, nbOcts );
+            OctantIndex iOct = storage.iOctLocal_to_OctantIndex( ioct_local );
 
             auto logical_pos = storage.get_logical_coords( iOct );
             level_t level = storage.getLevel( iOct );
@@ -109,7 +111,7 @@ public:
             logical_coords.level = level;
             logical_coords.i = logical_pos[IX];
             logical_coords.j = logical_pos[IY];
-            logical_coords.k = logical_pos[IZ];           
+            logical_coords.k = logical_pos[IZ];
 
             [[maybe_unused]] oct_map_t::insert_result inserted = oct_map.insert( logical_coords, iOct );
             DYABLO_ASSERT_KOKKOS_DEBUG(inserted.success(), "oct_map::insert() failed");
@@ -127,7 +129,11 @@ public:
     KOKKOS_INLINE_FUNCTION
     uint32_t getNumGhosts() const
     {return storage.getNumGhosts();}
-    
+
+    KOKKOS_INLINE_FUNCTION
+    uint32_t getNumIntermediates() const
+    {return storage.getNumIntermediates();}
+
     KOKKOS_INLINE_FUNCTION
     pos_t getCenter(const OctantIndex& iOct)  const
     {return storage.getCenter(iOct);}
@@ -153,20 +159,33 @@ public:
         return storage;
     }
 
+
     
-    //! @copydoc LightOctree_base::findNeighbors()
-    KOKKOS_INLINE_FUNCTION NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
+
+    //! @copydoc LightOctree_base::findNeighbor()
+    KOKKOS_INLINE_FUNCTION
+    OctantIndex findNeighbor(const OctantIndex& iOct, const offset_t& offset) const
     {
-        int ndim = getNdim();
+        return findNeighbor_aux<false>(iOct, offset);
+    }
 
+    //! @copydoc LightOctree_base::findNeighbor_intermediate()
+    KOKKOS_INLINE_FUNCTION 
+    OctantIndex findNeighbor_intermediate( const OctantIndex& iOct, const offset_t& offset )  const
+    {
+        return findNeighbor_aux<true>(iOct, offset);
+    }
+
+    template< bool search_intermediate >
+    KOKKOS_INLINE_FUNCTION
+    OctantIndex findNeighbor_aux(const OctantIndex& iOct, const offset_t& offset) const
+    {
         if( offset[IX] == 0 && offset[IY] == 0 && offset[IZ] == 0 )
-            return NeighborList{1,{iOct}};
+            return iOct;
 
-        if( this->isBoundary(iOct, offset) )
-            return NeighborList{0,{}};
+        DYABLO_ASSERT_KOKKOS_DEBUG( !this->isBoundary(iOct, offset), "findNeighbor doesn't support boundaries." );
 
-        // Get logical coordinates of neighbor
-        
+        // Get logical coordinates of neighbor        
         level_t level = getLevel(iOct);
         auto lc = storage.get_logical_coords(iOct);
         logical_coord_t octant_count_x = storage.cell_count(IX, level );
@@ -178,62 +197,109 @@ public:
         logical_coords.j = (lc[IY] + octant_count_y + offset[IY]) % octant_count_y;
         logical_coords.k = (lc[IZ] + octant_count_z + offset[IZ]) % octant_count_z;   
 
-        NeighborList res = {0};
-        // Search octant at same level
-        auto it = oct_map.find(logical_coords);
-        if( oct_map.valid_at(it) )
+        if constexpr ( search_intermediate )
         {
-            // Found at same level
-            res =  NeighborList{1, {oct_map.value_at(it)}};
+            // Looking for intermediates : same level should exist
+            auto it = oct_map.find(logical_coords);
+            DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor : not found");
+            return oct_map.value_at(it);
         }
         else
         {
-            key_t logical_coords_bigger;
-            logical_coords_bigger.level = logical_coords.level-1;
-            logical_coords_bigger.i = logical_coords.i >> 1;
-            logical_coords_bigger.j = logical_coords.j >> 1;
-            logical_coords_bigger.k = logical_coords.k >> 1;
-
-            // Search octant at coarser level
-            auto it = oct_map.find(logical_coords_bigger);
-            if( oct_map.valid_at(it) ) 
+            // Looking for leaves : look at all levels
+            OctantIndex res{};
+            // Search octant at same level
+            auto it = oct_map.find(logical_coords);
+            if( oct_map.valid_at(it) && !oct_map.value_at(it).isIntermediate )
             {
-                // Found at coarser level
-                res = NeighborList{1, {oct_map.value_at(it)}};
+                // Found at same level
+                res = oct_map.value_at(it);
             }
             else
             {
-                // Neighbor(s) is(are) at finer level
-                DYABLO_ASSERT_KOKKOS_DEBUG(level+1 <= max_level, "Could not find neighbor : already at level_max");
-                
-                // Compute logical coord of first neighbor
-                key_t logical_coords_smaller_origin;
-                logical_coords_smaller_origin.level = logical_coords.level+1;
-                logical_coords_smaller_origin.i = (logical_coords.i << 1) + (offset[IX]==-1);
-                logical_coords_smaller_origin.j = (logical_coords.j << 1) + (offset[IY]==-1);
-                logical_coords_smaller_origin.k = (logical_coords.k << 1) + (offset[IZ]==-1);
-                int sz_max = (ndim==2) ? 0 : (offset[IZ]==0); // No offset in z in 2D
-                int sy_max = (offset[IY]==0);
-                int sx_max = (offset[IX]==0); // Constrained to plane adjacent to neighbor if offset in this direction
-                
-                for( int sz=0; sz<=sz_max; sz++ )
-                for( int sy=0; sy<=sy_max; sy++ )
-                for( int sx=0; sx<=sx_max; sx++ )
+                key_t logical_coords_bigger;
+                logical_coords_bigger.level = logical_coords.level-1;
+                logical_coords_bigger.i = logical_coords.i >> 1;
+                logical_coords_bigger.j = logical_coords.j >> 1;
+                logical_coords_bigger.k = logical_coords.k >> 1;
+
+                // Search octant at coarser level
+                auto it = oct_map.find(logical_coords_bigger);
+                if( oct_map.valid_at(it) && !oct_map.value_at(it).isIntermediate ) 
                 {
-                    res.m_size++;
-                    key_t logical_coords_smaller = logical_coords_smaller_origin;
-                    logical_coords_smaller.i += sx;
-                    logical_coords_smaller.j += sy;
-                    logical_coords_smaller.k += sz;
-                    auto it = oct_map.find(logical_coords_smaller);
-                    DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor");
-                    res.m_neighbors[res.m_size-1] = oct_map.value_at(it);
+                    // Found at coarser level
+                    res = oct_map.value_at(it);
                 }
-                DYABLO_ASSERT_KOKKOS_DEBUG(res.m_size<=2*(ndim-1), "Too many neighbors");
-            }            
+                else
+                {
+                    // Neighbor(s) is(are) at finer level
+                    DYABLO_ASSERT_KOKKOS_DEBUG(level+1 <= max_level, "Could not find neighbor : already at level_max");
+                    
+                    // Compute logical coord of first neighbor
+                    key_t logical_coords_smaller_origin;
+                    logical_coords_smaller_origin.level = logical_coords.level+1;
+                    logical_coords_smaller_origin.i = (logical_coords.i << 1) + (offset[IX]==-1);
+                    logical_coords_smaller_origin.j = (logical_coords.j << 1) + (offset[IY]==-1);
+                    logical_coords_smaller_origin.k = (logical_coords.k << 1) + (offset[IZ]==-1);
+                    
+                    auto it = oct_map.find(logical_coords_smaller_origin);
+                    DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor : not found");
+                    DYABLO_ASSERT_KOKKOS_DEBUG(!oct_map.value_at(it).isIntermediate, "Could not find neighbor : is intermediate");
+                    res = oct_map.value_at(it);
+                }            
+            }
+            return res;
         }
-        return res;
     }
+
+    //! @copydoc LightOctree_base::findNeighbors()
+    KOKKOS_INLINE_FUNCTION 
+    NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
+    {
+        if( this->isBoundary(iOct, offset) )
+            return NeighborList{0,{}};
+
+        OctantIndex iOct_n = findNeighbor(iOct, offset);
+
+        if( this->getLevel( iOct_n ) <= this->getLevel( iOct ) )
+        {
+            // Neighbor is same size of bigger
+            return NeighborList{1, {iOct_n}};
+        }
+        else //( this->getLevel( iOct_n ) > this->getLevel( iOct ) )
+        {
+            // Compute logical coord of first neighbor    
+            auto lc = storage.get_logical_coords( iOct_n );
+            key_t logical_coords_smaller_origin;
+            logical_coords_smaller_origin.level = getLevel(iOct_n);
+            logical_coords_smaller_origin.i = lc[IX];
+            logical_coords_smaller_origin.j = lc[IY];
+            logical_coords_smaller_origin.k = lc[IZ];
+            int ndim = getNdim();  
+            int sz_max = (ndim==2) ? 0 : (offset[IZ]==0); // No offset in z in 2D
+            int sy_max = (offset[IY]==0);
+            int sx_max = (offset[IX]==0); // Constrained to plane adjacent to neighbor if offset in this direction
+            
+            NeighborList res{0};
+            for( int sz=0; sz<=sz_max; sz++ )
+            for( int sy=0; sy<=sy_max; sy++ )
+            for( int sx=0; sx<=sx_max; sx++ )
+            {
+                res.m_size++;
+                key_t logical_coords_smaller = logical_coords_smaller_origin;
+                logical_coords_smaller.i += sx;
+                logical_coords_smaller.j += sy;
+                logical_coords_smaller.k += sz;
+                auto it = oct_map.find(logical_coords_smaller);
+                DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor");
+                res.m_neighbors[res.m_size-1] = oct_map.value_at(it);
+            }
+            DYABLO_ASSERT_KOKKOS_DEBUG(res.m_size<=2*(ndim-1), "Too many neighbors");
+            return res;
+        }
+        
+    }    
+
     /// @copydoc LightOctree_base::isBoundary()
     KOKKOS_INLINE_FUNCTION
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const {
@@ -250,6 +316,23 @@ public:
       return (!this->is_periodic[IX] && !( 0<pos[IX] && pos[IX]<1 ))
           || (!this->is_periodic[IY] && !( 0<pos[IY] && pos[IY]<1 ))
           || (!this->is_periodic[IZ] && !( 0<=pos[IZ] && pos[IZ]<1 )) ;            
+    }
+
+    /// @copydoc LightOctree_base::findChild()
+    KOKKOS_INLINE_FUNCTION
+    OctantIndex findChild( const OctantIndex& iOct, const offset_t& offset )  const
+    {
+        DYABLO_ASSERT_KOKKOS_DEBUG( iOct.isIntermediate, "Leaves have no children" );
+        
+        auto lc = storage.get_logical_coords(iOct);
+        
+        key_t logical_coords;
+        logical_coords.level = this->getLevel(iOct)+1;
+        logical_coords.i = 2u*lc[IX] + offset[IX];
+        logical_coords.j = 2u*lc[IY] + offset[IY];
+        logical_coords.k = 2u*lc[IZ] + offset[IZ];
+
+        return this->getiOctFromCoordinates(logical_coords.i, logical_coords.j, logical_coords.k, logical_coords.level);
     }
 
     // ------------------------

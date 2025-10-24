@@ -99,7 +99,8 @@ AMRmesh::GhostMap_t discover_ghosts(
   int ndim = storage_device.getNdim();
 
   // Copy morton_intervals to device
-  Kokkos::View<morton_t*> morton_intervals_device("discover_ghosts::morton_intervals", morton_intervals_.size());
+  DYABLO_ASSERT_HOST_DEBUG( morton_intervals_.size() == mpi_size+1, "morton_intervals_ should be of size mpi_size+1" );
+  Kokkos::View<morton_t*> morton_intervals_device("discover_ghosts::morton_intervals", mpi_size+1);
   {
     auto morton_intervals_host = Kokkos::create_mirror_view( morton_intervals_device  );
     std::copy( morton_intervals_.begin(), morton_intervals_.end(), morton_intervals_host.data() );
@@ -303,6 +304,130 @@ AMRmesh::GhostMap_t discover_ghosts(
   return to_send;  
 }
 
+/***
+ * Create intermediates from leaves and add them to storage_device
+ * 
+ * Local intermediates are all octants between level_min and level_max-1 
+ * for which their "upper left" (=smallest Morton) corner leaf octant is local.
+ *  => The first suboctant of a local octant is local (intermediate or leaf)
+ *  => The parent octant is local <=> "upper left" sibling is also local
+ * 
+ * @param storage input only local leaves, leaves + intermediates
+ */
+void init_intermediates(LightOctree_storage<>& storage_device)
+{
+  using OctantIndex = LightOctree::OctantIndex;
+
+  int dim = storage_device.getNdim();
+  int level_min = storage_device.level_min;
+  uint32_t nbLocalLeaves = storage_device.getNumOctants();
+
+  int first_intermediate_level = level_min;
+
+  // Count intermediates
+  uint32_t nbIntermediates_local = 0;
+  Kokkos::parallel_reduce( "AMRmesh::init::count_intermediates", nbLocalLeaves,
+    KOKKOS_LAMBDA( const uint32_t ioct_local , uint32_t& nbIntermediates_local)
+  {
+      const OctantIndex iOct_local{
+        .iOct = ioct_local, 
+        .isGhost = false, 
+        .isIntermediate = false
+      };
+      uint32_t level = storage_device.getLevel(iOct_local);
+      auto logical_coords = storage_device.get_logical_coords(iOct_local);
+      // Create parent cell if current cell is the "origin subcell" below first_intermediate_level
+      // This ensures intermediate is created once only by the process owning the origin subcell
+      while (logical_coords[IX] % 2u == 0u && logical_coords[IY] % 2u == 0u 
+          && logical_coords[IZ] % 2u == 0u && level > first_intermediate_level) {
+          level--;
+          logical_coords[IX] /= 2u;
+          logical_coords[IY] /= 2u;
+          logical_coords[IZ] /= 2u;
+          nbIntermediates_local++;
+      } 
+  }, nbIntermediates_local);
+
+  // Expand Storage to hold intermediates
+  {
+    LightOctree_storage<> storage_device_new(dim, nbLocalLeaves, 0, nbIntermediates_local, 0, level_min, storage_device.coarse_grid_size);
+    Kokkos::deep_copy( storage_device_new.getLocalSubview(), storage_device.getLocalSubview() );
+    storage_device = storage_device_new;
+  }
+  
+  // Fill intermediates
+  Kokkos::parallel_scan( "AMRmesh::init::fill_intermediates", nbLocalLeaves,
+    KOKKOS_LAMBDA( const uint32_t ioct_local , uint32_t& i_intermediate, bool final)
+  {
+      const OctantIndex iOct_local{
+        .iOct = ioct_local, 
+        .isGhost = false, 
+        .isIntermediate = false
+      };
+      uint32_t level = storage_device.getLevel(iOct_local);
+      auto logical_coords = storage_device.get_logical_coords(iOct_local);
+      while ( logical_coords[IX] % 2u == 0u && logical_coords[IY] % 2u == 0u 
+            && logical_coords[IZ] % 2u == 0u && level > first_intermediate_level) 
+      {
+          level--;
+          logical_coords[IX] /= 2u;
+          logical_coords[IY] /= 2u;
+          logical_coords[IZ] /= 2u;
+          if( final )
+          {
+            const OctantIndex iOct_intermediate{
+              .iOct = i_intermediate, 
+              .isGhost = false, 
+              .isIntermediate = true
+            };
+            storage_device.set(iOct_intermediate, 
+              logical_coords[IX],
+              logical_coords[IY],
+              logical_coords[IZ],
+              level
+            );
+          }
+          i_intermediate++;
+      } 
+  });
+}
+
+AMRmesh::GhostMap_t init_ghosts(
+  LightOctree_storage<>& storage_device,
+  const std::vector<morton_t>& morton_intervals_,
+  level_t level_max, 
+  const Kokkos::Array<bool,3>& periodic,
+  const MpiComm& mpi_comm )
+{
+  AMRmesh::GhostMap_t ghostmap = discover_ghosts( 
+                                      storage_device, 
+                                      morton_intervals_, 
+                                      level_max,
+                                      periodic,
+                                      mpi_comm );
+  
+  ViewCommunicator ghost_comm( ghostmap.send_sizes, ghostmap.send_iOcts );
+  { // Reallocate storage_device to hold ghosts
+    int nbGhostLeaves = ghost_comm.getNumGhosts();
+    int nbGhostIntermediates = 0;
+    // TODO 
+    #warning TODO : modify discover_ghosts to take intermediates into account
+    LightOctree_storage<> storage_device_new( storage_device.getNdim(),
+                                              storage_device.getNumOctants(),
+                                              nbGhostLeaves,
+                                              storage_device.getNumIntermediates(),
+                                              nbGhostIntermediates,
+                                              storage_device.level_min,
+                                              storage_device.coarse_grid_size  );
+    Kokkos::deep_copy( storage_device_new.getAllLocalsSubview(), storage_device.getAllLocalsSubview() );
+    storage_device = storage_device_new;
+  }
+
+  ghost_comm.exchange_ghosts<0>( storage_device.getAllLocalsSubview(), storage_device.getAllGhostsSubview() );
+
+  return ghostmap;
+}
+
 void private_init(AMRmesh::PData& pdata, const Kokkos::Array<logical_coord_t,3>& coarse_grid_size)
 {
   const int dim = pdata.ndim;
@@ -371,7 +496,7 @@ void private_init(AMRmesh::PData& pdata, const Kokkos::Array<logical_coord_t,3>&
 
   // Fill local octs
   uint32_t nbOcts_added = 0;
-  LightOctree_storage<> storage_device(dim, nbOcts_local, 0, level_min, coarse_grid_size);
+  LightOctree_storage<> storage_device(dim, nbOcts_local, 0, 0, 0, level_min, coarse_grid_size);
   Kokkos::parallel_scan( "AMRmesh::init", 
     Kokkos::RangePolicy<>(morton_begin, morton_end),
     KOKKOS_LAMBDA( uint64_t morton, uint32_t& iOct, bool final )
@@ -394,7 +519,8 @@ void private_init(AMRmesh::PData& pdata, const Kokkos::Array<logical_coord_t,3>&
   }, nbOcts_added);
   DYABLO_ASSERT_HOST_RELEASE( nbOcts_local == nbOcts_added, "Too few octs were added during Kokkos::scan : added " << nbOcts_added << ", expected " << nbOcts_local );
 
-  // Exchange Ghosts
+  // Add intermediates to storage_device
+  init_intermediates(storage_device);
 
   std::vector<morton_t> morton_intervals_3D( mpi_size+1 );
   if( dim == 3 )
@@ -408,17 +534,15 @@ void private_init(AMRmesh::PData& pdata, const Kokkos::Array<logical_coord_t,3>&
       morton_intervals_3D[i] = compute_morton_key( ix, iy, 0 );
     }
   }
-  pdata.ghostmap = discover_ghosts( storage_device, morton_intervals_3D, pdata.level_min, pdata.periodic, pdata.mpi_comm );
-  ViewCommunicator ghost_comm( pdata.ghostmap.send_sizes, pdata.ghostmap.send_iOcts, mpi_comm  );
-  oct_index_t nbGhosts = ghost_comm.getNumGhosts();
-  LightOctree_storage<> storage_device_ghosts(dim, 0, nbGhosts, level_min, coarse_grid_size );
-  ghost_comm.exchange_ghosts<0>( storage_device.oct_data, storage_device_ghosts.oct_data );
 
-  LightOctree_storage<> storage_device2( dim, nbOcts_local, nbGhosts, level_min, coarse_grid_size );
-  Kokkos::deep_copy( storage_device2.getLocalSubview(), storage_device.getLocalSubview() );
-  Kokkos::deep_copy( storage_device2.getGhostSubview(), storage_device_ghosts.getGhostSubview() );
+  pdata.ghostmap = init_ghosts( 
+      storage_device, 
+      morton_intervals_3D, 
+      pdata.level_min, // This is not an error : mortons are computed a level_min
+      pdata.periodic, 
+      pdata.mpi_comm );
 
-  pdata.storage = storage_device2.deep_copy<Storage_t::MemorySpace>();
+  pdata.storage = storage_device;
 
   pdata.markers = markers_t( "markers", storage.getNumOctants() );
 
@@ -609,6 +733,17 @@ uint64_t AMRmesh::getGlobalIdx( uint32_t idx ) const
   return idx + pdata->first_local_oct;
 }
 
+uint32_t AMRmesh::getNumIntermediates() const
+{
+  return pdata->storage.getNumIntermediates();
+}
+
+uint32_t AMRmesh::getNumIntermediateGhosts() const
+{
+  return pdata->storage.getNumIntermediateGhosts();
+}
+
+
 AMRmesh::GhostMap_t AMRmesh::loadBalance(uint8_t level)
 {
   Storage_t& storage = pdata->storage;
@@ -734,7 +869,7 @@ AMRmesh::GhostMap_t AMRmesh::loadBalance(uint8_t level)
 
   // Exchange octs that changed domain 
   oct_index_t new_nbOcts = new_oct_intervals[mpi_rank+1]-new_oct_intervals[mpi_rank];
-  LightOctree_storage<> new_storage_device(this->getDim(), new_nbOcts, 0, storage.level_min, storage.coarse_grid_size );
+  LightOctree_storage<> new_storage_device(this->getDim(), new_nbOcts, 0, 0, 0, storage.level_min, storage.coarse_grid_size );
   {
     // Use storage on device to perform remaining operations
     LightOctree_storage<> old_storage_device = storage.deep_copy<LightOctree_storage<>::MemorySpace>();
@@ -749,25 +884,12 @@ AMRmesh::GhostMap_t AMRmesh::loadBalance(uint8_t level)
   pdata->first_local_oct = new_oct_intervals[mpi_rank];
   pdata->pmesh_epoch++;
 
-  pdata->ghostmap = discover_ghosts(new_storage_device, new_morton_intervals, level_max, pdata->periodic, mpi_comm);
+  // Add intermediates to storage_device
+  init_intermediates(new_storage_device);
+  // Add ghosts to storage_device
+  pdata->ghostmap = init_ghosts(new_storage_device, new_morton_intervals, level_max, pdata->periodic, mpi_comm);
 
-  // Raw view for ghosts
-  ViewCommunicator ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
-  oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
-  LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts, storage.level_min, storage.coarse_grid_size );   
-  ghost_comm.exchange_ghosts<0>( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
-  {
-    int ndim = new_storage_device.getNdim();
-
-    // We need to go through a temporary device storage because
-    // subviews are non-contiguous and deep_copy is only supported in same memory space
-    LightOctree_storage<> storage_device(ndim, new_nbOcts, new_nbGhosts, storage.level_min, storage.coarse_grid_size );
-    Kokkos::deep_copy( storage_device.getLocalSubview(), new_storage_device.getLocalSubview() );
-    Kokkos::deep_copy( storage_device.getGhostSubview(), new_storage_device_ghosts.getGhostSubview() );
-
-    // Reallocate storage with new size
-    storage = storage_device.deep_copy<Storage_t::MemorySpace>();
-  }
+  storage = new_storage_device;
 
   pdata->markers = markers_t("markers", this->getNumOctants());
 
@@ -979,7 +1101,7 @@ void AMRmesh::adapt()
     }, new_nbOcts);
 
     // Allocate new storage on device
-    LightOctree_storage<> new_storage_device( ndim, new_nbOcts, 0, storage.level_min, storage.coarse_grid_size  );
+    LightOctree_storage<> new_storage_device( ndim, new_nbOcts, 0, 0, 0, storage.level_min, storage.coarse_grid_size  );
 
     // Write new octant data
     Kokkos::parallel_for( "adapt::apply", old_nbOcts,
@@ -1059,36 +1181,21 @@ void AMRmesh::adapt()
         if( morton_intervals[rank] == 0 )
          morton_intervals[rank] = morton_intervals[rank+1];
     }
+
+    // Add intermediates to new_storage_device
+    init_intermediates(new_storage_device);
+    // Add ghosts to new_storage_device
+    pdata->ghostmap = init_ghosts( new_storage_device, morton_intervals, pdata->level_max, pdata->periodic, pdata->mpi_comm );
+    pdata->storage = new_storage_device;
   
-    // Compute and exchange ghosts
-    pdata->ghostmap = discover_ghosts( new_storage_device, morton_intervals, pdata->level_max, pdata->periodic, mpi_comm );
+    // compute total count and global index of first local octant
     {
-      int ndim = new_storage_device.getNdim();
-
-      // Raw view for ghosts
-      ViewCommunicator ghost_comm( pdata->ghostmap.send_sizes,  pdata->ghostmap.send_iOcts );
-      oct_index_t new_nbGhosts = ghost_comm.getNumGhosts();
-      LightOctree_storage<> new_storage_device_ghosts( ndim, 0, new_nbGhosts, storage.level_min, storage.coarse_grid_size  );
-      ghost_comm.exchange_ghosts<0>( new_storage_device.oct_data, new_storage_device_ghosts.oct_data );
-
-      // We need to go through a temporary device storage because
-      // subviews are non-contiguous and deep_copy is only supported in same memory space
-      LightOctree_storage<> newnew_storage_device(ndim, new_nbOcts, new_nbGhosts, storage.level_min, storage.coarse_grid_size  );
-      Kokkos::deep_copy( newnew_storage_device.getLocalSubview(), new_storage_device.getLocalSubview() );
-      Kokkos::deep_copy( newnew_storage_device.getGhostSubview(), new_storage_device_ghosts.getGhostSubview() );
-
-      // Overwrite local storage with new data
-      storage = newnew_storage_device.deep_copy<Storage_t::MemorySpace>();      
-
-      // compute total count and global index of first local octant
-      {
-        global_oct_index_t new_nbOcts_global = new_nbOcts;
-        global_oct_index_t new_nbOcts_inclusive_prefix_sum;
-        mpi_comm.MPI_Scan( &new_nbOcts_global, &new_nbOcts_inclusive_prefix_sum, 1, MpiComm::MPI_Op_t::SUM );
-        pdata->first_local_oct = new_nbOcts_inclusive_prefix_sum - new_nbOcts_global;
-        mpi_comm.MPI_Allreduce( &new_nbOcts_global, &pdata->total_num_octs, 1, MpiComm::MPI_Op_t::SUM );
-        pdata->markers = markers_t("markers", new_nbOcts);
-      }
+      global_oct_index_t new_nbOcts_global = new_nbOcts;
+      global_oct_index_t new_nbOcts_inclusive_prefix_sum;
+      mpi_comm.MPI_Scan( &new_nbOcts_global, &new_nbOcts_inclusive_prefix_sum, 1, MpiComm::MPI_Op_t::SUM );
+      pdata->first_local_oct = new_nbOcts_inclusive_prefix_sum - new_nbOcts_global;
+      mpi_comm.MPI_Allreduce( &new_nbOcts_global, &pdata->total_num_octs, 1, MpiComm::MPI_Op_t::SUM );
+      pdata->markers = markers_t("markers", new_nbOcts);
     }     
   }
 

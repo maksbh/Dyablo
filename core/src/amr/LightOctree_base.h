@@ -20,23 +20,7 @@ public:
     {
         uint32_t iOct; //! Octant index
         bool isGhost; //! Is this a MPI ghost octant?
-
-        KOKKOS_INLINE_FUNCTION static uint32_t OctantIndex_to_iOctLocal(const OctantIndex& oct, uint32_t numOctants)
-        {
-            // Ghosts are stored after non-ghosts
-            return oct.isGhost*numOctants + oct.iOct;
-        }
-
-        KOKKOS_INLINE_FUNCTION static OctantIndex iOctLocal_to_OctantIndex(uint32_t ioct_local, uint32_t numOctants)
-        {
-            OctantIndex oct = {ioct_local, false};
-            if( ioct_local >= numOctants )
-            {
-                oct.iOct -= numOctants;
-                oct.isGhost = true;
-            }
-            return oct;
-        }
+        bool isIntermediate; //! Is this an intermediate octant ( not a leaf )
     };
     /// Physical cell position
     using pos_t = Kokkos::Array<real_t,3>;
@@ -105,11 +89,40 @@ public:
      * findNeighbors({1,true},{ 1, 1, 0}) -> 6 (Note that there is only 1 smaller neighbor in corners)
      * ```
      *
-     * @note findNeighbor(), always returns all neighbors in corner 
+     * @note findNeighbors(), always returns all neighbors in corner 
      * @note Requesting a neighbor outside the domain when octree is not periodic returns 
      *       an empty neighbor list (but you should use isBoundary() if you only want to test that)
      **/
     NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset ) const;
+
+    /**
+     * Same as findNeighbors but only returns first octant in list (with smallest morton)  
+     * Note : works only if findNeighbors returns at least one octant (check for boundaries before)
+     */
+    NeighborList findNeighbor( const OctantIndex& iOct, const offset_t& offset ) const;
+
+    /**
+     * Find same-size neighbor including intermediate octants
+     * 
+     * @param iOct Octant index
+     * @param offset Relative position of neighbor(s) to fetch.
+     *               offset in each dimension is either -1, 0 or 1; {0,0,0} is invalid
+     *               in 2D, third dimension is always 0
+     *               ex : {-1,0,0} is left neighbor; {-1,-1,0} is lower-left edge(3D)/corner(2D) 
+     * 
+     * @returns an Octant index pointing to the resuested same-size neighbor
+     * Since intermediate octants are included only one same-size octant matches
+     * If same-size octant doesn't exist (neighbor leaf is bigger), the invalid octant is returned
+     **/
+    OctantIndex findNeighbor_intermediate( const OctantIndex& iOct, const offset_t& offset )  const;
+
+    /**
+     * Find children of an intermediate octant
+     * 
+     * @param iOct octant of parent cell (must be intermediate)
+     * @param offset offset in [0,1]^3 of suboctant according to first suboctant
+     **/
+    OctantIndex findChild( const OctantIndex& iOct, const offset_t& offset ) const;
 
     /// Is the given face of the given oct an external boundary ?
     bool isBoundary(const OctantIndex& iOct, const offset_t& offset) const;

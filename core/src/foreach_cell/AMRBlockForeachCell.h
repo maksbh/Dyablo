@@ -169,6 +169,7 @@ public:
   using CellArray_global_ghosted = AMRBlockForeachCell_CellArray_impl::CellArray_global_ghosted;
   using SearchMode_local = AMRBlockForeachCell_CellArray_impl::SearchMode_local;
   using SearchMode_neighbor = AMRBlockForeachCell_CellArray_impl::SearchMode_neighbor;
+  using SearchMode_intermediates = AMRBlockForeachCell_CellArray_impl::SearchMode_intermediates;
   using CellMetaData = AMRBlockForeachCell_CellMetaData;
   friend CellMetaData;
 
@@ -302,14 +303,17 @@ public:
     patchmanager.foreach_patch(kernel_name, f);
   }
 
-  template<bool ghosts>
+  template<bool _locals, bool _ghosts, bool _intermediates>
   class IterationSpace_fullArray_impl
   {
   private:
-    uint32_t _bx, _by, _bz, nbOcts;
+    uint32_t _bx, _by, _bz, nbOcts, nbGhosts, nbIntermediates;
   public:
     IterationSpace_fullArray_impl(const CellArray_shape& iter_space)
-    : _bx(iter_space.bx),_by(iter_space.by),_bz(iter_space.bz),nbOcts(ghosts?iter_space.nbGhosts:iter_space.nbOcts)
+    : _bx(iter_space.bx),_by(iter_space.by),_bz(iter_space.bz),
+      nbOcts(_locals?iter_space.nbOcts:0),
+      nbGhosts(_ghosts?iter_space.nbGhosts:0),
+      nbIntermediates(_intermediates?iter_space.nbIntermediates:0)
     {}
 
     KOKKOS_INLINE_FUNCTION
@@ -320,17 +324,46 @@ public:
     uint32_t bz() const         { return _bz; }
 
     KOKKOS_INLINE_FUNCTION
-    uint32_t iOct_count() const { return nbOcts;}
+    uint32_t iOct_count() const { return nbOcts+nbGhosts+nbIntermediates; }
 
     KOKKOS_INLINE_FUNCTION
-    CellIndex getCellIndex(uint32_t iOct, uint32_t i, uint32_t j, uint32_t k) const
+    CellIndex getCellIndex(uint32_t iOct_in, uint32_t i, uint32_t j, uint32_t k) const
     {
-      CellIndex iCell = {{iOct,ghosts}, i, j, k, bx(), by(), bz()};
+      uint32_t iOct_out = iOct_in;
+      bool is_ghost = false;      
+      bool is_intermediate = false;
+
+      if constexpr (_ghosts)
+      {
+        if( iOct_in >= nbOcts && iOct_in < nbOcts+nbGhosts )
+        {
+          iOct_out = iOct_in - nbOcts;
+          is_ghost = true;
+        }
+      }      
+      if constexpr (_intermediates)
+      {
+        if( iOct_in >= nbOcts+nbGhosts )
+        {
+          iOct_out = iOct_in - (nbOcts+nbGhosts);
+          is_intermediate = true;
+          if constexpr (_ghosts)
+          {
+            if( iOct_out >= nbIntermediates )
+            {
+              iOct_out -= nbIntermediates;
+              is_ghost = true;
+            }
+          } 
+        }
+      }
+
+      CellIndex iCell = {{iOct_out,is_ghost,is_intermediate}, i, j, k, bx(), by(), bz()};
       return iCell;
     }
   };
-  using IterationSpace_fullArray = IterationSpace_fullArray_impl<false>;
-  using IterationSpace_fullArray_ghost = IterationSpace_fullArray_impl<true>;
+  using IterationSpace_fullArray = IterationSpace_fullArray_impl<true, false, false>;
+  using IterationSpace_fullArray_ghost = IterationSpace_fullArray_impl<false, true, false>;
 
   /**
    * Same as a single foreach_cell inside foreach_patch with no temporaries

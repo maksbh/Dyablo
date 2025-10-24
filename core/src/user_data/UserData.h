@@ -10,6 +10,7 @@ namespace dyablo {
 namespace UserData_Impl{
   struct UserData_Fields_Pdata;
   class UserData_FieldAccessor;
+  class UserData_FieldAccessor_intermediates;
   struct UserData_FieldAccessor_FieldInfo;
 
   struct UserData_Particles_Pdata;
@@ -46,6 +47,12 @@ public:
   void new_fields( const std::set<std::string>& names);
 
   /***
+   * @brief Allocate intermediate octants for existing field
+   * WARNING : Invalidates all field accessors that have intermediates if reallocation happens
+   ***/
+  void new_intermediate_fields(const std::set<std::string>& names);
+
+  /***
    * @brief Check if field exists
    ***/
   bool has_field(const std::string& name) const;
@@ -74,6 +81,12 @@ public:
    ***/
   void delete_field( const std::string& name );
 
+  /***
+   * @brief Delete an intermediate field
+   * WARNING : Invalidates all accessors containing this field
+   ***/
+  void clear_intermediates();
+
   void exchange_loadbalance( const ViewCommunicator& ghost_comm );
 
   /***
@@ -82,6 +95,7 @@ public:
   int nbFields() const;
 
   using FieldAccessor = UserData_Impl::UserData_FieldAccessor; 
+  using FieldAccessor_intermediates = UserData_Impl::UserData_FieldAccessor_intermediates; 
   using FieldAccessor_FieldInfo = UserData_Impl::UserData_FieldAccessor_FieldInfo;
 
   /***
@@ -90,6 +104,11 @@ public:
    * Do not keep invalidated accessors since live accessors may prevent Kokkos::View deallocation and create memory leaks
    ***/
   FieldAccessor getAccessor( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const;
+
+  /***
+   * @brief create a FieldAccessor to access fields listed in `fields_info` and allow access to intermediate cells
+   ***/
+  FieldAccessor_intermediates getAccessor_intermediates( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const;
 
   /***
    * @brief Reallocate Userdata to fit new AMRmesh size
