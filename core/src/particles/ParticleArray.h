@@ -1,6 +1,7 @@
 #pragma once
 
 #include "kokkos_shared.h"
+#include "VarIndex.h"
 
 namespace dyablo {
 
@@ -49,34 +50,26 @@ public:
     ParticleData& operator=( const ParticleData& pa ) = default;
     ParticleData& operator=( ParticleData&& pa ) = default;  
 
-    ParticleData( const ParticleArray& pa, const FieldManager& fieldManager )
+    ParticleData( const ParticleArray& pa, uint32_t nbAttributes )
     : ParticleArray( pa ),
-      particle_data( this->particle_position.label()+"_data", pa.getNumParticles(), fieldManager.nbfields() ),
-      fm( fieldManager.get_id2index() )
+      particle_data( this->particle_position.label()+"_data", pa.getNumParticles(), nbAttributes )
     {}
 
-    ParticleData( const std::string& name, uint32_t nbParticles, const FieldManager& fieldManager )
+    ParticleData( const std::string& name, uint32_t nbParticles, uint32_t nbAttributes )
     : ParticleArray( name, nbParticles ),
-      particle_data( this->particle_position.label()+"_data", nbParticles, fieldManager.nbfields() ),
-      fm( fieldManager.get_id2index() )
+      particle_data( this->particle_position.label()+"_data", nbParticles, nbAttributes )
     {}
-
-
-    FieldManager field_manager()
-    {
-        return FieldManager(fm.enabled_fields());
-    }
 
     KOKKOS_INLINE_FUNCTION
-    int nbfields() const
+    int nbAttributes() const
     {
-        return fm.nbfields();
+        return particle_data.extent(1);
     }
 
     KOKKOS_INLINE_FUNCTION
     real_t& at( const ParticleIndex& iPart, VarIndex field ) const
     {
-        return at_ivar( iPart, fm[field] );
+        return at_ivar( iPart, field );
     }
 
     KOKKOS_INLINE_FUNCTION
@@ -86,7 +79,6 @@ public:
     }
 //private:
     Kokkos::View< real_t**, Kokkos::LayoutLeft > particle_data;
-    id2index_t fm;
 };
 
 } // namespace dyablo

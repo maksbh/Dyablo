@@ -36,8 +36,15 @@ public:
 
     void extend_fields( )
     {
+        uint32_t nbOcts = this->foreach_cell.get_amr_mesh().getNumOctants();
+        uint32_t nbGhosts = this->foreach_cell.get_amr_mesh().getNumGhosts();
         int allocated_field_count = fields.nbfields();
-        auto fields_new = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(this->max_field_count) );
+        FieldView_t::Shape_t shape = fields.getShape();
+        shape.nbOcts = nbOcts;
+        shape.nbGhosts = nbGhosts;
+        shape.nbFields = max_field_count;
+        FieldView_t fields_new( "UserData_fields", shape );
+        
         if( allocated_field_count != 0 )
         {
             Kokkos::deep_copy( 
@@ -139,7 +146,7 @@ public:
         
         int index = field_index.at(name).index;
 
-        auto field = foreach_cell.allocate_ghosted_array( std::string("field_")+name, FieldManager(1) );
+        auto field = foreach_cell.allocate_ghosted_array( std::string("field_")+name, 1 );
         Kokkos::deep_copy( 
             field.U,
             Kokkos::subview(fields.U, Kokkos::ALL(), std::pair(index, index+1) , Kokkos::ALL() )
@@ -202,7 +209,7 @@ public:
         all_fields.push_back({field, i++});
       FieldAccessor fields_old = this->getAccessor( all_fields );
 
-      this->fields = foreach_cell.allocate_ghosted_array( "UserData_fields", FieldManager(this->field_index.size()) );
+      this->fields = foreach_cell.allocate_ghosted_array( "UserData_fields", this->field_index.size() );
       // Reorder fields to reduce fragmentation
       std::map<std::string, field_index_t> field_index_new;
       {

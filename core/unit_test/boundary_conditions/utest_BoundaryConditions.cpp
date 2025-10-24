@@ -30,7 +30,7 @@ using TmpViewHost = TmpView::host_mirror_type;
 namespace {
 
 enum VarIndex_test{
-  ID,IE,IP=IE,IU,IV,IW,IGX,IGY,IGZ
+  ID,IE,IP,IU,IV,IW,COUNT
 };
 
 /**
@@ -63,13 +63,12 @@ struct FillFunctor {
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const int i) const {
-    auto fm = U.fm;
     auto v = bc_manager.getBoundaryValue<3, HydroState>(U, cv[i], metadata);
-    out(fm[ID], i) = v.rho;
-    out(fm[IE], i) = v.e_tot;
-    out(fm[IU], i) = v.rho_u;
-    out(fm[IV], i) = v.rho_v;
-    out(fm[IW], i) = v.rho_w;
+    out(ID, i) = v.rho;
+    out(IE, i) = v.e_tot;
+    out(IU, i) = v.rho_u;
+    out(IV, i) = v.rho_v;
+    out(IW, i) = v.rho_w;
   }
 };
 
@@ -105,7 +104,6 @@ public:
   std::shared_ptr<ConfigMap>                 configMap;
   int                                        ndim;
   std::shared_ptr<AMRmesh>                   amr_mesh;
-  FieldManager                               fieldMgr;
   ForeachCell::CellArray_global_ghosted      U;
 
   void SetUp() override {
@@ -138,7 +136,6 @@ public:
     int by = U.getShape().by;
     int bz = U.getShape().bz;
     uint32_t nbCellsPerOct = bx*by*bz;
-    auto fm = fieldMgr.get_id2index();
     { 
       // Initialize U
       auto U_host = Kokkos::create_mirror_view(U.U);
@@ -146,11 +143,11 @@ public:
       { 
         for( uint32_t c=0; c<nbCellsPerOct; c++ )
         {
-          U_host(c, fm[ID], iOct) = c;
-          U_host(c, fm[IP], iOct) = c;
-          U_host(c, fm[IU], iOct) = c;
-          U_host(c, fm[IV], iOct) = c;
-          U_host(c, fm[IW], iOct) = c;
+          U_host(c, ID, iOct) = c;
+          U_host(c, IP, iOct) = c;
+          U_host(c, IU, iOct) = c;
+          U_host(c, IV, iOct) = c;
+          U_host(c, IW, iOct) = c;
         }
       }
       Kokkos::deep_copy( U.U, U_host );
@@ -265,21 +262,19 @@ TEST_F(TestBoundaryConditions, absorbingBoundaries) {
   TmpViewHost out_host = Kokkos::create_mirror_view(out);
   Kokkos::deep_copy(out_host, out);
 
-  auto fm = U.fm;
-
   // Testing values
-  EXPECT_NEAR(out_host(fm[IU],0), lids[0], 1e-3);
-  EXPECT_NEAR(out_host(fm[IV],0), lids[0], 1e-3);
-  EXPECT_NEAR(out_host(fm[IW],0), lids[0], 1e-3);
-  EXPECT_NEAR(out_host(fm[IU],1), lids[1], 1e-3);
-  EXPECT_NEAR(out_host(fm[IV],1), lids[1], 1e-3);
-  EXPECT_NEAR(out_host(fm[IW],1), lids[1], 1e-3);
-  EXPECT_NEAR(out_host(fm[IU],2), lids[2], 1e-3);
-  EXPECT_NEAR(out_host(fm[IV],2), lids[2], 1e-3);
-  EXPECT_NEAR(out_host(fm[IW],2), lids[2], 1e-3);
-  EXPECT_NEAR(out_host(fm[IU],3), lids[3], 1e-3);
-  EXPECT_NEAR(out_host(fm[IV],3), lids[3], 1e-3);
-  EXPECT_NEAR(out_host(fm[IW],3), lids[3], 1e-3);
+  EXPECT_NEAR(out_host(IU,0), lids[0], 1e-3);
+  EXPECT_NEAR(out_host(IV,0), lids[0], 1e-3);
+  EXPECT_NEAR(out_host(IW,0), lids[0], 1e-3);
+  EXPECT_NEAR(out_host(IU,1), lids[1], 1e-3);
+  EXPECT_NEAR(out_host(IV,1), lids[1], 1e-3);
+  EXPECT_NEAR(out_host(IW,1), lids[1], 1e-3);
+  EXPECT_NEAR(out_host(IU,2), lids[2], 1e-3);
+  EXPECT_NEAR(out_host(IV,2), lids[2], 1e-3);
+  EXPECT_NEAR(out_host(IW,2), lids[2], 1e-3);
+  EXPECT_NEAR(out_host(IU,3), lids[3], 1e-3);
+  EXPECT_NEAR(out_host(IV,3), lids[3], 1e-3);
+  EXPECT_NEAR(out_host(IW,3), lids[3], 1e-3);
 }
 
 /**
@@ -338,21 +333,19 @@ TEST_F(TestBoundaryConditions, reflectingBoundaries) {
   TmpViewHost out_host = Kokkos::create_mirror_view(out);
   Kokkos::deep_copy(out_host, out);
 
-  auto fm = U.fm;
-
   // Testing values
-  EXPECT_NEAR(out_host(fm[IU],0), -lids[0], 1e-3);
-  EXPECT_NEAR(out_host(fm[IV],0), lids[0], 1e-3);
-  EXPECT_NEAR(out_host(fm[IW],0), lids[0], 1e-3);
-  EXPECT_NEAR(out_host(fm[IU],1), -lids[1], 1e-3);
-  EXPECT_NEAR(out_host(fm[IV],1), lids[1], 1e-3);
-  EXPECT_NEAR(out_host(fm[IW],1), lids[1], 1e-3);
-  EXPECT_NEAR(out_host(fm[IU],2), lids[2], 1e-3);
-  EXPECT_NEAR(out_host(fm[IV],2), lids[2], 1e-3);
-  EXPECT_NEAR(out_host(fm[IW],2), -lids[2], 1e-3);
-  EXPECT_NEAR(out_host(fm[IU],3), lids[3], 1e-3);
-  EXPECT_NEAR(out_host(fm[IV],3), -lids[3], 1e-3);
-  EXPECT_NEAR(out_host(fm[IW],3), lids[3], 1e-3);
+  EXPECT_NEAR(out_host(IU,0), -lids[0], 1e-3);
+  EXPECT_NEAR(out_host(IV,0), lids[0], 1e-3);
+  EXPECT_NEAR(out_host(IW,0), lids[0], 1e-3);
+  EXPECT_NEAR(out_host(IU,1), -lids[1], 1e-3);
+  EXPECT_NEAR(out_host(IV,1), lids[1], 1e-3);
+  EXPECT_NEAR(out_host(IW,1), lids[1], 1e-3);
+  EXPECT_NEAR(out_host(IU,2), lids[2], 1e-3);
+  EXPECT_NEAR(out_host(IV,2), lids[2], 1e-3);
+  EXPECT_NEAR(out_host(IW,2), -lids[2], 1e-3);
+  EXPECT_NEAR(out_host(IU,3), lids[3], 1e-3);
+  EXPECT_NEAR(out_host(IV,3), -lids[3], 1e-3);
+  EXPECT_NEAR(out_host(IW,3), lids[3], 1e-3);
 }
 }
 }

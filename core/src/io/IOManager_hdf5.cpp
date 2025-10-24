@@ -4,7 +4,6 @@
 #include <sstream>
 
 #include "kokkos_shared.h"
-#include "FieldManager.h"
 #include "amr/LightOctree.h"
 #include "io/IOManager_base.h"
 #include "utils/io/HDF5ViewWriter.h"
@@ -512,8 +511,7 @@ R"xml(
           DYABLO_ASSERT_HOST_RELEASE(!U_.has_field(name), "ERROR ! Derived field " << name << " is already present as an active field");
         
         uint32_t nfields = var_names.size();
-        id2index_t fm(nfields);
-        CellArray_global df_data( std::string("DerivedData_")+var_names.at(0), CellArray_global::Shape_t{bx, by, bz, nfields, nbOcts_local}, fm);
+        CellArray_global df_data( std::string("DerivedData_")+var_names.at(0), CellArray_global::Shape_t{bx, by, bz, nfields, nbOcts_local});
         df->compute_derived_fields( df_data, U_ );
 
         for (uint32_t id_var=0; id_var < nfields; id_var++) {

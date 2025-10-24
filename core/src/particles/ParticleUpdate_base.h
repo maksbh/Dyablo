@@ -13,9 +13,7 @@ class ParticleUpdate{
 public: 
   // ParticleUpdate(
   //               const ConfigMap& configMap,
-  //               ForeachCell&& params, 
-  //               const id2index_t& fm,
-  //               uint32_t bx, uint32_t by, uint32_t bz,
+  //               ForeachCell&& params,
   //               Timers& timers );
   virtual ~ParticleUpdate(){}
   virtual void update( UserData& U, ScalarSimulationData& scalar_data ) = 0;

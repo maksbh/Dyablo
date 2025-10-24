@@ -3,7 +3,6 @@
 #include <memory>
 
 #include "kokkos_shared.h"
-#include "FieldManager.h"
 #include "amr/LightOctree.h"
 #include "gravity/GravitySolver_base.h"
 

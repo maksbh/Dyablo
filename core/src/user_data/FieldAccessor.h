@@ -19,7 +19,7 @@ class UserData_FieldAccessor
 friend GhostCommunicator_full_blocks;
 friend UserData_Fields_Pdata;
 public:
-    static constexpr int MAX_FIELD_COUNT = id2index_t::MAX_INDEX_COUNT;
+    static constexpr int MAX_FIELD_COUNT = 20;
     using FieldInfo = UserData_FieldAccessor_FieldInfo;
     using FieldView_t = UserData::FieldView_t;
 

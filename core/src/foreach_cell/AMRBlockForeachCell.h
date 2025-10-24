@@ -1,5 +1,6 @@
 #pragma once
 
+#include "utils/config/ConfigMap.h"
 #include "foreach_cell/AMRBlockForeachCell_CellArray.h"
 
 namespace dyablo {
@@ -263,20 +264,18 @@ public:
   //   return CellArray_global{U, bx, by, bz, (uint32_t)U.extent(2), fm};
   // }
 
-  CellArray_global_ghosted allocate_ghosted_array( std::string name, const FieldManager& fieldMgr)
+  CellArray_global_ghosted allocate_ghosted_array( const std::string& name, uint32_t nbFields )
   {
     const CData& cdata = this->cdata;
     uint32_t bx = cdata.bx;
     uint32_t by = cdata.by;
     uint32_t bz = cdata.bz;
-    int nbFields = fieldMgr.nbfields();
     int nbOcts = pmesh.getNumOctants();
     int nbGhosts = pmesh.getNumGhosts();
-    auto fm = fieldMgr.get_id2index();
 
     DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
-    return CellArray_global_ghosted(name, CellArray_global_ghosted::Shape_t{bx, by, bz, (uint32_t)nbFields, (uint32_t)nbOcts, (uint32_t)nbGhosts, (uint32_t)0}, fm);
+    return CellArray_global_ghosted(name, CellArray_global_ghosted::Shape_t{bx, by, bz, (uint32_t)nbFields, (uint32_t)nbOcts, (uint32_t)nbGhosts, (uint32_t)0});
   }
   /**
    * Reserve a new temporary ghosted cell array local to each patch. 
@@ -286,9 +285,9 @@ public:
    * For CellIndexes outside the block (when iter_space is has more ghosts, or an offset was applied),
    * CellArray::convert_index returns an index with status == invalid (no neighbor search is performed)
    **/
-  typename CellArray_patch::Ref reserve_patch_tmp(std::string name, int gx, int gy, int gz, const id2index_t& fm, int nvars)
+  typename CellArray_patch::Ref reserve_patch_tmp(std::string name, int gx, int gy, int gz, int nvars)
   {
-    return patchmanager.reserve_patch_tmp(name, gx, gy, gz, fm, nvars);
+    return patchmanager.reserve_patch_tmp(name, gx, gy, gz, nvars);
   }
 
   /**

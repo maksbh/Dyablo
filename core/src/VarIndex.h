@@ -1,5 +1,5 @@
 /**
- * VarIndex is user un FieldManager to translate Field names into indexes in multidimentionnal arrays
+ * VarIndex is user in FieldAccessor / ParticleAccessor to translate Field names into indexes in multidimentionnal arrays
  * This file contains everything that needs to be modified to add a Field to a global array.
  * 
  * ** Read this before adding a VarIndex ** 

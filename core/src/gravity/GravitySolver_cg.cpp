@@ -72,8 +72,7 @@ using CellIndex = typename ForeachCell::CellIndex;
 
 enum VarIndex_CG
 {
-  ID, IGX, IGY, IGZ,
-  CG_IP, CG_IR, CG_PHI, IGPHI
+  ID, IGX, IGY, IGZ, IGPHI
 };
 
 /**
@@ -208,6 +207,12 @@ real_t MPI_Allreduce_scalar( real_t local_v )
   return res;
 }
 
+// Indexes for CGdata
+enum VarIndex_CG_tmp
+{
+  CG_IP, CG_IR, CG_PHI, COUNT
+};
+
 } // namespace
 
 /**
@@ -232,10 +237,8 @@ void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& 
 
   ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
-  // Setup field manager for CGdata
-  FieldManager fieldManager( {CG_IP, CG_IR, CG_PHI/*, CG_IZ*/} );
   // Allocate global array
-  GhostedArray CGdata = foreach_cell.allocate_ghosted_array( "CGdata", fieldManager );
+  GhostedArray CGdata = foreach_cell.allocate_ghosted_array( "CGdata", VarIndex_CG_tmp::COUNT );
 
   pdata->timers.get("GravitySolver_cg").start();
 

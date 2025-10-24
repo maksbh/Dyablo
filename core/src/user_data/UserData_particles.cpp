@@ -11,7 +11,7 @@ public:
     ParticleContainer( const ParticleContainer& ) = default;
     ParticleContainer( ParticleContainer&& ) = default;
     ParticleContainer( const std::string& name, const ForeachParticle& foreach_particle, uint32_t num_particles )
-      : name(name), foreach_particle(foreach_particle), particles(name, num_particles, FieldManager(0))
+      : name(name), foreach_particle(foreach_particle), particles(name, num_particles, 0)
     {}
     int nbAttributes() const
     {
@@ -25,7 +25,7 @@ public:
         int allocated_attr_count = nbAttributes();
         if( needed_attr_count > allocated_attr_count )
         {
-            ParticleData particles_new( particles, FieldManager(needed_attr_count) );
+            ParticleData particles_new( particles, needed_attr_count );
             if( allocated_attr_count != 0 )
             {
                 Kokkos::deep_copy( 
@@ -42,7 +42,7 @@ public:
         
             auto first_free = [&]() -> int
             {
-                for(int i=0; i<particles.nbfields(); i++)
+                for(int i=0; i<particles.nbAttributes(); i++)
                 {
                     bool free = true;
                     for( auto& p : attribute_index )
@@ -88,7 +88,7 @@ public:
     }
     UserData::ParticleAttribute_t getParticleAttribute( const std::string& attribute_name ) const
     {
-      ParticleData res( particles, FieldManager(1) );
+      ParticleData res( particles, 1 );
 
       int index = attribute_index.at(attribute_name);
 
@@ -117,7 +117,7 @@ public:
         ViewCommunicator part_comm = foreach_particle.get_distribute_communicator( particles );
         uint32_t nbParticles_new = part_comm.getNumGhosts();
 
-        ParticleData particles_new( this->name, nbParticles_new, FieldManager(particles.nbfields()) );
+        ParticleData particles_new( this->name, nbParticles_new, particles.nbAttributes() );
 
         part_comm.exchange_ghosts<0>( particles.particle_data, particles_new.particle_data );
         part_comm.exchange_ghosts<0>( particles.particle_position, particles_new.particle_position );

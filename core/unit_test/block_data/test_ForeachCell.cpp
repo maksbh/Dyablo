@@ -12,10 +12,6 @@
 namespace dyablo
 {
 
-enum VarIndex_test{
-  ID,IE,IP,IU,IV,IW,IGX,IGY,IGZ
-};
-
 // =======================================================================
 // =======================================================================
 void run_test()
@@ -102,8 +98,9 @@ void run_test()
   ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
   std::cout << "Allocate U..." << std::endl;
-  FieldManager field_manager({IU,IV,IW});
-  ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", field_manager);
+  
+  struct VarIndex_U { IU, IV, IW, COUNT };
+  ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", VarIndex_U::COUNT);
   std::cout << "Fill U..." << std::endl;
   {
     foreach_cell.foreach_cell( "Fill_U", U, 
@@ -117,7 +114,7 @@ void run_test()
   }
 
   std::cout << "Apply stencil..." << std::endl;
-  ForeachCell::CellArray_global_ghosted U2 = foreach_cell.allocate_ghosted_array("U2", field_manager);
+  ForeachCell::CellArray_global_ghosted U2 = foreach_cell.allocate_ghosted_array("U2", VarIndex_U::COUNT);
   foreach_cell.foreach_cell( "Stencil_U2", U, 
     KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
   {

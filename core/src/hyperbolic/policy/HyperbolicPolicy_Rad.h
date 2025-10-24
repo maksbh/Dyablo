@@ -28,11 +28,6 @@ struct HyperbolicPolicy_RadState {
             };
   }
 
-  static FieldManager getFieldManager()
-  {
-    return FieldManager( {VarIndex::Ie_rad, VarIndex::Ifx_rad, VarIndex::Ify_rad, VarIndex::Ifz_rad } );
-  } 
-
   real_t e_rad = 0;
   real_t fx_rad = 0;
   real_t fy_rad = 0;

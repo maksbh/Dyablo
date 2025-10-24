@@ -1,7 +1,6 @@
 #pragma once
 
 #include "kokkos_shared.h"
-#include "FieldManager.h"
 #include "amr/LightOctree.h"
 
 namespace dyablo {
@@ -487,12 +486,11 @@ public:
 
   View_t U, Ughost, Uintermediate;    
   Shape_t shape;
-  id2index_t fm;
 
 protected: 
   KOKKOS_INLINE_FUNCTION
-  CellArray_base( const Shape_t& s, const id2index_t& fm)
-    : shape(s), fm(fm)
+  CellArray_base( const Shape_t& s)
+    : shape(s)
   {}
 
 public:
@@ -508,8 +506,8 @@ public:
    * Note: when has_ghosts or has_intermediates are false, number of ghosts or intermediates must be 0
    **/
   template< typename T >
-  CellArray_base( const T& label, const Shape_t& s, const id2index_t& fm)
-  : shape(s), fm(fm)
+  CellArray_base( const T& label, const Shape_t& s)
+  : shape(s)
   {
     DYABLO_ASSERT_HOST_RELEASE( has_ghosts || shape.nbGhosts==0, "CellArray_base : ghosts disabled but nbGhosts>0"  );
     DYABLO_ASSERT_HOST_RELEASE( has_intermediates || shape.nbIntermediates==0, "CellArray_base : intermediates disabled but nbIntermediates>0"  );
@@ -575,7 +573,7 @@ public:
   KOKKOS_INLINE_FUNCTION
   real_t& at( const CellIndex& iCell, int ivar ) const
   {
-    return at_ivar(iCell, fm[ivar]);
+    return at_ivar(iCell, ivar);
   }
 };
 

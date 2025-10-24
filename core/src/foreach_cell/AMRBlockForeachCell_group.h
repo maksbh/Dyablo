@@ -104,7 +104,7 @@ public:
   : cdata(cdata), pmesh(pmesh)
   {}
 
-  CellArray_patch::Ref reserve_patch_tmp(std::string name, int gx, int gy, int gz, const id2index_t& fm, int nvars)
+  CellArray_patch::Ref reserve_patch_tmp(std::string name, int gx, int gy, int gz, int nvars)
   {
     const CData& cdata = this->cdata;
     uint32_t bx = cdata.bx+2*gx;
@@ -114,7 +114,7 @@ public:
     DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
     // Do not initialize View to improve first-touch behavior
-    return CellArray_patch(CellArray_global(Kokkos::ViewAllocateWithoutInitializing(name), CellArray_patch::Shape_t{ bx, by, bz, (uint32_t)nvars, nbOctsPerGroup }, fm));
+    return CellArray_patch(CellArray_global(Kokkos::ViewAllocateWithoutInitializing(name), CellArray_patch::Shape_t{ bx, by, bz, (uint32_t)nvars, nbOctsPerGroup }));
   }  
   
   template <typename Function>

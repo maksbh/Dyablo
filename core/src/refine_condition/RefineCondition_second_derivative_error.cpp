@@ -113,8 +113,8 @@ public:
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
     // Create abstract temporary ghosted arrays for patches 
-    ForeachCell::CellArray_patch::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, ConsState::getFieldManager().get_id2index(), ConsState::getFieldManager().nbfields());
-    ForeachCell::CellArray_patch::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, PrimState::getFieldManager().get_id2index(), ConsState::getFieldManager().nbfields());
+    ForeachCell::CellArray_patch::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, State_traits<ConsState>::nvars);
+    ForeachCell::CellArray_patch::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, State_traits<PrimState>::nvars);
 
     uint32_t nbOcts = foreach_cell.get_amr_mesh().getNumOctants();
     Kokkos::View<int*> oct_marker_max("Oct_marker_max", nbOcts);

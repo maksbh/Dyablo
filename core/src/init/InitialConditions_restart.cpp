@@ -286,7 +286,7 @@ public:
       for( std::string field : fields )
       {
         U.new_fields({field});
-        ForeachCell::CellArray_global_ghosted field_view = foreach_cell.allocate_ghosted_array( field, FieldManager(1) );
+        ForeachCell::CellArray_global_ghosted field_view = foreach_cell.allocate_ghosted_array( field, 1 );
         restart_file.read_view( std::string("fields/") + field, field_view.U);
 
         enum VarIndex_single { Ifield };
@@ -317,7 +317,7 @@ public:
         restart_file.read_view( std::string("particles/")+particle_array+"/pos/y", Kokkos::subview( P_pos.particle_position, Kokkos::ALL(), (int)IY ) );
         restart_file.read_view( std::string("particles/")+particle_array+"/pos/z", Kokkos::subview( P_pos.particle_position, Kokkos::ALL(), (int)IZ ) );
 
-        ParticleData file_data( P_pos, FieldManager(1) );
+        ParticleData file_data( P_pos, 1 );
 
         for( std::string attr : restart_file.list_fields(std::string("particles/")+particle_array+"/attributes"))
         {

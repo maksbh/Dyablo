@@ -101,9 +101,8 @@ public:
       policy.setConsState(Uout, iCell, empty_state);
     });
 
-    auto fm_prim = PrimState::getFieldManager().get_id2index();
     int nb_ghosts = slope_enabled ? 2 : 1;
-    PatchArray::Ref Qpatch_ = foreach_cell.reserve_patch_tmp("Qpatch", nb_ghosts, nb_ghosts, (ndim == 3)?nb_ghosts:0, fm_prim, State_traits<PrimState>::nvars);
+    PatchArray::Ref Qpatch_ = foreach_cell.reserve_patch_tmp("Qpatch", nb_ghosts, nb_ghosts, (ndim == 3)?nb_ghosts:0, State_traits<PrimState>::nvars);
 
     foreach_cell.foreach_patch( "Hyperbolic_euler::update", 
       PATCH_LAMBDA( const ForeachCell::Patch& patch )

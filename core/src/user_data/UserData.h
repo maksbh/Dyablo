@@ -1,5 +1,7 @@
 #pragma once
 
+#include <set>
+
 #include "foreach_cell/ForeachCell.h"
 #include "particles/ForeachParticle.h"
 
