@@ -30,7 +30,7 @@ using TmpViewHost = TmpView::host_mirror_type;
 namespace {
 
 enum VarIndex_test{
-  ID,IE,IP,IU,IV,IW,COUNT
+  ID,IE,IP=IE,IU,IV,IW,COUNT
 };
 
 /**
@@ -125,13 +125,12 @@ public:
     configMap = std::make_shared<ConfigMap>(configmap_str);
 
     amr_mesh   = std::make_shared<AMRmesh>(ndim, std::array<bool,3>{false,false,false}, 3, 5);
-    fieldMgr   = FieldManager({ID,IP,IU,IV,IW});
 
     uint32_t nbOcts = amr_mesh->getNumOctants();
 
     std::cout << "Initialize User Data..." << std::endl;
     ForeachCell foreach_cell(*amr_mesh, *configMap);
-    U = foreach_cell.allocate_ghosted_array("U", fieldMgr);
+    U = foreach_cell.allocate_ghosted_array("U", VarIndex_test::COUNT);
     int bx = U.getShape().bx;
     int by = U.getShape().by;
     int bz = U.getShape().bz;

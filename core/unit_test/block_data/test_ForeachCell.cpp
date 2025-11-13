@@ -99,7 +99,7 @@ void run_test()
 
   std::cout << "Allocate U..." << std::endl;
   
-  struct VarIndex_U { IU, IV, IW, COUNT };
+  enum VarIndex_U { IU, IV, IW, COUNT };
   ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", VarIndex_U::COUNT);
   std::cout << "Fill U..." << std::endl;
   {
