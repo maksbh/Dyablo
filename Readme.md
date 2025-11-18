@@ -36,12 +36,7 @@ NOTE : If you don't have access to github from the machine (e.g at TGCC), you wi
 
 The CMake superbuild should automatically find dependencies and warn you if any dependency is missing. CMake version > 3.16 is needed to compile Kokkos.
 
-You will need a recent C++ compiler compatible with C++17 and capable of compiling Kokkos. Recommended compiler versions for Dyablo are :
-* `g++` > 12
-* `icc` > 19.0.5
-* `clang` > 11
-* `nvcc` > 12
-* ...
+You will need a recent C++ compiler [compatible with Kokkos](https://kokkos.org/kokkos-core-wiki/get-started/requirements.html). Kokkos requires C++20 since version 5.0.
 
 Other dependencies include :
 * MPI
