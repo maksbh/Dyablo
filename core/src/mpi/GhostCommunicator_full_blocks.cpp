@@ -57,7 +57,7 @@ void OctSubset_init( MpiComm mpi_comm,
   auto subset_send_request_count_host = Kokkos::create_mirror_view(subset_send_request_count_device);
   Kokkos::deep_copy(subset_send_request_count_host, subset_send_request_count_device);
   // Number of subset octants requested by each proc
-  Kokkos::View<int*>::HostMirror subset_recv_request_count_host("subset_recv_request_count", nbProc);
+  Kokkos::View<int*>::host_mirror_type subset_recv_request_count_host("subset_recv_request_count", nbProc);
   mpi_comm.MPI_Alltoall( subset_send_request_count_host.data(), 1, subset_recv_request_count_host.data(), 1 );
   uint32_t requested_local_total = std::reduce(subset_recv_request_count_host.data(), subset_recv_request_count_host.data()+nbProc);
   

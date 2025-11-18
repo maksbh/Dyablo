@@ -109,7 +109,7 @@ protected:
     void private_init_map( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts );
 
     Kokkos::View<uint32_t*> recv_sizes, send_sizes; //!Number of octants to send/recv for each proc
-    Kokkos::View<uint32_t*>::HostMirror recv_sizes_host, send_sizes_host; //!Number of octants to send/recv for each proc
+    Kokkos::View<uint32_t*>::host_mirror_type recv_sizes_host, send_sizes_host; //!Number of octants to send/recv for each proc
     Kokkos::View<uint32_t*> send_iOcts; //! List of octants to send (first send_sizes[0] iOcts to send to rank[0] and so on...)
     uint32_t nbghosts_recv;
     MpiComm mpi_comm;    
@@ -160,7 +160,7 @@ namespace ViewCommunicator_impl{
    * Each subview `res[rank]` contains `sizes[rank]` octants from `view`
    **/
   template <typename PackBuffer_t>
-  std::vector<PackBuffer_t> get_subviews(const PackBuffer_t& view, const Kokkos::View<uint32_t*>::HostMirror& sizes, int local_rank)
+  std::vector<PackBuffer_t> get_subviews(const PackBuffer_t& view, const Kokkos::View<uint32_t*>::host_mirror_type& sizes, int local_rank)
   {
     int nb_proc = sizes.size();
 

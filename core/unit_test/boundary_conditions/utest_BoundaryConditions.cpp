@@ -25,7 +25,7 @@ using CellIndex = dyablo::ForeachCell::CellIndex;
 namespace dyablo {
 
 using TmpView = Kokkos::View<real_t**>;
-using TmpViewHost = TmpView::HostMirror;
+using TmpViewHost = TmpView::host_mirror_type;
 
 namespace {
 
@@ -326,7 +326,7 @@ TEST_F(TestBoundaryConditions, reflectingBoundaries) {
   bc_manager.bc_max[IZ] = BC_REFLECTING;
 
   using TmpView = Kokkos::View<real_t**>;
-  using TmpViewHost = TmpView::HostMirror;
+  using TmpViewHost = TmpView::host_mirror_type;
   TmpView out("test_BC", 5, 4);
   ForeachCell foreach_cell(*amr_mesh, *configMap);
   auto metadata = foreach_cell.getCellMetaData();

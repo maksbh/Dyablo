@@ -164,7 +164,7 @@ void run_test()
         actual_neighbors(y,x) = ns[0].iOct;
       } );
       std::cout << "[DONE]" << std::endl;
-      Kokkos::View<real_t[3][3]>::HostMirror actual_neighbors_host("2D::actual_neighbors_host");
+      Kokkos::View<real_t[3][3]>::host_mirror_type actual_neighbors_host("2D::actual_neighbors_host");
       Kokkos::deep_copy(actual_neighbors_host, actual_neighbors);
 
       std::cout << "expected" << std::endl;
@@ -329,7 +329,7 @@ void run_test()
         actual_neighbors(z,y,x) = ns[0].iOct;
       } );
       std::cout << "[DONE]" << std::endl;
-      Kokkos::View<real_t[3][3][3]>::HostMirror actual_neighbors_host("2D::actual_neighbors_host");
+      Kokkos::View<real_t[3][3][3]>::host_mirror_type actual_neighbors_host("2D::actual_neighbors_host");
       Kokkos::deep_copy(actual_neighbors_host, actual_neighbors);
 
       std::cout << "expected" << std::endl;

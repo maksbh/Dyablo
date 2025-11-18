@@ -22,7 +22,7 @@ enum KokkosLayout {
  * last index is hydro variable
  */
 using DataArray     = Kokkos::View<real_t**, Kokkos::LayoutLeft, Device>;
-using DataArrayHost = DataArray::HostMirror;
+using DataArrayHost = DataArray::host_mirror_type;
 
 /**
  * DataArrayBlock used when designing a solver with a block of
@@ -35,7 +35,7 @@ using DataArrayHost = DataArray::HostMirror;
  * Note that we enforce Left layout here, since we plan to the Kokkos TeamPolicy with one team per leaf, so we favor memory locality inside a block.
  */
 using DataArrayBlock = Kokkos::View<real_t***, Kokkos::LayoutLeft, Device>;
-using DataArrayBlockHost = DataArrayBlock::HostMirror;
+using DataArrayBlockHost = DataArrayBlock::host_mirror_type;
 
 
 } // namespace dyablo

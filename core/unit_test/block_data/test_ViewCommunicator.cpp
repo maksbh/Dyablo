@@ -21,7 +21,7 @@ namespace dyablo
 template<typename Array_t>
 Kokkos::LayoutLeft layout(int bx, int by, int bz, int nbfields, int nbOcts );
 
-real_t& at(const DataArrayBlock::HostMirror& U, uint32_t c, uint32_t f, uint32_t iOct )
+real_t& at(const DataArrayBlock::host_mirror_type& U, uint32_t c, uint32_t f, uint32_t iOct )
 {
   return U(c,f,iOct);
 }
@@ -41,7 +41,7 @@ Kokkos::LayoutLeft layout<DataArrayBlock>(int bx, int by, int bz, int nbfields, 
   return Kokkos::LayoutLeft(bx*by*bz,nbfields,nbOcts);
 }
 
-real_t& at(const DataArray::HostMirror& U, uint32_t c, uint32_t f, uint32_t iOct )
+real_t& at(const DataArray::host_mirror_type& U, uint32_t c, uint32_t f, uint32_t iOct )
 {
   return U(iOct,f);
 }

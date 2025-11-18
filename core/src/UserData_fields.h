@@ -285,7 +285,7 @@ public:
 private:
     Kokkos::View<int*> var_to_arrayindex; // Index conversion for at()
     Kokkos::View<int*> ivar_to_arrayindex; // Index conversion for at_ivar()
-    Kokkos::View<int*>::HostMirror ivar_to_arrayindex_host;
+    Kokkos::View<int*>::host_mirror_type ivar_to_arrayindex_host;
 
     KOKKOS_INLINE_FUNCTION
     int get_index_from_varindex(VarIndex var) const
