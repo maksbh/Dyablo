@@ -50,6 +50,9 @@ set( ic_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_MHD_blast.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_MHD_rotor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_MHD_rayleigh_taylor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_MHD_Brio_Wu.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_MHD_isodensity_vortex.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/init/mhd/InitialConditions_MHD_cloud_shock_interaction.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_simple_particles.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_particle_grid.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_particles_uniform.cpp
