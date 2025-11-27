@@ -66,12 +66,13 @@ void run_test(const Test_data& test_data)
 
 
   {
-    timers.get("MarkCells").start();
     uint32_t nbOcts = amr_mesh.getNumOctants();
     const auto lmesh_host = amr_mesh.getStorage();
     for( int level=level_min; level<level_max; level++ )
     {
-      std::cout << "Refine level " << level << std::endl;    
+      std::cout << "Refine level " << level << std::endl;  
+      
+      timers.get("MarkCells").start();
       int refine_count = 0;     
       for(uint32_t iOct=0; iOct<nbOcts; iOct++)
       {
@@ -97,15 +98,17 @@ void run_test(const Test_data& test_data)
           refine_count++;
         amr_mesh.setMarker(iOct, refine?1:0);
       }
+      timers.get("MarkCells").stop();
+
       std::cout << "Refine count " << refine_count << std::endl;
-    }
-    timers.get("MarkCells").stop();
-    timers.get("Adapt").start();
-    amr_mesh.adapt();
-    timers.get("Adapt").stop();
-    timers.get("loadBalance").start();
-    amr_mesh.loadBalance();
-    timers.get("loadBalance").stop();   
+      
+      timers.get("Adapt").start();
+      amr_mesh.adapt();
+      timers.get("Adapt").stop();
+      timers.get("loadBalance").start();
+      amr_mesh.loadBalance();
+      timers.get("loadBalance").stop(); 
+    }      
   }
 
   uint32_t nbOcts = amr_mesh.getNumOctants();
