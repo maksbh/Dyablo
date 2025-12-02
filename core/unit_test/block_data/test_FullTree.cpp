@@ -185,12 +185,14 @@ void test_FullTree_average_children()
   UserData::FieldAccessor_intermediates Ua = U.getAccessor_intermediates( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
 
   const LightOctree& lmesh = amr_mesh->getLightOctree();
-  GhostCommunicator_full_blocks ghost_communicator( *amr_mesh, Ua.getShape(), -1 );
+  GhostCommunicator_full_blocks ghost_communicator_leaves( *amr_mesh, Ua.getShape(), -1, false );
+  GhostCommunicator_full_blocks ghost_communicator_intermediates( *amr_mesh, Ua.getShape(), -1, true );
 
   for( int level = level_max-1; level >= level_min; level-- )
   {
-    #warning TODO mpi exhanges
-    //ghost_communicator.exchange_ghosts( Ua ); // TODO : filter only intermediates
+    #warning TODO : filter only intermediates
+    ghost_communicator_leaves.exchange_ghosts( Ua );
+    ghost_communicator_intermediates.exchange_ghosts( Ua );
 
     IterationSpace_level_intermediates iter_space_level_intermediates(Ua.getShape(), lmesh, level);
     foreach_cell.foreach_cell("average_parent_cell", iter_space_level_intermediates,

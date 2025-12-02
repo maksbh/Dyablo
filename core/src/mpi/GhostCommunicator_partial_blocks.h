@@ -26,7 +26,7 @@ public:
     GhostCommunicator_partial_blocks() = delete;
     GhostCommunicator_partial_blocks( GhostCommunicator_partial_blocks&& ) = default;
     GhostCommunicator_partial_blocks( const GhostCommunicator_partial_blocks& );
-    GhostCommunicator_partial_blocks( const AMRmesh& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
+    GhostCommunicator_partial_blocks( const AMRmesh& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, bool intermediates=false, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() );
     ~GhostCommunicator_partial_blocks();
 
     static std::string name()

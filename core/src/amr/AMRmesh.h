@@ -86,18 +86,24 @@ public:
 
   struct GhostMap_t
   {
-    Kokkos::View< uint32_t* > send_sizes; // Number of octants to send to each process (of size nb_proc)
-    Kokkos::View< uint32_t* > send_iOcts; // Octants to send (of size sum(send_sizes(i)) )
-    
     enum Face{
       XL, XR,
       YL, YR,
       ZL, ZR,
-      FACE_COUNT
+      FACE_COUNT,
+      FULL_BLOCK,
     };
     using CellMask = int;
 
-    Kokkos::View<CellMask*> send_cell_masks;
+    struct SendList
+    {
+      Kokkos::View< uint32_t* > send_sizes; /// Number of octants to send to each process (of size nb_proc)
+      Kokkos::View< uint32_t* > send_iOcts; /// Octants to send (of size sum(neighbor_leaves_send_sizes(i)) )
+      Kokkos::View<CellMask*> send_cell_masks; /// Mask for each leaf octant to send representing which faces of the octant are needed
+    };
+
+    SendList to_send_leaves; /// Leaf octants to send for stencil operations
+    SendList to_send_intermediates; /// Intermediate octants to send for stencil operations
   };
 
   //----- Mesh modification -----

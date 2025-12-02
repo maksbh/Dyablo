@@ -195,11 +195,20 @@ public:
       Kokkos::ALL() );
   }
 
-  oct_data_t getAllGhostsSubview() const
+  oct_data_t getGhostsSubview() const
   {
     return Kokkos::subview( 
       oct_data, 
       std::make_pair( getNumOctants()+getNumIntermediates(), 
+                      getNumOctants()+getNumIntermediates()+getNumGhosts() ),
+      Kokkos::ALL() );
+  }
+
+  oct_data_t getGhostIntermediatesSubview() const
+  {
+    return Kokkos::subview( 
+      oct_data, 
+      std::make_pair( getNumOctants()+getNumIntermediates()+getNumGhosts(), 
                       getNumOctants()+getNumIntermediates()+getNumGhosts()+getNumIntermediateGhosts() ),
       Kokkos::ALL() );
   }

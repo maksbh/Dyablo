@@ -22,9 +22,10 @@ public:
    **/
   GhostCommunicator_impl( const AMRmesh& mesh, 
                           const ForeachCell::CellArray_global_ghosted::Shape_t& shape, 
-                          int ghost_count, 
+                          int ghost_count,
+                          bool intermediates = false, 
                           const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-  : Impl(mesh, shape, ghost_count, mpi_comm)
+  : Impl(mesh, shape, ghost_count, intermediates, mpi_comm)
   {}
 
   static std::string name()

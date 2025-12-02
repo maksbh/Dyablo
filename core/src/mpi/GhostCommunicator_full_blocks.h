@@ -5,13 +5,15 @@
 
 namespace dyablo {
 
-
 class GhostCommunicator_full_blocks : protected ViewCommunicator
 {
+private:
+    bool intermediates;
 public:
     template< typename AMRmesh_t >
-    GhostCommunicator_full_blocks( const AMRmesh_t& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape,  int ghost_count, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-    : ViewCommunicator( ViewCommunicator::from_mesh(amr_mesh, mpi_comm) )
+    GhostCommunicator_full_blocks( const AMRmesh_t& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape,  int ghost_count, bool intermediates=false, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    : ViewCommunicator( ViewCommunicator::from_mesh(amr_mesh, intermediates, mpi_comm) ),
+      intermediates(intermediates)
     {}
 
     static std::string name()
@@ -26,6 +28,7 @@ public:
     }
 
     void exchange_ghosts( const UserData::FieldAccessor& U ) const;
+    void exchange_ghosts( const UserData::FieldAccessor_intermediates& U ) const;
 
     void exchange_ghosts( ForeachCell::CellArray_global_ghosted& U ) const;
 
@@ -43,8 +46,10 @@ public:
     };
 
     void exchange_ghosts_subset( const UserData::FieldAccessor& U, const OctSubset& subset ) const;
+    void exchange_ghosts_subset( const UserData::FieldAccessor_intermediates& U, const OctSubset& subset ) const;
 
     void reduce_ghosts( UserData::FieldAccessor& U ) const;
+    void reduce_ghosts( UserData::FieldAccessor_intermediates& U ) const;
 
     void reduce_ghosts( ForeachCell::CellArray_global_ghosted& U ) const; 
 };

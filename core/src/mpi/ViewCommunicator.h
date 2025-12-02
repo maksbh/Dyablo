@@ -24,10 +24,11 @@ namespace dyablo {
 class ViewCommunicator
 {
 public: 
-    static ViewCommunicator from_mesh( const AMRmesh& mesh, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    static ViewCommunicator from_mesh( const AMRmesh& mesh, bool intermediates = false, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
     {
       auto gm = mesh.getGhostMap();
-      return ViewCommunicator( gm.send_sizes, gm.send_iOcts, mpi_comm );
+      auto& octlist = intermediates ? gm.to_send_intermediates : gm.to_send_leaves;
+      return ViewCommunicator( octlist.send_sizes, octlist.send_iOcts, mpi_comm );
     }
 
     /**

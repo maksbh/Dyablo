@@ -5,6 +5,7 @@ namespace dyablo {
 
 struct GhostCommunicator_partial_blocks_Pdata
 {
+  bool intermediates;
   MpiComm mpi_comm;
   uint32_t bx, by, bz, ghost_count;
 
@@ -69,8 +70,8 @@ const Precomputed_Mask_Cells& precompute_facemask_cells( uint32_t bx, uint32_t b
 
     int masks_count = (1 << Face::FACE_COUNT);
     int max_icells = bx*by*bz;
-    Kokkos::View<uint32_t*> facemask_count("facemask_count", masks_count);// number of cells to add for facemask
-    Kokkos::View<uint32_t**, Kokkos::LayoutRight> facemask_iCells("facemask_iCells", masks_count, max_icells);// cells to add for facemask
+    Kokkos::View<uint32_t*> facemask_count("facemask_count", masks_count+1);// number of cells to add for facemask
+    Kokkos::View<uint32_t**, Kokkos::LayoutRight> facemask_iCells("facemask_iCells", masks_count+1, max_icells);// cells to add for facemask
 
     auto facemask_count_host = Kokkos::create_mirror_view(facemask_count);
 
@@ -156,6 +157,9 @@ const Precomputed_Mask_Cells& precompute_facemask_cells( uint32_t bx, uint32_t b
       }
     }
 
+    // Last mask is full block
+    add_cells( masks_count, 0, bx, 0, by, 0, bz );
+
     Kokkos::deep_copy( facemask_count, facemask_count_host );
 
     precomputed_map[key].facemask_count = facemask_count;
@@ -234,7 +238,7 @@ CellList list_cells(
   return {sizes, iOcts, iCells};
 }
 
-GhostCommunicator_partial_blocks_Pdata init(const AMRmesh::GhostMap_t& ghostmap, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm )
+GhostCommunicator_partial_blocks_Pdata init(const AMRmesh::GhostMap_t& gm, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, bool intermediates, const MpiComm& mpi_comm )
 {
   using GhostMap_t = AMRmesh::GhostMap_t;
 
@@ -243,10 +247,11 @@ GhostCommunicator_partial_blocks_Pdata init(const AMRmesh::GhostMap_t& ghostmap,
   DYABLO_ASSERT_HOST_RELEASE( ghost_count <= shape.bx || ghost_count <= shape.by, "GhostCommunicator_partial_blocks::init : ghost_count ("<<ghost_count<<") not compatible with block size (" << shape.bx << "," << shape.by << "," << shape.bz << ")"  );
 
   // Exchange ghostmap sizes 
+  auto& to_send = intermediates ? gm.to_send_intermediates : gm.to_send_leaves;
   std::vector<int> ghostmap_send_sizes( mpi_size );
   {
-    auto ghostmap_send_sizes_host = Kokkos::create_mirror_view(ghostmap.send_sizes);
-    Kokkos::deep_copy( ghostmap_send_sizes_host, ghostmap.send_sizes );
+    auto ghostmap_send_sizes_host = Kokkos::create_mirror_view(to_send.send_sizes);
+    Kokkos::deep_copy( ghostmap_send_sizes_host, to_send.send_sizes );
     for( int i=0; i<mpi_size; i++ )
       ghostmap_send_sizes[i] = ghostmap_send_sizes_host(i);
   }
@@ -258,7 +263,7 @@ GhostCommunicator_partial_blocks_Pdata init(const AMRmesh::GhostMap_t& ghostmap,
 
   using CellMask = GhostMap_t::CellMask;
   // Send mask to recieving ranks
-  const Kokkos::View<CellMask*>& ghostmap_send_masks = ghostmap.send_cell_masks;
+  const Kokkos::View<CellMask*>& ghostmap_send_masks = to_send.send_cell_masks;
   Kokkos::View<CellMask*>  ghostmap_recv_masks("ghostmap_recv_masks", total_ghostmap_recv_count);
 
   #ifdef MPI_IS_CUDA_AWARE 
@@ -281,12 +286,12 @@ GhostCommunicator_partial_blocks_Pdata init(const AMRmesh::GhostMap_t& ghostmap,
   Precomputed_Mask_Cells precomputed_cells = precompute_facemask_cells( shape.bx, shape.by, shape.bz, ghost_count );
   
   // Compute list of cells to send
-  CellList send_cells = list_cells( precomputed_cells, ghostmap_send_sizes, ghostmap.send_iOcts, ghostmap.send_cell_masks);
+  CellList send_cells = list_cells( precomputed_cells, ghostmap_send_sizes, to_send.send_iOcts, to_send.send_cell_masks);
 
   // Compute list of cells to recieve
   CellList recv_cells = list_cells( precomputed_cells, ghostmap_recv_sizes, KOKKOS_LAMBDA(uint32_t iOct){return iOct;}, ghostmap_recv_masks);
 
-  GhostCommunicator_partial_blocks_Pdata pdata{mpi_comm};
+  GhostCommunicator_partial_blocks_Pdata pdata{intermediates, mpi_comm};
   pdata.bx = shape.bx;
   pdata.by = shape.by;
   pdata.bz = shape.bz;
@@ -294,7 +299,7 @@ GhostCommunicator_partial_blocks_Pdata init(const AMRmesh::GhostMap_t& ghostmap,
 
   pdata.ghostmap_send_sizes = ghostmap_send_sizes;
   pdata.ghostmap_send_masks = ghostmap_send_masks;
-  pdata.ghostmap_send_iOcts = ghostmap.send_iOcts;
+  pdata.ghostmap_send_iOcts = to_send.send_iOcts;
 
   pdata.ghostmap_recv_sizes = ghostmap_recv_sizes;
   pdata.ghostmap_recv_masks = ghostmap_recv_masks;
@@ -317,6 +322,7 @@ void exchange_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, 
 
   uint32_t num_vars = U.nbFields(); // number of vars for each cell
 
+  bool intermediates = pdata.intermediates;
   // Number of values to send are cell_count * num_vars 
   std::vector<int> send_sizes = pdata.m_send_cell_count;
   for( auto& v : send_sizes )
@@ -346,7 +352,7 @@ void exchange_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, 
     uint32_t j = (iCell/bx)%by; 
     uint32_t k = (iCell/bx)/by;
 
-    CellIndex cell_index { {iOct, false}, i, j, k, bx, by, bz };
+    CellIndex cell_index { {iOct, false, intermediates}, i, j, k, bx, by, bz };
     send_buffer( ipack ) = U.at_ivar( cell_index, ivar );
   });
 
@@ -379,7 +385,7 @@ void exchange_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, 
     uint32_t j = (iCell/bx)%by; 
     uint32_t k = (iCell/bx)/by;
 
-    CellIndex cell_index { {iOct, true}, i, j, k, bx, by, bz };
+    CellIndex cell_index { {iOct, true, intermediates}, i, j, k, bx, by, bz };
     U.at_ivar( cell_index, ivar ) = recv_buffer( ipack );
   });
 }
@@ -389,6 +395,7 @@ void reduce_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, Ce
 {
   using CellIndex = ForeachCell::CellIndex;
 
+  bool intermediates = pdata.intermediates;
   uint32_t num_vars = U.nbFields(); // number of vars for each cell
 
   // Note : sends and recvs counts are swapped for reduce
@@ -422,7 +429,7 @@ void reduce_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, Ce
     uint32_t j = (iCell/bx)%by; 
     uint32_t k = (iCell/bx)/by;
 
-    CellIndex cell_index { {iOct, true}, i, j, k, bx, by, bz };
+    CellIndex cell_index { {iOct, true, intermediates}, i, j, k, bx, by, bz };
     send_buffer( ipack ) = U.at_ivar( cell_index, ivar );
   });
   
@@ -454,7 +461,7 @@ void reduce_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, Ce
     uint32_t j = (iCell/bx)%by; 
     uint32_t k = (iCell/bx)/by;
 
-    CellIndex cell_index { {iOct, false}, i, j, k, bx, by, bz };
+    CellIndex cell_index { {iOct, false, intermediates}, i, j, k, bx, by, bz };
     Kokkos::atomic_add( &U.at_ivar( cell_index, ivar ), recv_buffer( ipack ) );
   });
 }
@@ -607,6 +614,7 @@ GhostCommunicator_partial_blocks_OctSubset_Pdata init_subset( const GhostCommuni
   Kokkos::View<int*> ghostmap_send_masks = filter_view( comm_full.pdata->ghostmap_send_masks, ghostmap_send_iGhosts );
   Kokkos::View<uint32_t*> ghostmap_send_iOcts = filter_view( comm_full.pdata->ghostmap_send_iOcts, ghostmap_send_iGhosts );
 
+  bool intermediates = comm_full.pdata->intermediates;
   uint32_t bx = comm_full.pdata->bx;
   uint32_t by = comm_full.pdata->by;
   uint32_t bz = comm_full.pdata->bz;
@@ -617,7 +625,7 @@ GhostCommunicator_partial_blocks_OctSubset_Pdata init_subset( const GhostCommuni
   // Compute list of cells to recieve
   CellList recv_cells = list_cells( precomputed_cells, ghostmap_recv_sizes, ghostmap_recv_iGhosts, ghostmap_recv_masks);
 
-  GhostCommunicator_partial_blocks_Pdata pdata{mpi_comm};
+  GhostCommunicator_partial_blocks_Pdata pdata{intermediates, mpi_comm};
   pdata.bx = bx;
   pdata.by = by;
   pdata.bz = bz;
@@ -645,8 +653,8 @@ GhostCommunicator_partial_blocks_OctSubset_Pdata init_subset( const GhostCommuni
 
 } // namespace
 
-GhostCommunicator_partial_blocks::GhostCommunicator_partial_blocks( const AMRmesh& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, const MpiComm& mpi_comm )
-  : GhostCommunicator_partial_blocks(init( amr_mesh.getGhostMap(), shape, ghost_count, mpi_comm) )
+GhostCommunicator_partial_blocks::GhostCommunicator_partial_blocks( const AMRmesh& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape, uint32_t ghost_count, bool intermediates, const MpiComm& mpi_comm )
+  : GhostCommunicator_partial_blocks(init( amr_mesh.getGhostMap(), shape, ghost_count, intermediates, mpi_comm) )
 {}
 
 GhostCommunicator_partial_blocks::GhostCommunicator_partial_blocks( const GhostCommunicator_partial_blocks& o )
