@@ -342,8 +342,8 @@ AMRmesh::GhostMap_t discover_ghosts(
     auto& leaves = to_send.to_send_leaves;
     auto& intermediates = to_send.to_send_intermediates;
 
-    leaves.send_sizes = Kokkos::View<uint32_t*>( "discover_ghosts::leaves::to_send_count", mpi_size );
-    intermediates.send_sizes = Kokkos::View<uint32_t*>( "discover_ghosts::intermediates::to_send_count", mpi_size );
+    leaves.send_sizes = Kokkos::View<uint32_t*>("discover_ghosts::leaves::sizes", mpi_size);
+    intermediates.send_sizes = Kokkos::View<uint32_t*>("discover_ghosts::intermediates::sizes", mpi_size);
     Kokkos::parallel_for( "discover_ghosts::count_ghosts", neighborMap.capacity(),
       KOKKOS_LAMBDA( uint32_t i )
     {
@@ -351,9 +351,9 @@ AMRmesh::GhostMap_t discover_ghosts(
       {
         const NeighborPair& p = neighborMap.key_at(i);
         if( p.iOct_local < nbLocalLeaves )
-          Kokkos::atomic_inc(&leaves.send_iOcts(p.rank_neighbor));
+          Kokkos::atomic_inc(&leaves.send_sizes(p.rank_neighbor));
         else
-          Kokkos::atomic_inc(&intermediates.send_iOcts(p.rank_neighbor));
+          Kokkos::atomic_inc(&intermediates.send_sizes(p.rank_neighbor));
       }
     });
 
@@ -375,6 +375,7 @@ AMRmesh::GhostMap_t discover_ghosts(
     uint32_t offset_first_intermediate = 0;
     for( int rank=0; rank<mpi_size; rank++ )
     {
+      uint32_t nbLeaves_rank = 0;
       Kokkos::parallel_scan( "discover_ghosts::fill_ghostmap_leaves", neighborMap.capacity(),
         KOKKOS_LAMBDA( uint32_t i, oct_index_t& offset_local, bool final)
       {
@@ -405,7 +406,8 @@ AMRmesh::GhostMap_t discover_ghosts(
             }
           }
         }
-      });
+      }, nbLeaves_rank);
+      uint32_t nbIntermediates_rank = 0;
       Kokkos::parallel_scan( "discover_ghosts::fill_ghostmap_intermediates", neighborMap.capacity(),
         KOKKOS_LAMBDA( uint32_t i, oct_index_t& offset_local, bool final)
       {
@@ -428,7 +430,7 @@ AMRmesh::GhostMap_t discover_ghosts(
               if(final)
               {
                 uint32_t offset = offset_first_intermediate + offset_local;
-                intermediates.send_iOcts( offset ) = p.iOct_local;
+                intermediates.send_iOcts( offset ) = p.iOct_local-nbLocalLeaves;
                 CellMask m = neighborMap.value_at(i);
                 intermediates.send_cell_masks( offset ) = clean_mask(m);
               }
@@ -436,9 +438,9 @@ AMRmesh::GhostMap_t discover_ghosts(
             }
           }
         }
-      });
-      offset_first_leaf += leaves.send_sizes(rank);
-      offset_first_intermediate += intermediates.send_sizes(rank);
+      }, nbIntermediates_rank);
+      offset_first_leaf += nbLeaves_rank;
+      offset_first_intermediate += nbIntermediates_rank;
     }
   }
 
@@ -684,7 +686,7 @@ void private_init(AMRmesh::PData& pdata, const Kokkos::Array<logical_coord_t,3>&
       pdata.periodic, 
       pdata.mpi_comm );
 
-  pdata.storage = storage_device;
+  pdata.storage = storage_device.deep_copy<Storage_t::MemorySpace>();
 
   pdata.markers = markers_t( "markers", storage.getNumOctants() );
 
@@ -1028,7 +1030,7 @@ AMRmesh::GhostMap_t AMRmesh::loadBalance(uint8_t level)
   // Add ghosts to storage_device
   pdata->ghostmap = init_ghosts(new_storage_device, new_morton_intervals, pdata->level_min, level_max, pdata->periodic, mpi_comm);
 
-  storage = new_storage_device;
+  storage = new_storage_device.deep_copy<Storage_t::MemorySpace>();
 
   pdata->markers = markers_t("markers", this->getNumOctants());
 
@@ -1326,7 +1328,7 @@ void AMRmesh::adapt()
     init_intermediates(new_storage_device);
     // Add ghosts to new_storage_device
     pdata->ghostmap = init_ghosts( new_storage_device, morton_intervals, pdata->level_min, pdata->level_max, pdata->periodic, pdata->mpi_comm );
-    pdata->storage = new_storage_device;
+    pdata->storage = new_storage_device.deep_copy<Storage_t::MemorySpace>();
   
     // compute total count and global index of first local octant
     {

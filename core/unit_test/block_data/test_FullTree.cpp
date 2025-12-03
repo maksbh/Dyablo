@@ -198,7 +198,7 @@ void test_FullTree_average_children()
     foreach_cell.foreach_cell("average_parent_cell", iter_space_level_intermediates,
       KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell)
     {
-      ForeachCell::SearchMode_intermediates search_neighbor_intermediate(lmesh);
+      ForeachCell::SearchMode_intermediates search_neighbor_intermediate(lmesh, ForeachCell::SearchMode_intermediates::BiggerNeighborMode::ASSERT);
 
       ForeachCell::CellIndex iCell_c0 = iCell.getChildren(lmesh);
 

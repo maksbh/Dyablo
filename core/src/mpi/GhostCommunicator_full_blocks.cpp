@@ -23,7 +23,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts( const UserData::FieldAccess
 
   for(int i=0; i<U.nbFields(); i++)
   {
-    int iVar = U.get_index_from_ivar_host(i);
+    int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
     auto U_subview      = Kokkos::subview( fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
     auto Ughost_subview = Kokkos::subview( fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
 
@@ -184,7 +184,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
   Kokkos::View<real_t***, Kokkos::LayoutLeft> Ughost_subset( "Ughost_subset", nbCells, nbFields, subset.nbGhosts() );
   for(int i=0; i<U.nbFields(); i++)
   {
-    int iVar = U.get_index_from_ivar_host(i);
+    int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
     auto U_subview      = Kokkos::subview( fields.U,    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
     auto Ughost_subview = Kokkos::subview( Ughost_subset, Kokkos::ALL(), std::make_pair(i, i+1),       Kokkos::ALL() );
     
