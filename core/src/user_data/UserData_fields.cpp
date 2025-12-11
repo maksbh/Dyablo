@@ -36,15 +36,17 @@ public:
 
     void extend_fields( )
     {
-        uint32_t nbOcts = this->foreach_cell.get_amr_mesh().getNumOctants();
-        uint32_t nbGhosts = this->foreach_cell.get_amr_mesh().getNumGhosts();
-        int allocated_field_count = fields.nbfields();
-        FieldView_t::Shape_t shape = fields.getShape();
-        shape.nbOcts = nbOcts;
-        shape.nbGhosts = nbGhosts;
-        shape.nbFields = max_field_count;
+        FieldView_t::Shape_t shape{
+          .bx = foreach_cell.blockSize()[IX],
+          .by = foreach_cell.blockSize()[IY],
+          .bz = foreach_cell.blockSize()[IZ],
+          .nbFields = (uint32_t)max_field_count,
+          .nbOcts = foreach_cell.get_amr_mesh().getNumOctants(),
+          .nbGhosts = foreach_cell.get_amr_mesh().getNumGhosts(),
+        };
         FieldView_t fields_new( "UserData_fields", shape );
         
+        int allocated_field_count = fields.nbfields();
         if( allocated_field_count != 0 )
         {
             Kokkos::deep_copy( 
