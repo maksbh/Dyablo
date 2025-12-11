@@ -96,7 +96,7 @@ void test_GhostCommunicator_partial_block()
   UserData::FieldAccessor Ua = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
   UserData::FieldAccessor Udummy = U.getAccessor( {{"dummy", Dummy}} );
 
-  GhostCommunicator_t ghost_communicator( *amr_mesh, U.getShape(), 2 );
+  GhostCommunicator_t ghost_communicator( *amr_mesh, Ua.getShape(), 2 );
   ghost_communicator.exchange_ghosts( Ua );
 
   // test that ghosts have the right value
