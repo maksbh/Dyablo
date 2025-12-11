@@ -32,6 +32,12 @@ public:
   : cdata( cdata ), lmesh(pmesh.getLightOctree())
   {}
 
+  KOKKOS_INLINE_FUNCTION
+  const LightOctree& getLightOctree() const
+  {
+    return lmesh;
+  }
+
   /// Get the physical size of the cell
   KOKKOS_INLINE_FUNCTION
   pos_t getCellSize( const CellIndex& iCell ) const
@@ -160,6 +166,8 @@ public:
   using CellArray_global = AMRBlockForeachCell_CellArray_impl::CellArray_global;
   using CellArray_shape = AMRBlockForeachCell_CellArray_impl::CellArray_shape;
   using CellArray_global_ghosted = AMRBlockForeachCell_CellArray_impl::CellArray_global_ghosted;
+  using SearchMode_local = AMRBlockForeachCell_CellArray_impl::SearchMode_local;
+  using SearchMode_neighbor = AMRBlockForeachCell_CellArray_impl::SearchMode_neighbor;
   using CellMetaData = AMRBlockForeachCell_CellMetaData;
   friend CellMetaData;
 
@@ -268,8 +276,7 @@ public:
 
     DYABLO_ASSERT_HOST_RELEASE( cdata.ndim != 2 || bz==1, "bz should be 1 in 2D" );
 
-    const LightOctree& lmesh = pmesh.getLightOctree();
-    return CellArray_global_ghosted(name, CellArray_global_ghosted::Shape_t{{bx, by, bz, (uint32_t)nbFields, (uint32_t)nbOcts, (uint32_t)nbGhosts, (uint32_t)0}, lmesh}, fm);
+    return CellArray_global_ghosted(name, CellArray_global_ghosted::Shape_t{bx, by, bz, (uint32_t)nbFields, (uint32_t)nbOcts, (uint32_t)nbGhosts, (uint32_t)0}, fm);
   }
   /**
    * Reserve a new temporary ghosted cell array local to each patch. 
@@ -405,18 +412,6 @@ public:
   }
 
   template <typename Function>
-  void foreach_cell(const std::string& kernel_name, const CellArray_global::Shape_t& iter_space, const Function& f) const
-  {
-    return foreach_cell(kernel_name, IterationSpace_fullArray(iter_space), f);
-  }
-
-  template <typename Function>
-  void foreach_cell(const std::string& kernel_name, const CellArray_global_ghosted::Shape_t& iter_space, const Function& f) const
-  {
-    return foreach_cell(kernel_name, IterationSpace_fullArray(iter_space), f);
-  }
-
-  template <typename Function>
   void foreach_cell(const std::string& kernel_name, const CellArray_global_ghosted& iter_space, const Function& f) const
   {
     return foreach_cell(kernel_name, IterationSpace_fullArray(iter_space), f);
@@ -430,12 +425,6 @@ public:
 
   template <typename Function, typename... Reducer_t>
   void reduce_cell(const std::string& kernel_name, const CellArray_shape& iter_space, const Function& f, const Reducer_t&... reducer) const
-  {
-    reduce_cell(kernel_name, IterationSpace_fullArray(iter_space), f, reducer...);
-  }
-
-  template <typename Function, typename... Reducer_t>
-  void reduce_cell(const std::string& kernel_name, const CellArray_global_ghosted::Shape_t& iter_space, const Function& f, const Reducer_t&... reducer) const
   {
     reduce_cell(kernel_name, IterationSpace_fullArray(iter_space), f, reducer...);
   }

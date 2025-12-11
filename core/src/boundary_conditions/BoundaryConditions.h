@@ -68,7 +68,7 @@ public:
       (int16_t)(-offset[IZ] + sign(offset[IZ]))
     }; 
 
-    iCell_ref = iCell_ref.getNeighbor(symmetric_offset);
+    iCell_ref = iCell_ref + symmetric_offset;
   
     // By default, we define the result as the reference state (ie the symmetrical state wrt the boundary)
     ConsState res{}, ref{};

@@ -63,7 +63,7 @@ public:
       (int16_t)(-offset[IZ] + sign(offset[IZ]))
     }; 
 
-    CellIndex iCell_sym = iCell_inside.getNeighbor(symmetric_offset);
+    CellIndex iCell_sym = iCell_inside + symmetric_offset;
     ConsState u_sym = policy.getConsState( U, iCell_sym );    
     ConsState res = u_sym;
 
@@ -241,7 +241,7 @@ public:
 
     // X right boundary -> Absorbing
     if ( offset[IX] > 0 ) {
-      CellIndex iCell_sym = iCell_inside.getNeighbor(symmetric_offset);
+      CellIndex iCell_sym = iCell_inside + symmetric_offset;
       res = policy.getConsState( U, iCell_sym );    
     }
     // X left boundary -> Post-shock state
@@ -265,7 +265,7 @@ public:
         res = policy.primToCons(q);
       }
       else {    
-        CellIndex iCell_sym = iCell_inside.getNeighbor(symmetric_offset);
+        CellIndex iCell_sym = iCell_inside + symmetric_offset;
         ConsState u_sym = policy.getConsState( U, iCell_sym );    
         res = u_sym;
         res.rho_v *= -1.0;

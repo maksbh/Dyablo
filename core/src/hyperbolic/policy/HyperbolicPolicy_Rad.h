@@ -365,7 +365,7 @@ public:
       (int16_t)(-offset[IZ] + sign(offset[IZ]))
     }; 
 
-    CellIndex iCell_sym = iCell_inside.getNeighbor(symmetric_offset);
+    CellIndex iCell_sym = iCell_inside + symmetric_offset;
     ConsState u_sym = policy.getConsState( U, iCell_sym );    
     ConsState res = u_sym;
 

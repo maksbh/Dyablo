@@ -121,9 +121,11 @@ void run_test()
   foreach_cell.foreach_cell( "Stencil_U2", U, 
     KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
   {
+    ForeachCell::SearchMode_neighbor search_neighbor( cells.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
     auto append_offset = [&]( ForeachCell::CellIndex::offset_t offset )
     {
-      ForeachCell::CellIndex iCell_n = iCell.getNeighbor_ghost( offset, U );
+      ForeachCell::CellIndex iCell_n = iCell.getNeighbor( offset, search_neighbor );
 
       // Res will be center of same-size virtual neighbor
       Kokkos::Array<real_t, 3> res = {};
@@ -148,7 +150,7 @@ void run_test()
         {
           // Mean of positions, shifted to center of bigger cell
           int n_smaller_neighbors = 
-            foreach_smaller_neighbor<ndim>( iCell_n, offset, U,
+            foreach_smaller_neighbor<ndim>( iCell_n, offset, search_neighbor,
             [&]( const ForeachCell::CellIndex& iCell_sn )
           {
             auto pos = cells.getCellCenter(iCell_sn);

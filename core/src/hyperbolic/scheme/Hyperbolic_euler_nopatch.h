@@ -89,6 +89,8 @@ public:
       Uout.getShape(),
       KOKKOS_LAMBDA(const CellIndex &iCell)
     {
+      ForeachCell::SearchMode_neighbor search_neighbor( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
       // Return Slope at position iCell
       auto get_slope = [&](const CellIndex &iCell, ComponentIndex3D dir) { 
         if(!slope_enabled)
@@ -103,7 +105,7 @@ public:
             u = policy.getBoundaryValue(Uin, iCell_n, cellmetadata);
           else if (level_diff < 0) {
             int subcell_count = 
-            foreach_smaller_neighbor(ndim, iCell_n, off, Uin.getShape(),
+            foreach_smaller_neighbor(ndim, iCell_n, off, search_neighbor,
               [&](const CellIndex& iCell_neigh) {
                 ConsState uloc = policy.getConsState(Uin, iCell_neigh);
                 u += uloc;
@@ -119,10 +121,10 @@ public:
         ConsState uC = policy.getConsState(Uin, iCell);
         const PrimState qC = policy.consToPrim( uC );
         offset_t off_m{}; off_m[dir] = -1;
-        CellIndex iCell_L = iCell.getNeighbor_ghost(off_m, Uout.getShape());
+        CellIndex iCell_L = iCell.getNeighbor(off_m, search_neighbor);
         const PrimState qL = get_neighbor_prim_value(iCell_L, off_m);
         offset_t off_p{}; off_p[dir] =  1;
-        CellIndex iCell_R = iCell.getNeighbor_ghost(off_p, Uout.getShape());
+        CellIndex iCell_R = iCell.getNeighbor(off_p, search_neighbor);
         const PrimState qR = get_neighbor_prim_value(iCell_R, off_p);    
 
         // Getting the length right and left
@@ -152,7 +154,7 @@ public:
 
           offset_t off_m{}; 
           off_m[dir] = -1;
-          const CellIndex iCell_m = iCell.getNeighbor_ghost(off_m, Uin.getShape());
+          const CellIndex iCell_m = iCell.getNeighbor(off_m, search_neighbor);
           if( iCell_m.is_boundary() )
           {
             fluxL = policy.getBoundaryFlux(Uin, iCell_m, qC, cellmetadata);
@@ -190,7 +192,7 @@ public:
 
           offset_t off_p{}; 
           off_p[dir] = 1;
-          const CellIndex iCell_p = iCell.getNeighbor_ghost(off_p, Uin.getShape());
+          const CellIndex iCell_p = iCell.getNeighbor(off_p, search_neighbor);
           if( iCell_p.is_boundary() )
           {
             fluxR = policy.getBoundaryFlux(Uin, iCell_p, qC, cellmetadata);

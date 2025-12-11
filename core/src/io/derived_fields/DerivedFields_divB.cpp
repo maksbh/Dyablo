@@ -44,6 +44,9 @@ public:
                               Uin.getShape(),
                               CELL_LAMBDA(const CellIndex &iCell) 
     {
+      ForeachCell::SearchMode_neighbor search_neighbor( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+      ForeachCell::SearchMode_neighbor search_neighbor_origin( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
+
       // Centered field is only used when one side is a boundary
       const real_t Bx = Uin.at(iCell, IBX);
       const real_t By = Uin.at(iCell, IBY);
@@ -66,7 +69,7 @@ public:
         size_fac = 0.0;
         // Minus offset
         {
-          auto iCell_m = iCell.getNeighbor_ghost(off_m, Uin);
+          auto iCell_m = iCell.getNeighbor(off_m, search_neighbor);
           int ldiff = iCell_m.level_diff();
           
           // Boundary -> forward derivative
@@ -80,7 +83,7 @@ public:
           // Smaller neighbor
           else {
             Bm = 0.0;
-            foreach_smaller_neighbor(ndim, iCell, off_m, Uin.getShape(), [&](const CellIndex iCell_smaller) 
+            foreach_smaller_neighbor(ndim, iCell, off_m, search_neighbor_origin, [&](const CellIndex iCell_smaller) 
             {
               Bm += Uin.at(iCell_smaller, IB);
             });
@@ -90,7 +93,7 @@ public:
         }
         // Plus offset
         {
-          auto iCell_p = iCell.getNeighbor_ghost(off_p, Uin);
+          auto iCell_p = iCell.getNeighbor(off_p, search_neighbor);
           int ldiff = iCell_p.level_diff();
           
           // Boundary -> backward derivative
@@ -104,7 +107,7 @@ public:
           // Samller neighbor
           else {
             Bp = 0.0;
-            foreach_smaller_neighbor(ndim, iCell, off_p, Uin.getShape(), [&](const CellIndex iCell_smaller) 
+            foreach_smaller_neighbor(ndim, iCell, off_p, search_neighbor_origin, [&](const CellIndex iCell_smaller) 
             {
               Bp += Uin.at(iCell_smaller, IB);
             });

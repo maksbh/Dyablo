@@ -30,7 +30,8 @@ void copyGhostBlockCellData(const Uin_t& Uin,
 
   GhostedArray::Shape_t Uin_shape = Uin.getShape();
 
-  CellIndex iCell_Uin = Uin_shape.convert_index_ghost(iCell_Ugroup);
+  ForeachCell::SearchMode_neighbor search_neighbor_origin( patch.getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
+  CellIndex iCell_Uin = Uin_shape.convert_index(iCell_Ugroup, search_neighbor_origin);
   if( iCell_Uin.is_boundary() )
   {
     ConsState res = bc_manager.template getBoundaryValue<ndim, State>(Uin, iCell_Uin, patch);
@@ -49,7 +50,7 @@ void copyGhostBlockCellData(const Uin_t& Uin,
     DYABLO_ASSERT_KOKKOS_DEBUG( iCell_Uin.is_valid(), "Invalid iCell" );
     ConsState u{}, u_subcell{};
     int nbCells =
-    foreach_sibling<ndim>( iCell_Uin, Uin_shape, 
+    foreach_sibling<ndim>( iCell_Uin, search_neighbor_origin, 
       [&](const CellIndex& iCell_subcell)
     {
       getConservativeState<ndim>(Uin, iCell_subcell, u_subcell);

@@ -316,12 +316,15 @@ void run_test_reduce()
 
   using CellIndex = typename ForeachCell::CellIndex;
 
+  const auto& lmesh = foreach_cell.get_amr_mesh().getLightOctree(); 
   foreach_cell.foreach_cell( "Fill_neighbors", U,
     KOKKOS_LAMBDA( const CellIndex& iCell )
   {
+    ForeachCell::SearchMode_neighbor search_neighbor( lmesh, ForeachCell::SearchMode_neighbor::CLOSEST );
+
     auto fill_neighbor = [&](CellIndex::offset_t offset, VarIndex iVar)
     {
-      CellIndex iCell_n = iCell.getNeighbor_ghost( offset, U );    
+      CellIndex iCell_n = iCell.getNeighbor( offset, search_neighbor );    
       assert( iCell_n.is_valid() ); // This test uses periodic
       assert( iCell_n.level_diff() >= -1 &&  iCell_n.level_diff() <= 1 );
       if( iCell_n.level_diff() == 0 ) // Same size
@@ -334,7 +337,7 @@ void run_test_reduce()
       }
       else if( iCell_n.level_diff() == -1 ) // Neighbors are smaller
       {
-        foreach_smaller_neighbor<ndim>( iCell_n, offset, U,
+        foreach_smaller_neighbor<ndim>( iCell_n, offset, search_neighbor,
           [&]( const CellIndex& iCell_ns )
         {
           Kokkos::atomic_add(&U.at( iCell_ns, iVar ), 1);

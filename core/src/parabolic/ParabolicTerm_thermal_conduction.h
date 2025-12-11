@@ -125,8 +125,11 @@ public:
     };
 
     // Getting cell info
-    CellIndex iCell_Uin    = Uin.getShape().convert_index(iCell_Uout);
-    CellIndex iCell_Ugroup = Ugroup.convert_index(iCell_rhs);
+    ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );
+    ForeachCell::SearchMode_neighbor search_neighbor( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
+    CellIndex iCell_Uin    = Uin.getShape().convert_index(iCell_Uout, search_local);
+    CellIndex iCell_Ugroup = Ugroup.getShape().convert_index(iCell_rhs, search_local);
     auto size = cellmetadata.getCellSize(iCell_Uin);
     auto pos  = cellmetadata.getCellCenter(iCell_Uin);
     real_t V  = size[IX] * size[IY] * (ndim == 3 ? size[IZ] : 1.0);
@@ -151,8 +154,8 @@ public:
       real_t area = A[dir];
 
       // Getting neighbor element
-      auto iiL = iCell_Uin.getNeighbor_ghost(offsetm, Uin);
-      auto iiR = iCell_Uin.getNeighbor_ghost(offsetp, Uin);
+      auto iiL = iCell_Uin.getNeighbor(offsetm, search_neighbor);
+      auto iiR = iCell_Uin.getNeighbor(offsetp, search_neighbor);
 
       // And level differences
       int ldiff_L = iiL.level_diff();
@@ -185,7 +188,7 @@ public:
         constexpr real_t nfac = (ndim == 2 ? 0.5 : 0.25);
         real_t tmp_flux{0.0};
         
-        foreach_smaller_neighbor<ndim>(iiL, offsetm, Uin.getShape(), 
+        foreach_smaller_neighbor<ndim>(iiL, offsetm, search_neighbor, 
           [&](const CellIndex& iCell_neighbor)
             {
               ConsHydroState uL;
@@ -218,7 +221,7 @@ public:
         constexpr real_t nfac = (ndim == 2 ? 0.5 : 0.25);
         real_t tmp_flux{0.0};
         
-        foreach_smaller_neighbor<ndim>(iiR, offsetp, Uin.getShape(), 
+        foreach_smaller_neighbor<ndim>(iiR, offsetp, search_neighbor, 
           [&](const CellIndex& iCell_neighbor)
             {
               ConsHydroState uR;

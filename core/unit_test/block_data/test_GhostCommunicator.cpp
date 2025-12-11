@@ -106,6 +106,8 @@ void test_GhostCommunicator_partial_block()
   foreach_cell.reduce_cell( "test_neighbors", Ua.getShape(),
     KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell, int& error_count )
   {
+    ForeachCell::SearchMode_neighbor search_neighbor( cells.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
     auto check_value = [&](const CellIndex& iCell)
     {
       auto test_equal = [&](real_t a, real_t b)
@@ -128,7 +130,7 @@ void test_GhostCommunicator_partial_block()
 
     auto test_offset = [&]( CellIndex::offset_t offset, int ghost_width )
     {
-      CellIndex iCell_n = iCell.getNeighbor_ghost( offset, Ua );
+      CellIndex iCell_n = iCell.getNeighbor( offset, search_neighbor );
       if( !iCell_n.is_local() && !iCell_n.is_boundary() )
       {
         if( iCell_n.level_diff() >= 0 )
@@ -139,14 +141,14 @@ void test_GhostCommunicator_partial_block()
           for( int i=1; i<ghost_width; i++ )
           {
             CellIndex::offset_t offset_nn{(int8_t)(offset[IX]*i),(int8_t)(offset[IY]*i),(int8_t)(offset[IZ]*i)};
-            CellIndex iCell_nn = iCell_n.getNeighbor( offset_nn );
+            CellIndex iCell_nn = iCell_n + offset_nn;
 
             check_value(iCell_nn);
           }
         }
         else
         {
-          foreach_smaller_neighbor<3>( iCell_n, offset, Ua.getShape(),
+          foreach_smaller_neighbor<3>( iCell_n, offset, search_neighbor,
           [&]( const CellIndex& iCell_ns )
           {
             check_value(iCell_ns);
@@ -155,7 +157,7 @@ void test_GhostCommunicator_partial_block()
             for( int i=1; i<ghost_width; i++ )
             {
               CellIndex::offset_t offset_nn{(int8_t)(offset[IX]*i),(int8_t)(offset[IY]*i),(int8_t)(offset[IZ]*i)};
-              CellIndex iCell_nn = iCell_ns.getNeighbor( offset_nn );
+              CellIndex iCell_nn = iCell_ns + offset_nn;
 
               check_value(iCell_nn);
             }
@@ -254,12 +256,15 @@ void run_test_reduce_partial_blocks()
 
     UserData::FieldAccessor Uin = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}, {"dummy", Dummy}} );
 
+    const auto& lmesh = foreach_cell.get_amr_mesh().getLightOctree();    
     foreach_cell.foreach_cell( "Fill_neighbors", U.getShape(),
       KOKKOS_LAMBDA( const CellIndex& iCell )
     {
+      ForeachCell::SearchMode_neighbor search_neighbor( lmesh, ForeachCell::SearchMode_neighbor::CLOSEST );
+
       auto fill_neighbor = [&](CellIndex::offset_t offset, VarIndex iVar)
       {
-        CellIndex iCell_n = iCell.getNeighbor_ghost( offset, Uin );    
+        CellIndex iCell_n = iCell.getNeighbor( offset, search_neighbor );    
         assert( iCell_n.is_valid() ); // This test uses periodic
         assert( iCell_n.level_diff() >= -1 &&  iCell_n.level_diff() <= 1 );
         if( iCell_n.level_diff() == 0 ) // Same size
@@ -272,7 +277,7 @@ void run_test_reduce_partial_blocks()
         }
         else if( iCell_n.level_diff() == -1 ) // Neighbors are smaller
         {
-          foreach_smaller_neighbor<ndim>( iCell_n, offset, Uin.getShape(),
+          foreach_smaller_neighbor<ndim>( iCell_n, offset, search_neighbor,
             [&]( const CellIndex& iCell_ns )
           {
             Kokkos::atomic_add(&Uin.at( iCell_ns, iVar ), 1);

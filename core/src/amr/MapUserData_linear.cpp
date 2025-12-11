@@ -43,6 +43,8 @@ public:
       foreach_cell.reduce_cell( "MapUserData_mean::remap", Uout.getShape(),
         KOKKOS_LAMBDA( const CellIndex& iCell_Uout, int& ghost_coarsen_count )
       {
+        ForeachCell::SearchMode_neighbor search_neighbor_in( cellmetadata_in.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
         CellIndex iCell_Uin = remapper.get_old_cell( iCell_Uout );
 
         auto ldiff = iCell_Uin.level_diff();
@@ -63,10 +65,10 @@ public:
                               pos_new[IZ]-pos_old[IZ]};
 
             // 2. Retrieving stencil, and computing level differences
-            const CellIndex iCell_mx = iCell_Uin.getNeighbor_ghost({-1, 0, 0}, Uin); 
-            const CellIndex iCell_px = iCell_Uin.getNeighbor_ghost({ 1, 0, 0}, Uin);
-            const CellIndex iCell_my = iCell_Uin.getNeighbor_ghost({ 0,-1, 0}, Uin);
-            const CellIndex iCell_py = iCell_Uin.getNeighbor_ghost({ 0, 1, 0}, Uin);
+            const CellIndex iCell_mx = iCell_Uin.getNeighbor({-1, 0, 0}, search_neighbor_in); 
+            const CellIndex iCell_px = iCell_Uin.getNeighbor({ 1, 0, 0}, search_neighbor_in);
+            const CellIndex iCell_my = iCell_Uin.getNeighbor({ 0,-1, 0}, search_neighbor_in);
+            const CellIndex iCell_py = iCell_Uin.getNeighbor({ 0, 1, 0}, search_neighbor_in);
             const int ldiffLx = iCell_mx.level_diff();
             const int ldiffRx = iCell_px.level_diff();
             const int ldiffLy = iCell_my.level_diff();
@@ -75,8 +77,8 @@ public:
             CellIndex iCell_mz{}, iCell_pz{};
             int ldiffLz = 0, ldiffRz = 0;
             if (ndim == 3) {
-              iCell_mz = iCell_Uin.getNeighbor_ghost({ 0, 0,-1}, Uin);
-              iCell_pz = iCell_Uin.getNeighbor_ghost({ 0, 0, 1}, Uin);
+              iCell_mz = iCell_Uin.getNeighbor({ 0, 0,-1}, search_neighbor_in);
+              iCell_pz = iCell_Uin.getNeighbor({ 0, 0, 1}, search_neighbor_in);
               ldiffLz = iCell_mz.level_diff();
               ldiffRz = iCell_pz.level_diff();
             }
@@ -134,7 +136,7 @@ public:
             for(int8_t dy=0; dy<2; dy++)
               for(int8_t dx=0; dx<2; dx++)
               {
-                CellIndex iCell_Uin_n = iCell_Uin.getNeighbor_ghost({dx,dy,dz}, Uin.getShape());
+                CellIndex iCell_Uin_n = iCell_Uin.getNeighbor({dx,dy,dz}, search_neighbor_in);
                 ghost_coarsen_count += iCell_Uin_n.iOct.isGhost ? 1 : 0;
                 for(int ivar=0; ivar<nbfields; ivar++)
                   Uout.at_ivar( iCell_Uout, ivar ) += Uin.at_ivar( iCell_Uin_n, ivar ) / nsubcells;

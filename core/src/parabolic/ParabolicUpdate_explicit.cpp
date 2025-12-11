@@ -170,7 +170,8 @@ public:
       // 4- Calculating rhs term and applying parabolic term
       patch.foreach_cell(Uout.getShape(), CELL_LAMBDA(const CellIndex& iCell_Uout)
       {
-        CellIndex iCell_rhs = rhs.convert_index(iCell_Uout);
+        ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );
+        CellIndex iCell_rhs = rhs.getShape().convert_index(iCell_Uout, search_local);
         parabolic_term.template compute_rhs<ndim>(Uin, Ugroup, Qgroup, rhs, iCell_Uout, iCell_rhs, cellmetadata);
 
         ConsState u0, v_out{};

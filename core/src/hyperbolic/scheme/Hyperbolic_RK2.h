@@ -131,6 +131,10 @@ public:
     auto fm_prim = PrimState::getFieldManager().get_id2index();
     PatchArray::Ref Qpatch_ = foreach_cell.reserve_patch_tmp("Qpatch", 2, 2, (ndim == 3)?2:0, fm_prim, State_traits<PrimState>::nvars);
 
+    ForeachCell::SearchMode_neighbor search_neighbor( this->foreach_cell.get_amr_mesh().getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
+    ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );
+
+
     foreach_cell.foreach_patch( "Hyperbolic_RK2::update", 
       PATCH_LAMBDA( const ForeachCell::Patch& patch )
     {
@@ -139,14 +143,15 @@ public:
       patch.foreach_cell( Qpatch, 
         CELL_LAMBDA( const CellIndex& iCell_Qpatch )
       {
-        CellIndex iCell_Uin = Uin.getShape().convert_index_ghost(iCell_Qpatch);
+        ForeachCell::SearchMode_neighbor search_neighbor_origin( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
+        CellIndex iCell_Uin = Uin.getShape().convert_index(iCell_Qpatch, search_neighbor_origin);
         int level_diff = iCell_Uin.level_diff();
         ConsState u = {};
         if (iCell_Uin.is_boundary())
           u = policy.getBoundaryValue(Uin, iCell_Uin, cellmetadata);
         else if (level_diff < 0) {
           int subcell_count = 
-          foreach_sibling(ndim, iCell_Uin, Uin.getShape(),
+          foreach_sibling(ndim, iCell_Uin, search_neighbor_origin,
             [&](const CellIndex& iCell_neigh) {
               ConsState uloc = policy.getConsState(Uin, iCell_neigh);
               u += uloc;
@@ -163,6 +168,8 @@ public:
       patch.foreach_cell( Uout.getShape(), 
         CELL_LAMBDA( const CellIndex& iCell_Uout )
       {
+        ForeachCell::SearchMode_neighbor search_neighbor( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+
         // Return Slope at position iCell
         auto get_slope = [&](const CellIndex &iCell_Uin, const CellIndex &iCell_Qpatch, ComponentIndex3D dir) 
         {        
@@ -173,8 +180,8 @@ public:
           const PrimState qR = policy.getPrimState(Qpatch, iCell_Qpatch + off_p); 
         
           //!\ Neighbor cells in Qpatch are averaged cells -> size iCell_L != size iCell_Qpatch_L
-          CellIndex iCell_L = iCell_Uin.getNeighbor_ghost(off_m, Uout.getShape());
-          CellIndex iCell_R = iCell_Uin.getNeighbor_ghost(off_p, Uout.getShape());   
+          CellIndex iCell_L = iCell_Uin.getNeighbor(off_m, search_neighbor);
+          CellIndex iCell_R = iCell_Uin.getNeighbor(off_p, search_neighbor);   
 
           // Getting the length right and left
           // Smaller -> use averaged same-size cell -> 1*dx
@@ -204,7 +211,7 @@ public:
 
             offset_t off_m{}; 
             off_m[dir] = -1;
-            const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor_ghost(off_m, Uin.getShape());
+            const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor(off_m, search_neighbor);
             if( iCell_Uin_m.is_boundary() )
             {
               fluxL = policy.getBoundaryFlux(Uin, iCell_Uin_m, qC, cellmetadata);
@@ -242,7 +249,7 @@ public:
             PrimState qC = qC0 + 0.5 * slope_C;    
             offset_t off_p{}; 
             off_p[dir] = 1;
-            const CellIndex iCell_Uin_p = iCell_Uin.getNeighbor_ghost(off_p, Uin.getShape());
+            const CellIndex iCell_Uin_p = iCell_Uin.getNeighbor(off_p, search_neighbor);
             if( iCell_Uin_p.is_boundary() )
             {
               fluxR = policy.getBoundaryFlux(Uin, iCell_Uin_p, qC, cellmetadata);
@@ -278,7 +285,7 @@ public:
         };
 
 
-        CellIndex iCell_Qpatch = Qpatch.getShape().convert_index(iCell_Uout);
+        CellIndex iCell_Qpatch = Qpatch.getShape().convert_index(iCell_Uout, search_local);
 
         ConsState du{};
         du += process_dir(iCell_Uout, iCell_Qpatch, IX);
