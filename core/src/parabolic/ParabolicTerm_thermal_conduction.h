@@ -15,6 +15,7 @@
 enum KappaMode {
   KM_NONE,
   KM_TRI_LAYER, 
+  KM_SPITZER,
 };
 
 template<>
@@ -23,6 +24,7 @@ inline named_enum<KappaMode>::init_list named_enum<KappaMode>::names()
   return {
     {KappaMode::KM_NONE,      "none"},
     {KappaMode::KM_TRI_LAYER, "tri_layer"},
+    {KappaMode::KM_SPITZER,   "spitzer"},
   };
 }
 
@@ -54,6 +56,7 @@ public:
 
   ParabolicTerm_thermal_conduction(ConfigMap &configMap)
     : bc_manager(configMap),
+      ndim (configMap.getValue<int>("mesh", "ndim", 2) ),
       gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
       kappa_cst(configMap.getValue<real_t>("thermal_conduction", "kappa", 0.0)),
       diffusivity_mode(configMap.getValue<DiffusivityMode>("thermal_conduction", "diffusivity_mode", DM_CONSTANT))
@@ -74,9 +77,8 @@ public:
       };
 
 
-  template <int ndim>
   KOKKOS_INLINE_FUNCTION
-  real_t compute_kappa(const pos_t& pos) const {
+  real_t compute_kappa(const pos_t& pos, const real_t T) const {
     real_t kappa = kappa_cst;
 
     // Analytical calculations 
@@ -92,6 +94,9 @@ public:
         const real_t tr = tr1*tr2;
 
         kappa = k2 * (1.0-tr) + k1 * tr;
+      }
+      else if (kappa_mode == KM_SPITZER) {
+        kappa = kappa_cst * Kokkos::pow(T, 2.5);
       }
     }
 
@@ -135,7 +140,7 @@ public:
     PrimHydroState qC;
     getPrimitiveState<ndim>(Qgroup, iCell_Ugroup, qC);
     auto TC = compute_temperature(qC);
-    auto kappaC = compute_kappa<ndim>(pos);
+    auto kappaC = compute_kappa(pos, TC);
 
     // Relative sizes as function of level difference
     constexpr real_t S[3] {0.75, 1.0, 1.5};
@@ -172,12 +177,12 @@ public:
       // LEFT :
       // Only one neighbor
       if (ldiff_L >= 0) {
-        auto pos = cellmetadata.getCellCenter(iCell_Ugroup + offsetm);
-        auto kappa = 0.5 * (kappaC + compute_kappa<ndim>(pos));
-
         PrimHydroState qL; 
         getPrimitiveState<ndim>(Qgroup, iCell_Ugroup + offsetm, qL);
         TL = compute_temperature(qL);
+
+        auto pos = cellmetadata.getCellCenter(iCell_Ugroup + offsetm);
+        auto kappa = 0.5 * (kappaC + compute_kappa(pos, TL));
 
         FL = kappa * (TC - TL) / (SL * size[dir]);
       }
@@ -195,7 +200,7 @@ public:
               const real_t TL = compute_temperature(qL);
 
               auto pos = cellmetadata.getCellCenter(iCell_neighbor);
-              auto kappa = 0.5 * (kappaC + compute_kappa<ndim>(pos));
+              auto kappa = 0.5 * (kappaC + compute_kappa(pos, TL));
 
               tmp_flux += kappa * (TC - TL);
             });
@@ -205,12 +210,13 @@ public:
       // RIGHT :
       // Only one neighbor
       if (ldiff_R >= 0) {
-        auto pos = cellmetadata.getCellCenter(iCell_Ugroup + offsetp);
-        auto kappa = 0.5 * (kappaC + compute_kappa<ndim>(pos));
-
         PrimHydroState qR;
         getPrimitiveState<ndim>(Qgroup, iCell_Ugroup + offsetp, qR);
         TR = compute_temperature(qR);
+
+        auto pos = cellmetadata.getCellCenter(iCell_Ugroup + offsetp);
+        auto kappa = 0.5 * (kappaC + compute_kappa(pos, TR));
+
 
         FR = kappa * (TR - TC) / (SR * size[dir]);
       }
@@ -228,7 +234,7 @@ public:
               const real_t TR = compute_temperature(qR);
 
               auto pos = cellmetadata.getCellCenter(iCell_neighbor);
-              auto kappa = 0.5 * (kappaC + compute_kappa<ndim>(pos));
+              auto kappa = 0.5 * (kappaC + compute_kappa(pos, TR));
 
               tmp_flux += kappa * (TR - TC);
             });
@@ -259,6 +265,7 @@ public:
 private:
   BoundaryConditions bc_manager;
 
+  int ndim;
   real_t gamma0;
   real_t kappa_cst;
   DiffusivityMode diffusivity_mode;
