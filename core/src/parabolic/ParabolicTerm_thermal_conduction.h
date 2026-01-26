@@ -114,9 +114,9 @@ public:
   void compute_rhs(const Uin_t&        Uin,
                    const PatchArray&   Ugroup,
                    const PatchArray&   Qgroup,
-                   const PatchArray&   rhs,
+                   const GhostedArray& rhs,
                    const CellIndex&    iCell_Uout,
-                   const CellIndex&    iCell_rhs,
+                   const CellIndex&    iCell_Qgroup,
                    const CellMetaData& cellmetadata) const
   {
     // Aliases
@@ -132,13 +132,13 @@ public:
     ForeachCell::SearchMode_neighbor search_neighbor( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
 
     CellIndex iCell_Uin    = Uin.getShape().convert_index(iCell_Uout, search_local);
-    CellIndex iCell_Ugroup = Ugroup.getShape().convert_index(iCell_rhs, search_local);
+    auto iCell_rhs = rhs.getShape().convert_index(iCell_Uout, search_local);
     auto size = cellmetadata.getCellSize(iCell_Uin);
     auto pos  = cellmetadata.getCellCenter(iCell_Uin);
     real_t V  = size[IX] * size[IY] * (ndim == 3 ? size[IZ] : 1.0);
 
     PrimHydroState qC;
-    getPrimitiveState<ndim>(Qgroup, iCell_Ugroup, qC);
+    getPrimitiveState<ndim>(Qgroup, iCell_Qgroup, qC);
     auto TC = compute_temperature(qC);
     auto kappaC = compute_kappa(pos, TC);
 
@@ -178,10 +178,10 @@ public:
       // Only one neighbor
       if (ldiff_L >= 0) {
         PrimHydroState qL; 
-        getPrimitiveState<ndim>(Qgroup, iCell_Ugroup + offsetm, qL);
+        getPrimitiveState<ndim>(Qgroup, iCell_Qgroup + offsetm, qL);
         TL = compute_temperature(qL);
 
-        auto pos = cellmetadata.getCellCenter(iCell_Ugroup + offsetm);
+        auto pos = cellmetadata.getCellCenter(iCell_Qgroup + offsetm);
         auto kappa = 0.5 * (kappaC + compute_kappa(pos, TL));
 
         FL = kappa * (TC - TL) / (SL * size[dir]);
@@ -211,10 +211,10 @@ public:
       // Only one neighbor
       if (ldiff_R >= 0) {
         PrimHydroState qR;
-        getPrimitiveState<ndim>(Qgroup, iCell_Ugroup + offsetp, qR);
+        getPrimitiveState<ndim>(Qgroup, iCell_Qgroup + offsetp, qR);
         TR = compute_temperature(qR);
 
-        auto pos = cellmetadata.getCellCenter(iCell_Ugroup + offsetp);
+        auto pos = cellmetadata.getCellCenter(iCell_Qgroup + offsetp);
         auto kappa = 0.5 * (kappaC + compute_kappa(pos, TR));
 
 
