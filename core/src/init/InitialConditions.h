@@ -23,6 +23,7 @@ class AnalyticalFormula_sod;
 class AnalyticalFormula_Zeldovitch_pancake;
 class InitialConditions_zeldovitch_particles;
 class AnalyticalFormula_double_mach;
+class AnalyticalFormula_heat_conduction;
 
 // MHD
 class AnalyticalFormula_OrszagTang;
@@ -72,6 +73,7 @@ bool dyablo::InitialConditionsFactory::init()
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_RayleighTaylor> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_double_mach> );
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_sod> );
+  DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_heat_conduction> );
 
   // MHD
   DECLARE_REGISTERED( dyablo::InitialConditions_analytical<dyablo::AnalyticalFormula_OrszagTang > );
