@@ -232,7 +232,7 @@ public:
                          ndim == 3 ? size[IX]*size[IZ] : size[IX],
                          size[IX]*size[IY]};
 
-    auto compute_thermal_flux = [&](ComponentIndex3D dir) -> real_t {
+    auto compute_thermal_flux = [&](ComponentIndex3D dir) {
       offset_t offsetm{0}, offsetp{0};
       offsetm[dir] = -1;
       offsetp[dir] =  1;
@@ -250,104 +250,60 @@ public:
       real_t SL = S[ldiff_L+1];
       real_t SR = S[ldiff_R+1];
 
-      real_t flux_out = 0.0;
-      real_t FL = 0.0;
-      real_t FR = 0.0;
-
-      real_t TL, TR;
+      const real_t one_over_dh = area/V;
+      const real_t dim_fac = (ndim == 2 ? 0.25 : 0.125);
 
       // LEFT :
       // Only one neighbor
-      if (ldiff_L >= 0) {
+      if (iiL.is_boundary()) {
+        auto pos_bc = pos;
+        pos_bc[dir] = min_pos[dir];
+        const real_t FL = one_over_dh * getBoundaryHeatFlux(qC, size[dir], dir, pos_bc, true);
+        Kokkos::atomic_add(&rhs.at(iCell_rhs, ConsHydroState::VarIndex::Ie_tot), -FL);
+      }
+      else if (ldiff_L >= 0) {
         PrimHydroState qL; 
-        getPrimitiveState<ndim>(Qgroup, iCell_Qgroup + offsetm, qL);
-        TL = compute_temperature(qL);
-
         auto pos = cellmetadata.getCellCenter(iCell_Qgroup + offsetm);
+        getPrimitiveState<ndim>(Qgroup, iCell_Qgroup + offsetm, qL);
+
+        const real_t TL = compute_temperature(qL);
         auto kappa = 0.5 * (kappaC + compute_kappa(pos, TL));
 
-        FL = kappa * (TC - TL) / (SL * size[dir]);
-      }
-      // Multiple neighbors
-      else {
-        constexpr real_t nfac = (ndim == 2 ? 0.5 : 0.25);
-        real_t tmp_flux{0.0};
-        
-        foreach_smaller_neighbor<ndim>(iiL, offsetm, search_neighbor, 
-          [&](const CellIndex& iCell_neighbor)
-            {
-              ConsHydroState uL;
-              getConservativeState<ndim>(Uin, iCell_neighbor, uL);
-              PrimHydroState qL = consToPrim<ndim>(uL, gamma0);
-              const real_t TL = compute_temperature(qL);
+        const real_t FL = one_over_dh * kappa * (TC - TL) / (SL * size[dir]);
+        Kokkos::atomic_add(&rhs.at(iCell_rhs, ConsHydroState::VarIndex::Ie_tot), -FL);
 
-              auto pos = cellmetadata.getCellCenter(iCell_neighbor);
-              auto kappa = 0.5 * (kappaC + compute_kappa(pos, TL));
-
-              tmp_flux += kappa * (TC - TL);
-            });
-        FL += nfac * tmp_flux / (SL * size[dir]);
+        if (ldiff_L > 0)
+          Kokkos::atomic_add(&rhs.at(iiL, ConsHydroState::VarIndex::Ie_tot), FL*dim_fac);
       }
 
       // RIGHT :
       // Only one neighbor
-      if (ldiff_R >= 0) {
-        PrimHydroState qR;
-        getPrimitiveState<ndim>(Qgroup, iCell_Qgroup + offsetp, qR);
-        TR = compute_temperature(qR);
-
-        auto pos = cellmetadata.getCellCenter(iCell_Qgroup + offsetp);
-        auto kappa = 0.5 * (kappaC + compute_kappa(pos, TR));
-
-
-        FR = kappa * (TR - TC) / (SR * size[dir]);
-      }
-      // Multiple neighbors
-      else {
-        constexpr real_t nfac = (ndim == 2 ? 0.5 : 0.25);
-        real_t tmp_flux{0.0};
-        
-        foreach_smaller_neighbor<ndim>(iiR, offsetp, search_neighbor, 
-          [&](const CellIndex& iCell_neighbor)
-            {
-              ConsHydroState uR;
-              getConservativeState<ndim>(Uin, iCell_neighbor, uR);
-              PrimHydroState qR = consToPrim<ndim>(uR, gamma0);
-              const real_t TR = compute_temperature(qR);
-
-              auto pos = cellmetadata.getCellCenter(iCell_neighbor);
-              auto kappa = 0.5 * (kappaC + compute_kappa(pos, TR));
-
-              tmp_flux += kappa * (TR - TC);
-            });
-        FR += nfac * tmp_flux / (SR * size[dir]);
-      }
-
-      if (iiL.is_boundary()) {
-        auto pos_bc = pos;
-        pos_bc[dir] = min_pos[dir];
-        FL = getBoundaryHeatFlux(qC, size[dir], dir, pos_bc, false);
-      }
       if (iiR.is_boundary()) {
         auto pos_bc = pos;
         pos_bc[dir] = max_pos[dir];
-        FR = getBoundaryHeatFlux(qC, size[dir], dir, pos_bc, true);
+        const real_t FR = one_over_dh * getBoundaryHeatFlux(qC, size[dir], dir, pos_bc, false);
+        Kokkos::atomic_add(&rhs.at(iCell_rhs, ConsHydroState::VarIndex::Ie_tot), FR);
       }
+      else if (ldiff_R >= 0) {
+        PrimHydroState qR;
+        auto pos = cellmetadata.getCellCenter(iCell_Qgroup + offsetp);
+        getPrimitiveState<ndim>(Qgroup, iCell_Qgroup + offsetp, qR);
 
-      flux_out = area * (FR - FL);
+        const real_t TR = compute_temperature(qR);
+        auto kappa = 0.5 * (kappaC + compute_kappa(pos, TR));
 
-      return flux_out;
+        const real_t FR = one_over_dh * kappa * (TR - TC) / (SR * size[dir]);
+        Kokkos::atomic_add(&rhs.at(iCell_rhs, ConsHydroState::VarIndex::Ie_tot), FR);
+
+        if (ldiff_R > 0)
+          Kokkos::atomic_add(&rhs.at(iiR, ConsHydroState::VarIndex::Ie_tot), -FR*dim_fac);
+      }
     };
 
-    real_t tf_x = compute_thermal_flux(IX);
-    real_t tf_y = compute_thermal_flux(IY);
-    real_t tf_z = (ndim == 3 ? compute_thermal_flux(IZ) : 0.0);
-
-    // Storing results
-    ConsHydroState res{};
-    res.e_tot = (tf_x + tf_y + tf_z) / V;
-
-    setConservativeState<ndim>(rhs, iCell_rhs, res);
+    compute_thermal_flux(IX);
+    compute_thermal_flux(IY);
+    if (ndim == 3) 
+      compute_thermal_flux(IZ);
   }
 
 private:
