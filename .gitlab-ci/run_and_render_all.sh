@@ -33,7 +33,6 @@ run_and_render(){
     run_count=$((run_count+1))
 }
 
-
 run_and_render test_blast_3D_block.ini visu_blast_3D_block.pvsm blast_3d_block 
 run_and_render test_blast_3D.ini visu_blast_3D_cell.pvsm blast_3d_cell
 
