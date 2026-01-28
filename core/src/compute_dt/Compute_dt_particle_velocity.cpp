@@ -22,7 +22,7 @@ public:
     cfl( configMap.getValue<real_t>("dt", "particle_cfl", 0.5) )
   {}
 
-  void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
+  void compute_dt( UserData& U, ScalarSimulationData& scalar_data )
   {
     real_t dt_local = compute_dt_aux(U);
 
@@ -35,7 +35,7 @@ public:
     scalar_data.set<real_t>("dt", dt);
   }
 
-  double compute_dt_aux( const UserData& U )
+  double compute_dt_aux( UserData& U )
   {
     int ndim = foreach_cell.getDim();
     

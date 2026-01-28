@@ -38,7 +38,7 @@ public:
     this->compute_dt_for_visc = (visc_update_id == "ParabolicUpdate_explicit");
   }
 
-  void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
+  void compute_dt( UserData& U, ScalarSimulationData& scalar_data )
   {
     real_t dt_local;
 
@@ -59,7 +59,7 @@ public:
   }
 
   template <int ndim>
-  double compute_dt_aux( const UserData& U )
+  double compute_dt_aux( UserData& U )
   {
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 

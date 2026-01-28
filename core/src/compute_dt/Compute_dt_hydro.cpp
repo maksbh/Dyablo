@@ -36,7 +36,7 @@ public:
     this->cfl = configMap.getValue<real_t>("dt", "hydro_cfl", default_cfl);
   }
 
-  void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
+  void compute_dt( UserData& U, ScalarSimulationData& scalar_data )
   {
     real_t dt_local;
     if( has_mhd )
@@ -54,7 +54,7 @@ public:
   }
 
   template< typename State >
-  double compute_dt_aux( const UserData& U )
+  double compute_dt_aux( UserData& U )
   {
     using PrimState = typename State::PrimState;
     using ConsState = typename State::ConsState;

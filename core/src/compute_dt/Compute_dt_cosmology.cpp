@@ -28,7 +28,7 @@ public:
    * @param U[in] UserData structure
    * @param scalar_data[inout] ScalarSimulationData structure
   */
-  void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
+  void compute_dt( UserData& U, ScalarSimulationData& scalar_data )
   {
     real_t aexp = scalar_data.get<real_t>("aexp");
     real_t dt = cosmo_manager.compute_cosmo_dt( aexp );
