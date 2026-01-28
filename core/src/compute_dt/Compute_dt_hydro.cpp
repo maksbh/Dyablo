@@ -2,7 +2,8 @@
 
 #include "utils_hydro.h"
 
-#include "states/State_forward.h"
+#include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
+#include "hyperbolic/policy/HyperbolicPolicy_GLMMHD.h"
 
 namespace dyablo {
 
@@ -23,6 +24,7 @@ public:
                     ForeachCell& foreach_cell,
                     Timers& timers )
   : foreach_cell(foreach_cell),
+    configMap(configMap),
     gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
     smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
     smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
@@ -40,9 +42,9 @@ public:
   {
     real_t dt_local;
     if( has_mhd )
-      dt_local = compute_dt_aux<GLMMHDState>(U);
+      dt_local = compute_dt_aux<HyperbolicPolicy_GLMMHD>(U, scalar_data);
     else
-      dt_local = compute_dt_aux<HydroState>(U);
+      dt_local = compute_dt_aux<HyperbolicPolicy_Hydro>(U, scalar_data);
 
     DYABLO_ASSERT_HOST_RELEASE(dt_local>0, "invalid dt = " << dt_local);
 
@@ -53,20 +55,21 @@ public:
     scalar_data.set<real_t>("dt", dt);
   }
 
-  template< typename State >
-  double compute_dt_aux( UserData& U )
+  template< typename Policy >
+  double compute_dt_aux( UserData& U, ScalarSimulationData& scalar_data )
   {
-    using PrimState = typename State::PrimState;
-    using ConsState = typename State::ConsState;
+    using PrimState = typename Policy::PrimState;
+    using ConsState = typename Policy::ConsState;
+
+    typename Policy::Params policy_params{ Policy::getParams(configMap) };
+    Policy policy{ policy_params, scalar_data };
 
     int ndim = foreach_cell.getDim();
     real_t gamma0 = this->gamma0;
 
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
-    std::vector< UserData::FieldAccessor::FieldInfo> fields_info = ConsState::getFieldsInfo();
-
-    UserData::FieldAccessor Uin = U.getAccessor( ConsState::getFieldsInfo() );
+    UserData::FieldAccessor Uin = policy.getUin(U);
 
     real_t inv_dt;
     foreach_cell.reduce_cell( "compute_dt", U.getShape(),
@@ -77,13 +80,9 @@ public:
       real_t dy = cell_size[IY];
       real_t dz = cell_size[IZ];
       
-      ConsState uLoc;
-      if (ndim == 2)
-        getConservativeState<2>(Uin, iCell, uLoc);
-      else
-        getConservativeState<3>(Uin, iCell, uLoc);
-      
-      PrimState qLoc = consToPrim<3>(uLoc, gamma0);
+      ConsState uLoc = policy.getConsState(Uin, iCell);
+      PrimState qLoc = policy.consToPrim(uLoc);
+
       const real_t cs = sqrt(qLoc.p * gamma0 / qLoc.rho);
 
       real_t vx = cs + FABS(qLoc.u);
@@ -93,9 +92,7 @@ public:
       inv_dt_update = FMAX( inv_dt_update, vx/dx + vy/dy + vz/dz );
 
       // TODO : Find a BETTER way to do this !
-      // In fine, compute_dt should be templated by the type of State
-      // and calculations of inv_dt should be held in a separate State function
-      if constexpr (std::is_same_v<State, GLMMHDState>) {
+      if constexpr (std::is_same_v<PrimState, HyperbolicPolicy_PrimGLMMHDState>) {
         const real_t Bx = qLoc.Bx;
         const real_t By = qLoc.By;
         const real_t Bz = qLoc.Bz;
@@ -127,6 +124,7 @@ public:
 
 private:
   ForeachCell& foreach_cell;
+  ConfigMap& configMap;
 
   real_t cfl;
   real_t gamma0, smallr, smallc;  
