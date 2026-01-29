@@ -71,7 +71,11 @@ public:
     FieldView_t::Shape_t getShape() const
     {
         DYABLO_ASSERT_KOKKOS_DEBUG(nbFields() > 0, "Cannot getShape() of an empty UserData_fields" );
-        return fields.getShape();
+        auto iter_space = fields.getShape();
+        auto iter_space_inter = fields_intermediates.getShape();
+        iter_space.nbIntermediates = iter_space_inter.nbOcts;
+        //TODO: Rajouter inter ghosts
+        return iter_space;
     }
 
 private:
