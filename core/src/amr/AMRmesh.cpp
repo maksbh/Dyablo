@@ -282,15 +282,12 @@ AMRmesh::GhostMap_t discover_ghosts(
           // TODO : get morton of last neighbor to filter even more
           morton_t morton_next = shift_level(morton_n, level-level_max) + 1;
                    morton_next = shift_level(morton_next, level_max-level) - 1;
-          if(  iOct.isIntermediate // if intermediate it has a matching intermediate neighbor with same size
-            || level == level_max  // if it's already at level_max, neighbor can't be smaller
-            || morton_next < morton_intervals_device(neighbor_rank+1) // All suboctants are owned by the same process
+            
+          register_neighbor(neighbor_rank, neighbor_face);
+          if(  !iOct.isIntermediate // if intermediate it has a matching intermediate neighbor with same size
+            && level != level_max  // if it's already at level_max, neighbor can't be smaller
+            && morton_next >= morton_intervals_device(neighbor_rank+1) // All suboctants are owned by the same process
           )
-          {
-            // Neighbors are not scattered, just send to unique rank
-            register_neighbor(neighbor_rank, neighbor_face);
-          }
-          else
           {
             // Neighbors may be scattered between multiple MPIs  
             // Iterate over NEIGHBORS (not all suboctants) and send them to corresponding ranks
