@@ -131,16 +131,16 @@ void test_FullTree_average_children()
     int local_rank = amr_mesh->getMpiComm().MPI_Comm_rank();
 
     if( local_rank == 0 )
-      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1, 1);      
     amr_mesh->adapt();
     if( local_rank == 0 )
-      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1, 1);      
     amr_mesh->adapt();
     if( local_rank == 0 )
-      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1, 1);      
     amr_mesh->adapt();
     if( local_rank == 0 )
-      amr_mesh->setMarker(amr_mesh->getNumOctants()-1 ,1);      
+      amr_mesh->setMarker(amr_mesh->getNumOctants()-1, 1);      
     amr_mesh->adapt();
 
     amr_mesh->loadBalance(0);
@@ -227,9 +227,12 @@ void test_FullTree_average_children()
   constexpr bool with_intermediates = true;
   ForeachCell::IterationSpace_fullArray_impl<with_locals, without_ghosts, with_intermediates> iter_space_with_intermediates(Ua.getShape());
   int error_count = 0;
+  int total_count = 0;
+  const uint32_t total_cells = bx * by * bz * (amr_mesh->getNumOctants() + amr_mesh->getNumIntermediates());
   foreach_cell.reduce_cell( "test_values", iter_space_with_intermediates,
-    KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell, int& error_count )
+    KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell, int& error_count, int& total_count )
   {
+    total_count++;
     auto test_equal = [&](real_t a, real_t b)
     {
       //EXPECT_DOUBLE_EQ(a, b);
@@ -244,9 +247,10 @@ void test_FullTree_average_children()
     test_equal( pos[IX], Ua.at(iCell, Px) );
     test_equal( pos[IY], Ua.at(iCell, Py) );
     test_equal( pos[IZ], Ua.at(iCell, Pz) );    
-  }, error_count);
+  }, error_count, total_count);
 
   EXPECT_EQ(0, error_count);
+  EXPECT_EQ(total_cells, total_count);
 }
 
 TEST(dyablo, test_FullTree_average_children)
