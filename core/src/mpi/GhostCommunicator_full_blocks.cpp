@@ -300,6 +300,20 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
 }
 
 
+void GhostCommunicator_full_blocks::reduce_ghosts( UserData::FieldAccessor_intermediates& U ) const
+{
+  auto &fields = this->intermediates?U.fields_intermediates:U.fields;
+
+  for(int i=0; i<U.nbFields(); i++)
+  {
+    int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
+    auto U_subview      = Kokkos::subview( fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+
+    ViewCommunicator::reduce_ghosts<2>(U_subview, Ughost_subview);
+  }
+}
+
 void GhostCommunicator_full_blocks::reduce_ghosts( UserData::FieldAccessor& U ) const
 {
   for(int i=0; i<U.nbFields(); i++)
