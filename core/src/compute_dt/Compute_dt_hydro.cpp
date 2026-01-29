@@ -1,7 +1,5 @@
 #include "Compute_dt_base.h"
 
-#include "utils_hydro.h"
-
 #include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
 #include "hyperbolic/policy/HyperbolicPolicy_GLMMHD.h"
 
@@ -17,18 +15,17 @@ namespace dyablo {
  *  . d_h the cell_size along direction h,
  *  . lambda_h the maximum signal speed in that direction
  **/
-class Compute_dt_hydro : public Compute_dt
+template <typename Policy>
+class Compute_dt_hyperbolic : public Compute_dt
 {
 public:
-  Compute_dt_hydro( ConfigMap& configMap,
+  Compute_dt_hyperbolic( ConfigMap& configMap,
                     ForeachCell& foreach_cell,
                     Timers& timers )
   : foreach_cell(foreach_cell),
-    configMap(configMap),
-    gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
+    policy_params(Policy::getParams(configMap)),
     smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
-    smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
-    has_mhd( configMap.getValue<std::string>("hydro", "update", "HyperbolicUpdate_hancock").find("MHD") != std::string::npos )
+    smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) )
   {
     real_t default_cfl = 0.5;
     if (configMap.hasValue("hydro", "cfl")) {
@@ -36,16 +33,17 @@ public:
       default_cfl = configMap.getValue<real_t>("hydro", "cfl");
     }
     this->cfl = configMap.getValue<real_t>("dt", "hydro_cfl", default_cfl);
+
+    bool has_mhd = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_euler").find("MHD") != std::string::npos;
+    if (has_mhd && std::is_same_v<Policy, HyperbolicPolicy_Hydro>)
+      std::cout << "WARNING : dt/dt_kernel is compute_dt_hydro but MHD policy in use. Use compute_dt_GLMMHD instead !" << std::endl;
   }
 
   void compute_dt( UserData& U, ScalarSimulationData& scalar_data )
   {
     real_t dt_local;
-    if( has_mhd )
-      dt_local = compute_dt_aux<HyperbolicPolicy_GLMMHD>(U, scalar_data);
-    else
-      dt_local = compute_dt_aux<HyperbolicPolicy_Hydro>(U, scalar_data);
-
+    dt_local = compute_dt_aux(U, scalar_data);
+    
     DYABLO_ASSERT_HOST_RELEASE(dt_local>0, "invalid dt = " << dt_local);
 
     real_t dt;
@@ -55,17 +53,15 @@ public:
     scalar_data.set<real_t>("dt", dt);
   }
 
-  template< typename Policy >
   double compute_dt_aux( UserData& U, ScalarSimulationData& scalar_data )
   {
     using PrimState = typename Policy::PrimState;
     using ConsState = typename Policy::ConsState;
 
-    typename Policy::Params policy_params{ Policy::getParams(configMap) };
     Policy policy{ policy_params, scalar_data };
 
     int ndim = foreach_cell.getDim();
-    real_t gamma0 = this->gamma0;
+    real_t gamma0 = policy_params.policy_params.gamma0;
 
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
@@ -124,14 +120,29 @@ public:
 
 private:
   ForeachCell& foreach_cell;
-  ConfigMap& configMap;
+  typename Policy::Params policy_params;
 
   real_t cfl;
   real_t gamma0, smallr, smallc;  
   bool has_mhd;
 };
 
+class Compute_dt_hydro : public Compute_dt_hyperbolic<HyperbolicPolicy_Hydro> {
+public:
+  using Compute_dt_hyperbolic<HyperbolicPolicy_Hydro>::Compute_dt_hyperbolic;
+};
+
+class Compute_dt_GLMMHD : public Compute_dt_hyperbolic<HyperbolicPolicy_GLMMHD> {
+public:
+  using Compute_dt_hyperbolic<HyperbolicPolicy_GLMMHD>::Compute_dt_hyperbolic;
+};
 
 } // namespace dyablo 
 
-FACTORY_REGISTER( dyablo::Compute_dtFactory, dyablo::Compute_dt_hydro, "Compute_dt_hydro" );
+FACTORY_REGISTER( dyablo::Compute_dtFactory, 
+                  dyablo::Compute_dt_hydro, 
+                  "Compute_dt_hydro" );
+
+FACTORY_REGISTER( dyablo::Compute_dtFactory, 
+                  dyablo::Compute_dt_GLMMHD, 
+                  "Compute_dt_GLMMHD" );
