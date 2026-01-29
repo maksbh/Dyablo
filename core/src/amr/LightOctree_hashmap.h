@@ -110,8 +110,24 @@ public:
         {
             // Looking for intermediates : same level should exist
             auto it = oct_map.find(logical_coords);
+            if( oct_map.valid_at(it))
+            {
+                return oct_map.value_at(it);
+            }
+            else // If not, is for sure a larger leaf
+            {
+                key_t logical_coords_bigger {
+                    .level = logical_coords.level-1,
+                    .i = logical_coords.i >> 1,
+                    .j = logical_coords.j >> 1,
+                    .k = logical_coords.k >> 1
+                };
+                // Search octant at coarser level
+                auto it = oct_map.find(logical_coords_bigger);
             DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor : not found");
+                DYABLO_ASSERT_KOKKOS_DEBUG(!oct_map.value_at(it).isIntermediate, "Bigger neighbour must be a leaf ");
             return oct_map.value_at(it);
+            }
         }
         else
         {
