@@ -74,6 +74,11 @@ public:
         return storage;
     }
 
+    KOKKOS_INLINE_FUNCTION
+    Kokkos::Array<uint32_t, 3> get_logical_coords(const OctantIndex& iOct)  const
+    {
+        return storage.get_logical_coords(iOct);
+    }
 
     //! @copydoc LightOctree_base::findNeighbor()
     KOKKOS_INLINE_FUNCTION
@@ -128,9 +133,9 @@ public:
                 };
                 // Search octant at coarser level
                 auto it = oct_map.find(logical_coords_bigger);
-            DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor : not found");
+                DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor : not found");
                 DYABLO_ASSERT_KOKKOS_DEBUG(!oct_map.value_at(it).isIntermediate, "Bigger neighbour must be a leaf ");
-            return oct_map.value_at(it);
+                return oct_map.value_at(it);
             }
         }
         else
@@ -263,6 +268,20 @@ public:
 
         return this->getiOctFromCoordinates(logical_coords.i, logical_coords.j, logical_coords.k, logical_coords.level);
     }
+
+    KOKKOS_INLINE_FUNCTION
+    OctantIndex findParent( const OctantIndex& iOct )  const
+    {
+        const auto lc = storage.get_logical_coords(iOct);
+        key_t logical_coords;
+        logical_coords.level = this->getLevel(iOct) - 1u;
+        logical_coords.i = (lc[IX] >> 1u);
+        logical_coords.j = (lc[IY] >> 1u);
+        logical_coords.k = (lc[IZ] >> 1u);
+        
+        return this->getiOctFromCoordinates(logical_coords.i, logical_coords.j, logical_coords.k, logical_coords.level);
+    }
+
 
     // ------------------------
     // Only in LightOctree_hashmap

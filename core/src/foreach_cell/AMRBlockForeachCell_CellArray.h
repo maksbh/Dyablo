@@ -525,6 +525,30 @@ struct CellIndex
   }
 
   KOKKOS_INLINE_FUNCTION
+  CellIndex getParent(const LightOctree& lmesh) const
+  {
+    const auto lc = lmesh.get_logical_coords(this->iOct);
+
+    Kokkos::Array<uint32_t, 3> logical_coords;
+    logical_coords[IX] = (lc[IX] >> 1);
+    logical_coords[IY] = (lc[IY] >> 1);
+    logical_coords[IZ] = (lc[IZ] >> 1);
+
+    const int8_t quadrant_x = lc[IX] % 2;
+    const int8_t quadrant_y = lc[IY] % 2;
+    const int8_t quadrant_z = lc[IZ] % 2;
+
+    const LightOctree::OctantIndex iOct_p = lmesh.findParent(this->iOct);
+
+    const uint32_t i_p = ( i + bx * quadrant_x ) >> 1;
+    const uint32_t j_p = ( j + by * quadrant_y ) >> 1;
+    const uint32_t k_p = ( k + bz * quadrant_z ) >> 1;
+
+    return CellIndex{iOct_p, i_p, j_p, k_p, bx,by,bz, CellIndex::BIGGER};
+  }
+
+
+  KOKKOS_INLINE_FUNCTION
   bool operator==(const CellIndex &c2) const {
   return (iOct.iOct == c2.iOct.iOct 
        && iOct.isGhost == c2.iOct.isGhost
