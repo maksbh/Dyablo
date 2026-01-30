@@ -394,30 +394,35 @@ void test_FullTree_average_stencil()
       }
       else if (iCell_n.level_diff() == 1) // Bigger
       {
+        using pos_t = Kokkos::Array<real_t,3>;
+
         DYABLO_ASSERT_KOKKOS_RELEASE( !iCell.iOct.isIntermediate, "Intermediates should always have same size neighbor" );
 
-        auto pos = cells.getCellCenter( iCell );
-        auto size = cells.getCellSize( iCell );
+        auto pos_c = cells.getCellCenter(iCell);
+        auto size_c = cells.getCellSize(iCell);
+        
+        pos_t expected_pos{
+          pos_c[IX] += off[IX] * size_c[IX],
+          pos_c[IY] += off[IY] * size_c[IY],
+          pos_c[IZ] += off[IZ] * size_c[IZ],
+        };
+        
+        //auto pos_n = cells.getCellCenter(iCell_n);
+        pos_t pos_n {
+          Uin.at(iCell_n, Px),
+          Uin.at(iCell_n, Py),
+          Uin.at(iCell_n, Pz),
+        };
+        
+        // Select the same-size virtual neighbor among bigger cell's sectors
+        pos_t offset_quadrant;
+        offset_quadrant[IX] = pos_n[IX] > expected_pos[IX] ? -1. : +1.;
+        offset_quadrant[IY] = pos_n[IY] > expected_pos[IY] ? -1. : +1.;
+        offset_quadrant[IZ] = pos_n[IZ] > expected_pos[IZ] ? -1. : +1.;
 
-        px = pos[IX] + off[IX] * size[IX];
-        py = pos[IY] + off[IY] * size[IY];
-        pz = pos[IZ] + off[IZ] * size[IZ];
-
-        // auto pos_c = cells.getCellCenter(iCell);
-        // auto pos_n = cells.getCellCenter(iCell_n);
-        // auto size_n = cells.getCellSize(iCell_n);
-        // // Select the same-size virtual neighbor among bigger cell's sectors
-        // Kokkos::Array<real_t,3> offset_quadrant;
-        // offset_quadrant[IX] = pos_n[IX] > pos_c[IX] ? -1. : +1.;
-        // offset_quadrant[IY] = pos_n[IY] > pos_c[IY] ? -1. : +1.;
-        // offset_quadrant[IZ] = pos_n[IZ] > pos_c[IZ] ? -1. : +1.;
-
-        // real_t px_1 = pos_n[IX] + offset_quadrant[IX] * size_n[IX] / 4.;            
-        // real_t py_1 = pos_n[IY] + offset_quadrant[IY] * size_n[IY] / 4.;            
-        // real_t pz_1 = pos_n[IZ] + offset_quadrant[IZ] * size_n[IZ] / 4.; 
-
-        // if( px != px_1 && px_1 != pos_c[IX] )
-        //   std::cout << px << " " << px_1 << " " << pos_c[IX] << " " << pos_n[IX] << std::endl;
+        px = pos_n[IX] + offset_quadrant[IX] * size_c[IX] / 2;            
+        py = pos_n[IY] + offset_quadrant[IY] * size_c[IY] / 2;            
+        pz = pos_n[IZ] + offset_quadrant[IZ] * size_c[IZ] / 2; 
       }
       else // Same size
       {
@@ -429,7 +434,6 @@ void test_FullTree_average_stencil()
       p[IX] += px;
       p[IY] += py;
       p[IZ] += pz;
-
     };
 
     int nneighbor;
