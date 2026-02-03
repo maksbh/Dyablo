@@ -249,7 +249,7 @@ AMRmesh::GhostMap_t discover_ghosts(
     }, Kokkos::Min<oct_index_t>(first_fail) ); 
   
     // first_fail should be std::numeric_limit<oct_index_t>::max() if every insert succeeded
-    if( first_fail < storage_device.getNumOctants() )
+    if( first_fail < nbLocals )
     {
       std::cout << "Ghost storage too small : rehash" << std::endl;
       neighbor_count_guess *= 2;
