@@ -62,11 +62,9 @@ void run_test(int ndim)
   
   ForeachCell foreach_cell( *amr_mesh, configMap );
   
-  enum VarIndex_test{S, CX, CY, CZ};
+  enum VarIndex_test{S, CX, CY, CZ, COUNT};
 
-  FieldManager field_manager({S,CX,CY,CZ});
-
-  ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", field_manager);
+  ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", VarIndex_test::COUNT);
   ForeachCell::CellMetaData cmd = foreach_cell.getCellMetaData();
 
   // Initialize U
@@ -95,7 +93,7 @@ void run_test(int ndim)
   int rank = GlobalMpiSession::get_comm_world().MPI_Comm_rank();
   uint32_t nParticles = (rank == 0) ? nParticles_tot : 0;
 
-  ParticleData particles( "Particles", nParticles, field_manager );
+  ParticleData particles( "Particles", nParticles, VarIndex_test::COUNT );
 
   // Set particle positions to form a grid inside the domain
   foreach_particle.foreach_particle( "set_particle_pos", particles,

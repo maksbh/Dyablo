@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 
 #include "mpi/ViewCommunicator.h"
+#include "VarIndex.h"
 
 #include "amr/AMRmesh.h"
 #include "utils/io/AMRMesh_output_vtk.h"
@@ -310,9 +311,8 @@ void run_test_reduce()
   /*uint32_t bz = */configMap.getValue<uint32_t>("amr", "bz", (ndim==2)?1:8);
 
   ForeachCell foreach_cell( *amr_mesh, configMap );
-  enum VarIndex_test{ IU,IV,IW };
-  FieldManager fieldManager({IU,IV,IW});
-  typename ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", fieldManager);
+  enum VarIndex_U{ IU,IV,IW, COUNT };
+  typename ForeachCell::CellArray_global_ghosted U = foreach_cell.allocate_ghosted_array("U", VarIndex_U::COUNT);
 
   using CellIndex = typename ForeachCell::CellIndex;
 

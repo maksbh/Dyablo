@@ -40,11 +40,6 @@ struct HyperbolicPolicy_ConsGLMMHDState {
             };
   }
 
-  static FieldManager getFieldManager()
-  {
-    return FieldManager( {VarIndex::Irho, VarIndex::Ie_tot, VarIndex::Irho_vx, VarIndex::Irho_vy, VarIndex::Irho_vz, VarIndex::IBx, VarIndex::IBy, VarIndex::IBz, VarIndex::Ipsi } );
-  } 
-
   real_t rho = 0;
   real_t e_tot = 0;
   real_t rho_u = 0;
@@ -83,11 +78,6 @@ struct HyperbolicPolicy_PrimGLMMHDState {
     IBz,
     Ipsi
   };
-
-  static FieldManager getFieldManager()
-  {
-    return FieldManager( {VarIndex::Irho, VarIndex::Ip, VarIndex::Iu, VarIndex::Iv, VarIndex::Iw, VarIndex::IBx, VarIndex::IBy, VarIndex::IBz, VarIndex::Ipsi } );
-  }
 
   real_t rho = 0;
   real_t p = 0;

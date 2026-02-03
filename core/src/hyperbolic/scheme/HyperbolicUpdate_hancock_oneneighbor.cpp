@@ -1,7 +1,6 @@
 #include <memory>
 
 #include "kokkos_shared.h"
-#include "FieldManager.h"
 #include "amr/LightOctree.h"
 #include "HyperbolicUpdate_base.h"
 
@@ -70,9 +69,9 @@ public:
 
     UserData::FieldAccessor Uin = policy.getUin(U);
     UserData::FieldAccessor Uout = policy.getUout(U);
-    FieldManager fm_prim = policy.getFieldManager();
+    uint32_t nbFields_prim = State_traits<PrimState>::nvars;
     
-    GhostedArray Q = foreach_cell.allocate_ghosted_array( "Q", fm_prim );
+    GhostedArray Q = foreach_cell.allocate_ghosted_array( "Q", nbFields_prim );
 
     // Fill Q with primitive variables
     foreach_cell.foreach_cell("HyperbolicUpdate_hancock_oneneighbor::convertToPrimitives", Q, 
@@ -86,11 +85,11 @@ public:
     ghost_comm.exchange_ghosts(Q);
 
     // Create arrays to store slopes
-    GhostedArray Slopes_x = foreach_cell.allocate_ghosted_array( "Slopes_x", fm_prim );
-    GhostedArray Slopes_y = foreach_cell.allocate_ghosted_array( "Slopes_Y", fm_prim );
+    GhostedArray Slopes_x = foreach_cell.allocate_ghosted_array( "Slopes_x", nbFields_prim );
+    GhostedArray Slopes_y = foreach_cell.allocate_ghosted_array( "Slopes_Y", nbFields_prim );
     GhostedArray Slopes_z;
     if(ndim == 3)
-      Slopes_z = foreach_cell.allocate_ghosted_array( "Slopes_z", fm_prim );
+      Slopes_z = foreach_cell.allocate_ghosted_array( "Slopes_z", nbFields_prim );
 
     ForeachCell::CellMetaData cellmetadata = foreach_cell.getCellMetaData();
 
@@ -326,17 +325,6 @@ class HyperbolicPolicy_Hydro_Hancock_impl : public HyperbolicPolicy_Hydro_impl
 public : 
   using HyperbolicPolicy_Hydro_impl::HyperbolicPolicy_Hydro_impl;
 
-  static FieldManager getFieldManager()
-  {
-    return FieldManager( {
-      PrimState::VarIndex::Irho,
-      PrimState::VarIndex::Ip,
-      PrimState::VarIndex::Iu,
-      PrimState::VarIndex::Iv,
-      PrimState::VarIndex::Iw
-    });
-  }
-
   KOKKOS_INLINE_FUNCTION
   PrimState compute_half_step(PrimState q,
                               PrimState sx, PrimState sy, PrimState sz,
@@ -388,11 +376,6 @@ class HyperbolicPolicy_Hydro_Hancock : public HyperbolicPolicy_base< HyperbolicP
 {
 public:
   using HyperbolicPolicy_base::HyperbolicPolicy_base;
-
-  static FieldManager getFieldManager()
-  {
-    return HyperbolicPolicy_Hydro_Hancock_impl::getFieldManager();
-  }
 
   KOKKOS_INLINE_FUNCTION
   PrimState compute_half_step(PrimState q,

@@ -1,7 +1,6 @@
 #include <memory>
 
 #include "kokkos_shared.h"
-#include "FieldManager.h"
 #include "amr/LightOctree.h"
 #include "ScalarSimulationData.h"
 #include "ParabolicUpdate_base.h"
@@ -117,14 +116,12 @@ public:
     using ConsState  = typename ParabolicTerm::ConsState;
     using PrimState  = typename ParabolicTerm::PrimState;
 
-    auto fm_cons = ConsState::getFieldManager().get_id2index();
-    auto fm_prim = PrimState::getFieldManager().get_id2index();
 
     // 1- Allocating temporary arrays
     // Note : Should that be 2, 2, 2 ? or 1, 1, 1 ? or parabolic-term-type dependent ?
-    PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, fm_cons, State::N);
-    PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, fm_prim, State::N);
-    PatchArray::Ref rhs_    = foreach_cell.reserve_patch_tmp("rhs", 0, 0, 0, fm_cons, State::N);
+    PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, State::N);
+    PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, State::N);
+    PatchArray::Ref rhs_    = foreach_cell.reserve_patch_tmp("rhs", 0, 0, 0, State::N);
 
     ParabolicTerm parabolic_term{configMap};
 

@@ -26,7 +26,7 @@ public:
   CellArray_patch(){};
   
   KOKKOS_INLINE_FUNCTION
-  CellArray_patch( const Shape_t& s, const id2index_t& fm)
+  CellArray_patch( const Shape_t& s )
   : CellArray_base( s, fm )
   {}
 };
@@ -111,7 +111,7 @@ public:
   : cdata(cdata), pmesh(pmesh)
   {}
 
-  CellArray_patch::Ref reserve_patch_tmp(std::string name, int gx, int gy, int gz, const id2index_t& fm, int nvars)
+  CellArray_patch::Ref reserve_patch_tmp(std::string name, int gx, int gy, int gz, int nvars)
   {
     const CData& cdata = this->cdata;
     uint32_t bx = cdata.bx+2*gx;

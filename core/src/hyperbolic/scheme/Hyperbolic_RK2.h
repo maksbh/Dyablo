@@ -56,8 +56,7 @@ public:
     FieldAccessor Uin = policy.getUin(U);
     FieldAccessor Uout = policy.getUout(U);
  
-    auto fm_cons = Policy::ConsState::getFieldManager();
-    auto Ustar = foreach_cell.allocate_ghosted_array("U*", fm_cons);
+    auto Ustar = foreach_cell.allocate_ghosted_array("U*",  State_traits<ConsState>::nvars);
 
     // Performing two steps
     real_t old_t = scalar_data.get<real_t>("time");
@@ -128,8 +127,7 @@ public:
       policy.setConsState(Uout, iCell, empty_state);
     });
 
-    auto fm_prim = PrimState::getFieldManager().get_id2index();
-    PatchArray::Ref Qpatch_ = foreach_cell.reserve_patch_tmp("Qpatch", 2, 2, (ndim == 3)?2:0, fm_prim, State_traits<PrimState>::nvars);
+    PatchArray::Ref Qpatch_ = foreach_cell.reserve_patch_tmp("Qpatch", 2, 2, (ndim == 3)?2:0, State_traits<PrimState>::nvars);
 
     ForeachCell::SearchMode_neighbor search_neighbor( this->foreach_cell.get_amr_mesh().getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
     ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );

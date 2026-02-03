@@ -1,8 +1,6 @@
 #pragma once
 
 #include "UserData.h"
-#include "FieldManager.h"
-
 #include "foreach_cell/ForeachCell.h"
 #include "foreach_cell/ForeachCell_utils.h"
 

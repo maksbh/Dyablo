@@ -97,7 +97,7 @@ public:
     ViewCommunicator part_comm = get_distribute_communicator(particles_in);
     uint32_t nbParticles_new = part_comm.getNumGhosts();
     // TODO fetch old name
-    ParticleData particles_out( ParticleArray("xxx", nbParticles_new), particles_in.field_manager() );
+    ParticleData particles_out( ParticleArray("xxx", nbParticles_new), particles_in.nbAttributes() );
     part_comm.exchange_ghosts<0>( particles_in.particle_position, particles_out.particle_position );
     part_comm.exchange_ghosts<0>( particles_in.particle_data, particles_out.particle_data );
 

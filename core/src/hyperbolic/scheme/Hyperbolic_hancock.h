@@ -81,14 +81,14 @@ public:
 
     // Create abstract temporary ghosted arrays for patches 
     using PatchArray = ForeachCell::CellArray_patch;
-    FieldManager fm_prim = Policy::PrimState::getFieldManager();
-    PatchArray::Ref Qpatch_ = foreach_cell.reserve_patch_tmp("Qpatch", 2, 2, (ndim == 3)?2:0, fm_prim.get_id2index(), fm_prim.nbfields());
-    PatchArray::Ref HalfStep_ = foreach_cell.reserve_patch_tmp("HalfStep", 1, 1, (ndim==3)?1:0, fm_prim.get_id2index(), fm_prim.nbfields());
-    PatchArray::Ref SlopesX_ = foreach_cell.reserve_patch_tmp("SlopesX", 1, 1, (ndim==3)?1:0, fm_prim.get_id2index(), fm_prim.nbfields());
-    PatchArray::Ref SlopesY_ = foreach_cell.reserve_patch_tmp("SlopesY", 1, 1, (ndim==3)?1:0, fm_prim.get_id2index(), fm_prim.nbfields());
+    uint32_t nbFields = State_traits<PrimState>::nvars;
+    PatchArray::Ref Qpatch_ = foreach_cell.reserve_patch_tmp("Qpatch", 2, 2, (ndim == 3)?2:0, nbFields);
+    PatchArray::Ref HalfStep_ = foreach_cell.reserve_patch_tmp("HalfStep", 1, 1, (ndim==3)?1:0, nbFields);
+    PatchArray::Ref SlopesX_ = foreach_cell.reserve_patch_tmp("SlopesX", 1, 1, (ndim==3)?1:0, nbFields);
+    PatchArray::Ref SlopesY_ = foreach_cell.reserve_patch_tmp("SlopesY", 1, 1, (ndim==3)?1:0, nbFields);
     PatchArray::Ref SlopesZ_;
     if( ndim == 3 )
-      SlopesZ_ = foreach_cell.reserve_patch_tmp("SlopesZ", 1, 1, 1, fm_prim.get_id2index(), fm_prim.nbfields());
+      SlopesZ_ = foreach_cell.reserve_patch_tmp("SlopesZ", 1, 1, 1, nbFields);
 
     ForeachCell::SearchMode_neighbor search_neighbor( this->foreach_cell.get_amr_mesh().getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
     ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );

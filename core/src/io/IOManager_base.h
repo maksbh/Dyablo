@@ -1,7 +1,6 @@
 #pragma once
 
 #include "kokkos_shared.h"
-#include "FieldManager.h"
 #include "utils/misc/RegisteringFactory.h"
 #include "utils/monitoring/Timers.h"
 #include "foreach_cell/ForeachCell.h"
