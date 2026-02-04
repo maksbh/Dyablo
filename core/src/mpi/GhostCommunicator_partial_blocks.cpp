@@ -284,7 +284,7 @@ GhostCommunicator_partial_blocks_Pdata init(const AMRmesh::GhostMap_t& ghostmap,
   CellList send_cells = list_cells( precomputed_cells, ghostmap_send_sizes, ghostmap.send_iOcts, ghostmap.send_cell_masks);
 
   // Compute list of cells to recieve
-  CellList recv_cells = list_cells( precomputed_cells, ghostmap_recv_sizes, [](uint32_t iOct){return iOct;}, ghostmap_recv_masks);
+  CellList recv_cells = list_cells( precomputed_cells, ghostmap_recv_sizes, KOKKOS_LAMBDA(uint32_t iOct){return iOct;}, ghostmap_recv_masks);
 
   GhostCommunicator_partial_blocks_Pdata pdata{mpi_comm};
   pdata.bx = shape.bx;
@@ -566,6 +566,22 @@ Subset_GhostMap compute_subset_ghostmap(
   };
 }
 
+template< typename View_t > 
+View_t filter_view( 
+    const View_t& array_full,
+    const Kokkos::View<uint32_t*>& ghostmap_iGhosts )
+{
+  int nbOcts = ghostmap_iGhosts.size();
+  View_t array_filtered( array_full.label(), nbOcts );
+  Kokkos::parallel_for( "Filter ghostmap masks", nbOcts,
+    KOKKOS_LAMBDA( uint32_t i )
+  {
+    array_filtered(i) = array_full( ghostmap_iGhosts(i) );
+  });
+
+  return array_filtered;
+};
+
 GhostCommunicator_partial_blocks_OctSubset_Pdata init_subset( const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts )
 {
   const MpiComm& mpi_comm = comm_full.pdata->mpi_comm;
@@ -581,22 +597,6 @@ GhostCommunicator_partial_blocks_OctSubset_Pdata init_subset( const GhostCommuni
   const std::vector<int>& ghostmap_recv_sizes = subset_map.ghostmap_recv_sizes;
   const Kokkos::View<uint32_t*>& ghostmap_send_iGhosts = subset_map.ghostmap_send_iGhosts;
   const Kokkos::View<uint32_t*>& ghostmap_recv_iGhosts = subset_map.ghostmap_recv_iGhosts;
-  
-  auto filter_view = []( 
-    const auto& array_full,
-    const Kokkos::View<uint32_t*>& ghostmap_iGhosts )
-  {
-    using View_t = std::remove_reference_t<decltype(array_full)>;
-    int nbOcts = ghostmap_iGhosts.size();
-    View_t array_filtered( array_full.label(), nbOcts );
-    Kokkos::parallel_for( "Filter ghostmap masks", nbOcts,
-      KOKKOS_LAMBDA( uint32_t i )
-    {
-      array_filtered(i) = array_full( ghostmap_iGhosts(i) );
-    });
-
-    return array_filtered;
-  };
 
   Kokkos::View<int*> ghostmap_recv_masks = filter_view( comm_full.pdata->ghostmap_recv_masks, ghostmap_recv_iGhosts );
   Kokkos::View<int*> ghostmap_send_masks = filter_view( comm_full.pdata->ghostmap_send_masks, ghostmap_send_iGhosts );
