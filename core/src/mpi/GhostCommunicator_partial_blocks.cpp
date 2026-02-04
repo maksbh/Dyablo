@@ -332,9 +332,6 @@ void exchange_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, 
   uint32_t total_send_size = send_iOct.size(), total_recv_size = recv_iOct.size(); // send/recv buffer size (number of cells)    
   uint32_t bx=U.getShape().bx, by=U.getShape().by, bz=U.getShape().bz ; // Block size
 
-  if( num_vars*total_send_size == 0 && num_vars*total_recv_size == 0 )
-    return;
-
   Kokkos::View< real_t*, Kokkos::LayoutLeft > send_buffer("exchange_ghosts::send_buffer", num_vars*total_send_size );
 
   Kokkos::parallel_for("exchange_ghosts::pack", total_send_size*num_vars,
@@ -410,9 +407,6 @@ void reduce_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, Ce
   const Kokkos::View< uint32_t* >& recv_iCell = pdata.m_send_iCell;
   uint32_t total_send_size = send_iOct.size(), total_recv_size = recv_iOct.size(); // send/recv buffer size (number of cells)    
   uint32_t bx=U.getShape().bx, by=U.getShape().by, bz=U.getShape().bz ; // Block size
-  
-  if( num_vars*total_send_size == 0 )
-    return;
 
   Kokkos::View< real_t*, Kokkos::LayoutLeft > send_buffer("reduce_ghosts::send_buffer", num_vars*total_send_size );
 
