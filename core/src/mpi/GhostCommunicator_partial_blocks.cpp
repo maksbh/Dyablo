@@ -529,10 +529,21 @@ Subset_GhostMap compute_subset_ghostmap(
     // Exchange ranklocal iOcts
     int total_send_count = std::accumulate( send_sizes.begin(), send_sizes.end(), 0 );
     Kokkos::View<uint32_t*> send_iOcts_ranklocal("send_iOcts_ranklocal", total_send_count);
+    #ifdef MPI_IS_CUDA_AWARE
     {
       mpi_comm.MPI_Alltoallv(  recv_iOcts_ranklocal.data(), recv_sizes.data(),
                                send_iOcts_ranklocal.data(), send_sizes.data() );
     }
+    #else
+    {
+      auto recv_iOcts_ranklocal_host = Kokkos::create_mirror_view( recv_iOcts_ranklocal );
+      auto send_iOcts_ranklocal_host = Kokkos::create_mirror_view( send_iOcts_ranklocal );
+      Kokkos::deep_copy( recv_iOcts_ranklocal_host, recv_iOcts_ranklocal );
+      mpi_comm.MPI_Alltoallv(  recv_iOcts_ranklocal_host.data(), recv_sizes.data(),
+                               send_iOcts_ranklocal_host.data(), send_sizes.data() );
+      Kokkos::deep_copy( send_iOcts_ranklocal, send_iOcts_ranklocal_host );
+    }
+    #endif
     
     send_iGhosts = Kokkos::View<uint32_t*>( "send_iGhosts", total_send_count );
     int i_rank_begin = 0;
