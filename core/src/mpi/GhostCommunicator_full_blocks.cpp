@@ -180,6 +180,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
 
   int nbCells = fields.U.extent(0);
   int nbFields = U.nbFields();
+  const bool isIntermediate = this->intermediates;
 
   Kokkos::View<real_t***, Kokkos::LayoutLeft> Ughost_subset( "Ughost_subset", nbCells, nbFields, subset.nbGhosts() );
   for(int i=0; i<U.nbFields(); i++)
@@ -200,7 +201,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
     uint32_t iOct_dest = subset_iOcts(iOct_src);
     uint32_t i = index%(nbCells*nbFields);
     uint32_t ivar_src = i/nbCells;
-    uint32_t ivar_dest = U.get_index_from_ivar_device(ivar_src);
+    uint32_t ivar_dest = isIntermediate? U.get_index_from_ivar_device_intermediates(ivar_src) : U.get_index_from_ivar_device(ivar_src);
     uint32_t iblock = i%nbCells;
 
     fields.Ughost( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
