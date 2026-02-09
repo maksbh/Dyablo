@@ -4,6 +4,7 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/LightOctree_hashmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/user_data/UserData_fields.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/user_data/UserData_particles.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Subset_utils.cpp
 )
 
 set( plugins_src

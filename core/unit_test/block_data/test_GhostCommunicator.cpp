@@ -17,6 +17,8 @@
 #include "UserData.h"
 #include "utils/config/ConfigMap.h"
 
+#include "mpi/GhostCommunicator_Subset_utils.hpp"
+
 
 template< typename GhostCommunicator_t >
 void test_GhostCommunicator_partial_block()
@@ -418,6 +420,8 @@ void test_GhostCommunicator_subset()
   UserData::FieldAccessor Ua = U.getAccessor( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
   UserData::FieldAccessor Ulevel = U.getAccessor( {{"level", Level}} );
 
+  Subset_levels level_subsets( lmesh, amr_mesh->get_level_max() );
+
   for( int level=amr_mesh->get_level_min(); level<=amr_mesh->get_level_max(); level++ )
   {
     std::cout << "Initialize User Data level " << level << " ..." << std::endl;
@@ -436,28 +440,9 @@ void test_GhostCommunicator_subset()
     }
 
     GhostCommunicator_t ghost_communicator( *amr_mesh, U.getShape(), 2 );
-    // Compute subset ghosts at level
-    uint32_t nbGhosts_level = 0;
-    Kokkos::parallel_reduce( "count_ghosts_at_level", lmesh.getNumGhosts(),
-      KOKKOS_LAMBDA( uint32_t iOct, uint32_t& nbGhosts_level )
-    {
-      if( lmesh.getLevel({iOct, true}) == level )
-        nbGhosts_level++;
-    }, nbGhosts_level);
-    Kokkos::View<uint32_t*> subset_iocts("subset_iocts", nbGhosts_level);
-    Kokkos::parallel_scan( "count_ghosts_at_level", lmesh.getNumGhosts(),
-      KOKKOS_LAMBDA( uint32_t iOct, uint32_t& iGhost_level, bool final )
-    {
-      if( lmesh.getLevel({iOct, true}) == level )
-      {
-        if( final )
-          subset_iocts( iGhost_level ) = iOct;
-        iGhost_level++;
-      }
-    });    
-    // Create subset
+
     using Subset_t = typename GhostCommunicator_t::OctSubset;
-    Subset_t subset_level( ghost_communicator, subset_iocts );
+    Subset_t subset_level = level_subsets.getGhostCommunicatorSubset_level(level, ghost_communicator);
     
     ghost_communicator.exchange_ghosts( Ua );
     ghost_communicator.exchange_ghosts_subset( Ulevel, subset_level );
