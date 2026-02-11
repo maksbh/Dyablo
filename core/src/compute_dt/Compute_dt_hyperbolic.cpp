@@ -34,9 +34,17 @@ public:
     }
     this->cfl = configMap.getValue<real_t>("dt", "hydro_cfl", default_cfl);
 
+    // Verify dt_mhd is enabled if hydro update uses MHD
+    // ( "Compute_dt_hydro" used to support MHD and may still be used in outdated .inis )
     bool has_mhd = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_euler").find("MHD") != std::string::npos;
     if (has_mhd && std::is_same_v<Policy, HyperbolicPolicy_Hydro>)
+    {
       std::cout << "WARNING : dt/dt_kernel is compute_dt_hydro but MHD policy in use. Use compute_dt_GLMMHD instead !" << std::endl;
+      if( ! configMap.getValue<bool>("compute_dt_hydro", "skip_MHD_check", false) )
+      {
+        DYABLO_ASSERT_HOST_RELEASE( !(has_mhd && std::is_same_v<Policy, HyperbolicPolicy_Hydro>), "dt/dt_kernel is compute_dt_hydro but MHD policy in use. Use compute_dt_GLMMHD instead ! If you think this is an error set compute_dt_hydro/skip_MHD_check = true" );
+      }
+    }
   }
 
   void compute_dt( UserData& U, ScalarSimulationData& scalar_data )
