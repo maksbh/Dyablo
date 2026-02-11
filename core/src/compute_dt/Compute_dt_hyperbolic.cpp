@@ -23,9 +23,7 @@ public:
                     ForeachCell& foreach_cell,
                     Timers& timers )
   : foreach_cell(foreach_cell),
-    policy_params(Policy::getParams(configMap)),
-    smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
-    smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) )
+    policy_params(Policy::getParams(configMap))
   {
     real_t default_cfl = 0.5;
     if (configMap.hasValue("hydro", "cfl")) {
@@ -131,8 +129,6 @@ private:
   typename Policy::Params policy_params;
 
   real_t cfl;
-  real_t gamma0, smallr, smallc;  
-  bool has_mhd;
 };
 
 class Compute_dt_hydro : public Compute_dt_hyperbolic<HyperbolicPolicy_Hydro> {
