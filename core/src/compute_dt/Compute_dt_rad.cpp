@@ -22,7 +22,7 @@ public:
     this->cfl = configMap.getValue<real_t>("dt", "hydro_cfl", default_cfl);
   }
 
-  void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
+  void compute_dt( UserData& U, ScalarSimulationData& scalar_data )
   {
     real_t aexp = scalar_data.get<real_t>("aexp");
     real_t ctilde = Units::physical_to_supercomoving<Units::Velocity>(this->c_rad , aexp);

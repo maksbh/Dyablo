@@ -394,6 +394,7 @@ public:
         timers
       ));
     }
+    m_scalar_data.set<real_t>("dt", 1.0); // Setting initial value for dt to avoid problems with MHD kernels
 
     std::string refine_condition_id = configMap.getValue<std::string>("amr", "markers_kernel", "RefineCondition_second_derivative_error");
     this->refine_condition = RefineConditionFactory::make_instance( refine_condition_id,

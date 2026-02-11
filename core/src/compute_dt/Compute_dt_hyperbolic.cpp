@@ -1,8 +1,7 @@
 #include "Compute_dt_base.h"
 
-#include "utils_hydro.h"
-
-#include "states/State_forward.h"
+#include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
+#include "hyperbolic/policy/HyperbolicPolicy_GLMMHD.h"
 
 namespace dyablo {
 
@@ -16,17 +15,15 @@ namespace dyablo {
  *  . d_h the cell_size along direction h,
  *  . lambda_h the maximum signal speed in that direction
  **/
-class Compute_dt_hydro : public Compute_dt
+template <typename Policy>
+class Compute_dt_hyperbolic : public Compute_dt
 {
 public:
-  Compute_dt_hydro( ConfigMap& configMap,
+  Compute_dt_hyperbolic( ConfigMap& configMap,
                     ForeachCell& foreach_cell,
                     Timers& timers )
   : foreach_cell(foreach_cell),
-    gamma0( configMap.getValue<real_t>("hydro","gamma0", 1.4) ),
-    smallr( configMap.getValue<real_t>("hydro","smallr", 1e-10) ),
-    smallc( configMap.getValue<real_t>("hydro","smallc", 1e-10) ),
-    has_mhd( configMap.getValue<std::string>("hydro", "update", "HyperbolicUpdate_hancock").find("MHD") != std::string::npos )
+    policy_params(Policy::getParams(configMap))
   {
     real_t default_cfl = 0.5;
     if (configMap.hasValue("hydro", "cfl")) {
@@ -34,16 +31,25 @@ public:
       default_cfl = configMap.getValue<real_t>("hydro", "cfl");
     }
     this->cfl = configMap.getValue<real_t>("dt", "hydro_cfl", default_cfl);
+
+    // Verify dt_mhd is enabled if hydro update uses MHD
+    // ( "Compute_dt_hydro" used to support MHD and may still be used in outdated .inis )
+    bool has_mhd = configMap.getValue<std::string>("hydro", "update", "HydroUpdate_euler").find("MHD") != std::string::npos;
+    if (has_mhd && std::is_same_v<Policy, HyperbolicPolicy_Hydro>)
+    {
+      std::cout << "WARNING : dt/dt_kernel is compute_dt_hydro but MHD policy in use. Use compute_dt_GLMMHD instead !" << std::endl;
+      if( ! configMap.getValue<bool>("compute_dt_hydro", "skip_MHD_check", false) )
+      {
+        DYABLO_ASSERT_HOST_RELEASE( !(has_mhd && std::is_same_v<Policy, HyperbolicPolicy_Hydro>), "dt/dt_kernel is compute_dt_hydro but MHD policy in use. Use compute_dt_GLMMHD instead ! If you think this is an error set compute_dt_hydro/skip_MHD_check = true" );
+      }
+    }
   }
 
-  void compute_dt( const UserData& U, ScalarSimulationData& scalar_data )
+  void compute_dt( UserData& U, ScalarSimulationData& scalar_data )
   {
     real_t dt_local;
-    if( has_mhd )
-      dt_local = compute_dt_aux<GLMMHDState>(U);
-    else
-      dt_local = compute_dt_aux<HydroState>(U);
-
+    dt_local = compute_dt_aux(U, scalar_data);
+    
     DYABLO_ASSERT_HOST_RELEASE(dt_local>0, "invalid dt = " << dt_local);
 
     real_t dt;
@@ -53,20 +59,19 @@ public:
     scalar_data.set<real_t>("dt", dt);
   }
 
-  template< typename State >
-  double compute_dt_aux( const UserData& U )
+  double compute_dt_aux( UserData& U, ScalarSimulationData& scalar_data )
   {
-    using PrimState = typename State::PrimState;
-    using ConsState = typename State::ConsState;
+    using PrimState = typename Policy::PrimState;
+    using ConsState = typename Policy::ConsState;
+
+    Policy policy{ policy_params, scalar_data };
 
     int ndim = foreach_cell.getDim();
-    real_t gamma0 = this->gamma0;
+    real_t gamma0 = policy_params.policy_params.gamma0;
 
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
-    std::vector< UserData::FieldAccessor::FieldInfo> fields_info = ConsState::getFieldsInfo();
-
-    UserData::FieldAccessor Uin = U.getAccessor( ConsState::getFieldsInfo() );
+    UserData::FieldAccessor Uin = policy.getUin(U);
 
     real_t inv_dt;
     foreach_cell.reduce_cell( "compute_dt", U.getShape(),
@@ -77,13 +82,9 @@ public:
       real_t dy = cell_size[IY];
       real_t dz = cell_size[IZ];
       
-      ConsState uLoc;
-      if (ndim == 2)
-        getConservativeState<2>(Uin, iCell, uLoc);
-      else
-        getConservativeState<3>(Uin, iCell, uLoc);
-      
-      PrimState qLoc = consToPrim<3>(uLoc, gamma0);
+      ConsState uLoc = policy.getConsState(Uin, iCell);
+      PrimState qLoc = policy.consToPrim(uLoc);
+
       const real_t cs = sqrt(qLoc.p * gamma0 / qLoc.rho);
 
       real_t vx = cs + FABS(qLoc.u);
@@ -93,9 +94,7 @@ public:
       inv_dt_update = FMAX( inv_dt_update, vx/dx + vy/dy + vz/dz );
 
       // TODO : Find a BETTER way to do this !
-      // In fine, compute_dt should be templated by the type of State
-      // and calculations of inv_dt should be held in a separate State function
-      if constexpr (std::is_same_v<State, GLMMHDState>) {
+      if constexpr (std::is_same_v<PrimState, HyperbolicPolicy_PrimGLMMHDState>) {
         const real_t Bx = qLoc.Bx;
         const real_t By = qLoc.By;
         const real_t Bz = qLoc.Bz;
@@ -127,13 +126,27 @@ public:
 
 private:
   ForeachCell& foreach_cell;
+  typename Policy::Params policy_params;
 
   real_t cfl;
-  real_t gamma0, smallr, smallc;  
-  bool has_mhd;
 };
 
+class Compute_dt_hydro : public Compute_dt_hyperbolic<HyperbolicPolicy_Hydro> {
+public:
+  using Compute_dt_hyperbolic<HyperbolicPolicy_Hydro>::Compute_dt_hyperbolic;
+};
+
+class Compute_dt_GLMMHD : public Compute_dt_hyperbolic<HyperbolicPolicy_GLMMHD> {
+public:
+  using Compute_dt_hyperbolic<HyperbolicPolicy_GLMMHD>::Compute_dt_hyperbolic;
+};
 
 } // namespace dyablo 
 
-FACTORY_REGISTER( dyablo::Compute_dtFactory, dyablo::Compute_dt_hydro, "Compute_dt_hydro" );
+FACTORY_REGISTER( dyablo::Compute_dtFactory, 
+                  dyablo::Compute_dt_hydro, 
+                  "Compute_dt_hydro" );
+
+FACTORY_REGISTER( dyablo::Compute_dtFactory, 
+                  dyablo::Compute_dt_GLMMHD, 
+                  "Compute_dt_GLMMHD" );

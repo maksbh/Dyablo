@@ -16,7 +16,7 @@ public:
   //               ForeachCell& foreach_cell,
   //               Timers& timers );
   virtual ~Compute_dt(){}
-  virtual void compute_dt( const UserData& Uin, ScalarSimulationData& scalar_data) = 0;
+  virtual void compute_dt( UserData& Uin, ScalarSimulationData& scalar_data) = 0;
 };
 
 using Compute_dtFactory = RegisteringFactory< Compute_dt, 
