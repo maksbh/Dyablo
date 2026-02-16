@@ -73,16 +73,31 @@ Kokkos::View<uint32_t*> get_bin( const Binned_iOcts& iOcts, int bin )
 
 struct Subset_levels::Pdata
 {
+    Binned_iOcts local_leaves;
     Binned_iOcts ghost_leaves;
+    Binned_iOcts local_intermediates;
+    Binned_iOcts ghost_intermediates;
 };
 
 Subset_levels::Subset_levels(const LightOctree& lmesh, int level_max)
 {
     pdata = std::make_unique<Pdata>(Pdata
     {
+        .local_leaves = bin_iOcts( level_max, lmesh.getNumOctants(), 
+                            KOKKOS_LAMBDA( uint32_t iOct ){
+                                return lmesh.getLevel({iOct, false, false});
+                            } ),
         .ghost_leaves = bin_iOcts( level_max, lmesh.getNumGhosts(), 
                             KOKKOS_LAMBDA( uint32_t iOct ){
-                                return lmesh.getLevel({iOct, true});
+                                return lmesh.getLevel({iOct, true, false});
+                            } ),
+        .local_intermediates = bin_iOcts( level_max, lmesh.getNumIntermediates(), 
+                            KOKKOS_LAMBDA( uint32_t iOct ){
+                                return lmesh.getLevel({iOct, false, true});
+                            } ),
+        .ghost_intermediates = bin_iOcts( level_max, lmesh.getNumIntermediateGhosts(), 
+                            KOKKOS_LAMBDA( uint32_t iOct ){
+                                return lmesh.getLevel({iOct, true, true});
                             } ),
     });
 }
@@ -90,9 +105,24 @@ Subset_levels::Subset_levels(const LightOctree& lmesh, int level_max)
 Subset_levels::~Subset_levels()
 {/*empty*/}
 
-Kokkos::View<uint32_t*> Subset_levels::get_ghost_leaves_iOct_list(int level)
+Kokkos::View<uint32_t*> Subset_levels::get_iOcts_leaves(int level)
+{
+    return get_bin( pdata->local_leaves, level );
+}
+
+Kokkos::View<uint32_t*> Subset_levels::get_iOcts_ghost_leaves(int level)
 {
     return get_bin( pdata->ghost_leaves, level );
+}
+
+Kokkos::View<uint32_t*> Subset_levels::get_iOcts_intermediates(int level)
+{
+    return get_bin( pdata->local_intermediates, level );
+}
+
+Kokkos::View<uint32_t*> Subset_levels::get_iOcts_ghost_intermediates(int level)
+{
+    return get_bin( pdata->ghost_intermediates, level );
 }
 
 

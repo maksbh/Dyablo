@@ -46,6 +46,10 @@ public:
     {return storage.getNumIntermediates();}
 
     KOKKOS_INLINE_FUNCTION
+    uint32_t getNumIntermediateGhosts() const
+    {return storage.getNumIntermediateGhosts();}
+
+    KOKKOS_INLINE_FUNCTION
     pos_t getCenter(const OctantIndex& iOct)  const
     {return storage.getCenter(iOct);}
    
