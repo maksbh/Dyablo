@@ -19,6 +19,7 @@
 #include "mpi/GhostCommunicator.h"
 #include "UserData.h"
 #include "utils/config/ConfigMap.h"
+#include "Subset_utils.hpp"
 
 namespace dyablo {
 namespace {
@@ -27,73 +28,6 @@ using OctantIndex = LightOctree::OctantIndex;
 using CellIndex = ForeachCell::CellIndex;
 using CellArray_shape = ForeachCell::CellArray_shape;
 
-void IterationSpace_level_init( uint32_t& nbIntermediates,
-                                Kokkos::View<uint32_t*>& iOcts,
-                                const LightOctree& lmesh, 
-                                int filter_level)
-{
-  // Count intermediate octants at required level
-  Kokkos::parallel_reduce( "count_intermediate_octs_level", lmesh.getNumIntermediates(),  
-    KOKKOS_LAMBDA( uint32_t iOct, uint32_t& count )
-  {
-    int oct_level = lmesh.getLevel( {.iOct=iOct, .isGhost=false, .isIntermediate=true} );
-    if( oct_level == filter_level )
-      count++;
-  }, nbIntermediates);
-
-  // Allocate filtered Octs array
-  iOcts = Kokkos::View<uint32_t*>( "IterationSpace_level::iOcts", nbIntermediates );
-
-  // Fill Oct array with local intermediates
-  Kokkos::parallel_scan( "fill_intermediate_octs_level", lmesh.getNumIntermediates(),  
-    KOKKOS_LAMBDA( uint32_t iOct, uint32_t& count, bool final )
-  {
-    int oct_level = lmesh.getLevel( {.iOct=iOct, .isGhost=false, .isIntermediate=true} );
-    if( oct_level == filter_level )
-    {
-      if( final )
-        iOcts( count ) = iOct;
-      count++;
-    }
-  });
-}
-
-class IterationSpace_level_intermediates
-{
-private:
-  uint32_t _bx, _by, _bz;
-  Kokkos::View<uint32_t*> _iOcts;
-  uint32_t _nbIntermediates;
-public:
-  IterationSpace_level_intermediates(const CellArray_shape& shape, const LightOctree& lmesh, int level)
-  : _bx(shape.bx),_by(shape.by),_bz(shape.bz)
-  {
-    IterationSpace_level_init( _nbIntermediates, _iOcts, lmesh, level );
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  uint32_t bx() const         { return _bx; }
-  KOKKOS_INLINE_FUNCTION
-  uint32_t by() const         { return _by; }
-  KOKKOS_INLINE_FUNCTION
-  uint32_t bz() const         { return _bz; }
-
-  KOKKOS_INLINE_FUNCTION
-  uint32_t iOct_count() const { return _iOcts.size();}
-
-  KOKKOS_INLINE_FUNCTION
-  CellIndex getCellIndex(uint32_t iOct_raw, uint32_t i, uint32_t j, uint32_t k) const
-  {
-    uint32_t iOct_filtered = _iOcts(iOct_raw);
-    OctantIndex iOct{ 
-      .iOct=iOct_filtered,
-      .isGhost=false, 
-      .isIntermediate=true
-    };
-    CellIndex iCell = {iOct, i, j, k, bx(), by(), bz()};
-    return iCell;
-  }
-};
 
 } // namespace
 } // namespace dyablo
@@ -192,13 +126,23 @@ void test_FullTree_average_children()
   GhostCommunicator_full_blocks ghost_communicator_leaves( *amr_mesh, Ua.getShape(), -1, false );
   GhostCommunicator_full_blocks ghost_communicator_intermediates( *amr_mesh, Ua.getShape(), -1, true );
 
+  constexpr bool with_locals = true;
+  constexpr bool without_locals = false;
+  constexpr bool without_ghosts = false;
+  constexpr bool with_intermediates = true;
+  Subset_levels level_subsets( lmesh, amr_mesh->get_level_max() );
+
   for( int level = level_max-1; level >= level_min; level-- )
   {
-    #warning TODO : filter only intermediates
-    ghost_communicator_leaves.exchange_ghosts( Ua );
-    ghost_communicator_intermediates.exchange_ghosts( Ua );
+    //ghost_communicator_leaves.exchange_ghosts( Ua );
+    auto subset_level_leaves = level_subsets.getGhostCommunicatorSubset_level(level, ghost_communicator_leaves);
+    ghost_communicator_leaves.exchange_ghosts_subset( Ua, subset_level_leaves );
 
-    IterationSpace_level_intermediates iter_space_level_intermediates(Ua.getShape(), lmesh, level);
+    ghost_communicator_intermediates.exchange_ghosts( Ua );
+    //auto subset_level_intermediates = level_subsets.getGhostCommunicatorSubset_level(level, ghost_communicator_intermediates);
+    //ghost_communicator_intermediates.exchange_ghosts_subset( Ua, subset_level_intermediates );
+
+    auto iter_space_level_intermediates = level_subsets.getIterationSpace<without_locals, without_ghosts, with_intermediates>(level, Ua.getShape());
     foreach_cell.foreach_cell("average_parent_cell", iter_space_level_intermediates,
       KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell)
     {
@@ -226,9 +170,6 @@ void test_FullTree_average_children()
     
   }
   
-  constexpr bool with_locals = true;
-  constexpr bool without_ghosts = false;
-  constexpr bool with_intermediates = true;
   ForeachCell::IterationSpace_fullArray_impl<with_locals, without_ghosts, with_intermediates> iter_space_with_intermediates(Ua.getShape());
   int error_count = 0;
   int total_count = 0;
