@@ -34,6 +34,8 @@ public:
       return "GhostCommunicator_partial_blocks";
     }
 
+    bool has_intermediates() const;
+
     /// @copydoc GhostCommunicator_base::getNumGhosts
     uint32_t getNumGhosts() const;
 

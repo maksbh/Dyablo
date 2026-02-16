@@ -39,6 +39,11 @@ public:
     return Impl::getNumGhosts();
   }
 
+  bool has_intermediates() const
+  {
+    return Impl::has_intermediates();
+  }
+
   using OctSubset = typename Impl::OctSubset;
 
   /***

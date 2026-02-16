@@ -73,7 +73,10 @@ public:
     template<typename GhostComm_t>
     typename GhostComm_t::OctSubset getGhostCommunicatorSubset_level( int level, const GhostComm_t& comm )
     {
-        return typename GhostComm_t::OctSubset( comm, get_iOcts_ghost_leaves(level) );
+        if( comm.has_intermediates() )
+            return typename GhostComm_t::OctSubset( comm, get_iOcts_ghost_intermediates(level) );
+        else
+            return typename GhostComm_t::OctSubset( comm, get_iOcts_ghost_leaves(level) );
     }
 
     template<bool locals, bool ghosts, bool intermediates>

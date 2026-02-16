@@ -20,6 +20,11 @@ public:
     {
       return "GhostCommunicator_full_blocks";
     }
+
+    bool has_intermediates() const
+    {
+      return intermediates;
+    }
      
     /// @copydoc GhostCommunicator_base::getNumGhosts
     uint32_t getNumGhosts() const

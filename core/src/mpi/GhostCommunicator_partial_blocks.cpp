@@ -673,6 +673,11 @@ uint32_t GhostCommunicator_partial_blocks::getNumGhosts() const
   return pdata->m_local_ghost_octants;
 }
 
+bool GhostCommunicator_partial_blocks::has_intermediates() const
+{
+  return pdata->intermediates;
+}
+
 void GhostCommunicator_partial_blocks::exchange_ghosts( const UserData::FieldAccessor& U) const
 {
   exchange_ghosts_aux(*pdata, U);

@@ -138,9 +138,9 @@ void test_FullTree_average_children()
     auto subset_level_leaves = level_subsets.getGhostCommunicatorSubset_level(level, ghost_communicator_leaves);
     ghost_communicator_leaves.exchange_ghosts_subset( Ua, subset_level_leaves );
 
-    ghost_communicator_intermediates.exchange_ghosts( Ua );
-    //auto subset_level_intermediates = level_subsets.getGhostCommunicatorSubset_level(level, ghost_communicator_intermediates);
-    //ghost_communicator_intermediates.exchange_ghosts_subset( Ua, subset_level_intermediates );
+    //ghost_communicator_intermediates.exchange_ghosts( Ua );
+    auto subset_level_intermediates = level_subsets.getGhostCommunicatorSubset_level(level, ghost_communicator_intermediates);
+    ghost_communicator_intermediates.exchange_ghosts_subset( Ua, subset_level_intermediates );
 
     auto iter_space_level_intermediates = level_subsets.getIterationSpace<without_locals, without_ghosts, with_intermediates>(level, Ua.getShape());
     foreach_cell.foreach_cell("average_parent_cell", iter_space_level_intermediates,
