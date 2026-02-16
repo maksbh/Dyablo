@@ -110,6 +110,7 @@ protected:
     Kokkos::View<uint32_t*> get_iOcts_ghost_intermediates(int level);
 
 //private:
+public:
     struct Pdata;
     std::unique_ptr<Pdata> pdata;
 };

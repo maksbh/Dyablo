@@ -79,9 +79,11 @@ struct Subset_levels::Pdata
     Binned_iOcts ghost_intermediates;
 };
 
-Subset_levels::Subset_levels(const LightOctree& lmesh, int level_max)
+namespace {
+
+std::unique_ptr<Subset_levels::Pdata> Subset_levels_init(const LightOctree& lmesh, int level_max)
 {
-    pdata = std::make_unique<Pdata>(Pdata
+    return std::make_unique<Subset_levels::Pdata>(Subset_levels::Pdata
     {
         .local_leaves = bin_iOcts( level_max, lmesh.getNumOctants(), 
                             KOKKOS_LAMBDA( uint32_t iOct ){
@@ -101,6 +103,12 @@ Subset_levels::Subset_levels(const LightOctree& lmesh, int level_max)
                             } ),
     });
 }
+
+} // namespace
+
+Subset_levels::Subset_levels(const LightOctree& lmesh, int level_max)
+    : pdata(Subset_levels_init(lmesh, level_max))
+{/*empty*/}
 
 Subset_levels::~Subset_levels()
 {/*empty*/}
