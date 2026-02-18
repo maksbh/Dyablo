@@ -84,7 +84,7 @@ struct Binned_iOcts_levels::Pdata
 
 namespace {
 
-
+/// Helper function for get_iOcts_xxx
 template< bool ghost, bool intermediate >
 Kokkos::View<uint32_t*> get_iOcts( const Binned_iOcts_levels::Pdata& pdata, std::unique_ptr<Binned_iOcts>& binned_iOcts, uint32_t nbOcts, int level )
 {

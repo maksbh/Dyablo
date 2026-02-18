@@ -13,6 +13,11 @@ struct Subset_levels::Pdata
 
 namespace{
 
+/**
+ * Helper function for Subset_levels::getGhostCommunicatorSubset_level
+ * 
+ * TODO : Optimize implementation to avoid mpi communications to get octs to send in OctSubset instanciation
+ */
 template<typename GhostComm_t>
 typename GhostComm_t::OctSubset getGhostCommunicatorSubset_level_impl(dyablo::Subset_levels::Pdata& pdata, int level, const GhostComm_t& comm )
 {

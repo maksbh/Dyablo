@@ -60,6 +60,12 @@ public:
   }
 };
 
+/***
+ * Class to generate Iterationspace instances for per-level operations
+ * 
+ * This precomputes IterationSpaces for every level to quickly get 
+ * per-level IterationSpaces for multiple levels.
+ ***/
 class IterationSpace_levels
 {
 public:
@@ -67,6 +73,13 @@ public:
     : binned_iOcts_levels(lmesh, level_max)
   {/*Empty*/}
 
+  /***
+   * Generate an IterationSpace for foreach_cell that filters only cells from a specific AMR level
+   * 
+   * @tparam locals, ghosts, intermediates select what kind of cells are enabled (same as IterationSpace_fullArray_impl)
+   * @param level IterationSpace will select only cells at this level
+   * @param shape shape of the (full) array from which cells are filtered
+   */
   template<bool locals, bool ghosts, bool intermediates>
   IterationSpace_subset_impl<locals, ghosts, intermediates> getIterationSpace(int level, const ForeachCell::CellArray_shape& shape )
   {
