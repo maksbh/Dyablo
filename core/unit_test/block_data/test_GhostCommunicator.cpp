@@ -17,7 +17,7 @@
 #include "UserData.h"
 #include "utils/config/ConfigMap.h"
 
-#include "Subset_utils.hpp"
+#include "mpi/GhostCommunicator_Subset_levels.hpp"
 
 
 template< typename GhostCommunicator_t >

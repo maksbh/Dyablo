@@ -4,7 +4,7 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/LightOctree_hashmap.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/user_data/UserData_fields.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/user_data/UserData_particles.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/Subset_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/foreach_cell/Binned_iOcts.cpp
 )
 
 set( plugins_src
@@ -77,6 +77,7 @@ set( mpi_src
     ${CMAKE_CURRENT_SOURCE_DIR}/mpi/ViewCommunicator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_partial_blocks.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_full_blocks.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mpi/GhostCommunicator_Subset_levels.cpp
 )
 
 set( hdf5_src

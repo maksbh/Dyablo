@@ -1,5 +1,6 @@
-#include "Subset_utils.hpp"
+#include "Binned_iOcts.hpp"
 
+#include "foreach_cell/ForeachCell.h"
 #include "amr/LightOctree.h"
 
 namespace dyablo {
@@ -71,7 +72,7 @@ Kokkos::View<uint32_t*> get_bin( const Binned_iOcts& iOcts, int bin )
 
 } // namespace
 
-struct Subset_levels::Pdata
+struct Binned_iOcts_levels::Pdata
 {
     const LightOctree& lmesh;
     int level_max;
@@ -85,7 +86,7 @@ namespace {
 
 
 template< bool ghost, bool intermediate >
-Kokkos::View<uint32_t*> get_iOcts( const Subset_levels::Pdata& pdata, std::unique_ptr<Binned_iOcts>& binned_iOcts, uint32_t nbOcts, int level )
+Kokkos::View<uint32_t*> get_iOcts( const Binned_iOcts_levels::Pdata& pdata, std::unique_ptr<Binned_iOcts>& binned_iOcts, uint32_t nbOcts, int level )
 {
     if( !binned_iOcts )
     {
@@ -103,33 +104,35 @@ Kokkos::View<uint32_t*> get_iOcts( const Subset_levels::Pdata& pdata, std::uniqu
 
 } // namespace
 
-Subset_levels::Subset_levels(const LightOctree& lmesh, int level_max)
-    : pdata(std::make_unique<Subset_levels::Pdata>(
-                    Subset_levels::Pdata{
+Binned_iOcts_levels::Binned_iOcts_levels(const LightOctree& lmesh, int level_max)
+    : pdata(std::make_unique<Binned_iOcts_levels::Pdata>(
+                    Binned_iOcts_levels::Pdata{
                         .lmesh=lmesh, 
                         .level_max=level_max,
                     }))
 {/*empty*/}
 
-Subset_levels::~Subset_levels()
+Binned_iOcts_levels::Binned_iOcts_levels(Binned_iOcts_levels&&) = default;
+
+Binned_iOcts_levels::~Binned_iOcts_levels()
 {/*empty*/}
 
-Kokkos::View<uint32_t*> Subset_levels::get_iOcts_leaves(int level)
+Kokkos::View<uint32_t*> Binned_iOcts_levels::get_iOcts_leaves(int level)
 { 
     return get_iOcts<false, false>( *pdata, pdata->local_leaves, pdata->lmesh.getNumOctants(), level );
 }
 
-Kokkos::View<uint32_t*> Subset_levels::get_iOcts_ghost_leaves(int level)
+Kokkos::View<uint32_t*> Binned_iOcts_levels::get_iOcts_ghost_leaves(int level)
 {   
     return get_iOcts<true, false>( *pdata, pdata->ghost_leaves, pdata->lmesh.getNumGhosts(), level );
 }
 
-Kokkos::View<uint32_t*> Subset_levels::get_iOcts_intermediates(int level)
+Kokkos::View<uint32_t*> Binned_iOcts_levels::get_iOcts_intermediates(int level)
 {
     return get_iOcts<false, true>( *pdata, pdata->local_intermediates, pdata->lmesh.getNumIntermediates(), level );
 }
 
-Kokkos::View<uint32_t*> Subset_levels::get_iOcts_ghost_intermediates(int level)
+Kokkos::View<uint32_t*> Binned_iOcts_levels::get_iOcts_ghost_intermediates(int level)
 {
     return get_iOcts<true, true>( *pdata, pdata->ghost_intermediates, pdata->lmesh.getNumIntermediateGhosts(), level );
 }

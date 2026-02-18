@@ -19,7 +19,8 @@
 #include "mpi/GhostCommunicator.h"
 #include "UserData.h"
 #include "utils/config/ConfigMap.h"
-#include "Subset_utils.hpp"
+#include "mpi/GhostCommunicator_Subset_levels.hpp"
+#include "foreach_cell/IterationSpace_levels.hpp"
 
 namespace dyablo {
 namespace {
@@ -131,6 +132,7 @@ void test_FullTree_average_children()
   constexpr bool without_ghosts = false;
   constexpr bool with_intermediates = true;
   Subset_levels level_subsets( lmesh, amr_mesh->get_level_max() );
+  IterationSpace_levels iterationspace_levels( lmesh, amr_mesh->get_level_max() );
 
   for( int level = level_max-1; level >= level_min; level-- )
   {
@@ -142,7 +144,7 @@ void test_FullTree_average_children()
     auto subset_level_intermediates = level_subsets.getGhostCommunicatorSubset_level(level, ghost_communicator_intermediates);
     ghost_communicator_intermediates.exchange_ghosts_subset( Ua, subset_level_intermediates );
 
-    auto iter_space_level_intermediates = level_subsets.getIterationSpace<without_locals, without_ghosts, with_intermediates>(level, Ua.getShape());
+    auto iter_space_level_intermediates = iterationspace_levels.getIterationSpace<without_locals, without_ghosts, with_intermediates>(level, Ua.getShape());
     foreach_cell.foreach_cell("average_parent_cell", iter_space_level_intermediates,
       KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell)
     {
