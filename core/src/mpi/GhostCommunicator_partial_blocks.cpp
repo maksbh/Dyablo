@@ -678,6 +678,11 @@ bool GhostCommunicator_partial_blocks::has_intermediates() const
   return pdata->intermediates;
 }
 
+Kokkos::View<uint32_t*> GhostCommunicator_partial_blocks::iOcts_send() const
+{
+  return pdata->ghostmap_send_iOcts;
+}
+
 void GhostCommunicator_partial_blocks::exchange_ghosts( const UserData::FieldAccessor& U) const
 {
   exchange_ghosts_aux(*pdata, U);
@@ -698,9 +703,15 @@ void GhostCommunicator_partial_blocks::reduce_ghosts( ForeachCell::CellArray_glo
   reduce_ghosts_aux(*pdata,U);
 }
 
-GhostCommunicator_partial_blocks_OctSubset::GhostCommunicator_partial_blocks_OctSubset( const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts )
-: pdata( std::make_unique<Pdata>( Pdata{ init_subset(comm_full, subset_iOcts) } ) )
+GhostCommunicator_partial_blocks_OctSubset::GhostCommunicator_partial_blocks_OctSubset( const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_recv )
+: pdata( std::make_unique<Pdata>( Pdata{ init_subset(comm_full, subset_iOcts_recv) } ) )
 {}
+
+GhostCommunicator_partial_blocks_OctSubset::GhostCommunicator_partial_blocks_OctSubset( const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_send, Kokkos::View<uint32_t*> subset_iOcts_recv)
+: pdata( std::make_unique<Pdata>( Pdata{ init_subset(comm_full, subset_iOcts_recv) } ) )
+{
+  #warning TODO : implement version using subset_iOcts_send
+}
 
 GhostCommunicator_partial_blocks_OctSubset::~GhostCommunicator_partial_blocks_OctSubset()
 {}

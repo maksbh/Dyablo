@@ -2,6 +2,11 @@
 
 namespace dyablo {
 
+Kokkos::View<uint32_t*> GhostCommunicator_full_blocks::iOcts_send() const
+{
+  return this->send_iOcts;
+}
+
 void GhostCommunicator_full_blocks::exchange_ghosts( const UserData::FieldAccessor& U ) const
 {
   DYABLO_ASSERT_HOST_DEBUG( !this->intermediates, "Trying to echange intermediate ghosts but FieldAccessor don't have intermediates" );
@@ -36,6 +41,54 @@ void GhostCommunicator_full_blocks::exchange_ghosts( ForeachCell::CellArray_glob
   ViewCommunicator::exchange_ghosts<2>(U.U, U.Ughost);
 }
 
+void OctSubset_init_with_send( MpiComm mpi_comm, 
+  const Kokkos::View<uint32_t*>& recv_sizes_full,
+  const Kokkos::View<uint32_t*>& send_iOcts_full,
+  const Kokkos::View<uint32_t*>& send_sizes_full,
+  std::unique_ptr<ViewCommunicator>& partial_comm,
+  Kokkos::View<uint32_t*>& subset_iOcts_send, /// positions of subset octants in send_iOcts_full
+  Kokkos::View<uint32_t*>& subset_iOcts_recv)
+{
+  int mpi_size = mpi_comm.MPI_Comm_size();
+  Kokkos::View<uint32_t*> rank_begin_full("rank_begin", mpi_size);
+  Kokkos::parallel_scan( "OctSubset::compute_rank_begin", mpi_size,
+    KOKKOS_LAMBDA( uint32_t i, uint32_t& sum, bool final )
+  {
+    if(final)
+      rank_begin_full(i) = sum;
+    sum += send_sizes_full(i);
+  });
+
+  uint32_t niOct_send_full = send_iOcts_full.size();
+  uint32_t niOct_send = subset_iOcts_send.size();
+  Kokkos::View<uint32_t*> send_iOcts("send_iOcts", niOct_send);
+  Kokkos::View<uint32_t*> rank_begin_subset("rank_begin_subset", mpi_size);
+  Kokkos::parallel_for( "OctSubset::count_send_iOcts_sizes", niOct_send,
+    KOKKOS_LAMBDA( uint32_t i )
+  {
+    uint32_t i_full = subset_iOcts_send(i);
+    send_iOcts(i) = send_iOcts_full(i_full);
+    
+    // Find start of rank in subset
+    uint32_t next = i < niOct_send-1 ? subset_iOcts_send(i+1) : niOct_send_full;
+    DYABLO_ASSERT_KOKKOS_DEBUG( subset_iOcts_send(i) < next, "OctSubset_init_with_send : subset_iOcts_send is not increasing" );
+    for( int rank=0; rank<mpi_size; rank++ )
+    {
+      if(subset_iOcts_send(i) < rank_begin_full(rank) && rank_begin_full(rank) <= next )
+        rank_begin_subset(rank) = i+1;
+    }
+  });
+
+  Kokkos::View<uint32_t*> send_iOcts_sizes("send_iOcts_sizes", mpi_size);
+  Kokkos::parallel_for( "OctSubset::compute_send_iOcts_sizes", mpi_size,
+    KOKKOS_LAMBDA( uint32_t i)
+  {
+    uint32_t next = i < mpi_size-1 ? rank_begin_subset(i+1) : niOct_send;
+    send_iOcts_sizes(i) = next - rank_begin_subset(i);
+  });
+
+  partial_comm = std::make_unique<ViewCommunicator>( send_iOcts_sizes, send_iOcts);
+}
 
 void OctSubset_init( MpiComm mpi_comm, 
   const Kokkos::View<uint32_t*>& recv_sizes_full,
@@ -126,8 +179,8 @@ void OctSubset_init( MpiComm mpi_comm,
   DYABLO_ASSERT_HOST_RELEASE( partial_comm->getNumGhosts() == subset_iOcts.size(), "GhostCommunicator_full_blocks::OctSubset : ghost count mismatch" );
 }
 
-GhostCommunicator_full_blocks::OctSubset::OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts )
-  : subset_iOcts( subset_iOcts )
+GhostCommunicator_full_blocks::OctSubset::OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_recv )
+  : subset_iOcts( subset_iOcts_recv )
 {
   // nvcc doesnt like kokkos kernels in constructors
   OctSubset_init( 
@@ -137,6 +190,22 @@ GhostCommunicator_full_blocks::OctSubset::OctSubset(const GhostCommunicator_full
     comm_full.send_sizes,
     this->partial_comm,
     this->subset_iOcts
+   );
+}
+
+GhostCommunicator_full_blocks::OctSubset::OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_send, Kokkos::View<uint32_t*> subset_iOcts_recv)
+  : subset_iOcts( subset_iOcts_recv )
+{
+  std::unique_ptr<ViewCommunicator> partial_comm1;
+  // nvcc doesnt like kokkos kernels in constructors
+  OctSubset_init_with_send( 
+    comm_full.mpi_comm, 
+    comm_full.recv_sizes,
+    comm_full.send_iOcts,
+    comm_full.send_sizes,
+    partial_comm,
+    subset_iOcts_send,
+    subset_iOcts_recv
    );
 }
 

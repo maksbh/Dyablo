@@ -25,6 +25,8 @@ public:
     {
       return intermediates;
     }
+
+    Kokkos::View<uint32_t*> iOcts_send() const;
      
     /// @copydoc GhostCommunicator_base::getNumGhosts
     uint32_t getNumGhosts() const
@@ -39,7 +41,22 @@ public:
 
     struct OctSubset
     {
-      OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts );
+      /***
+       * Initialize with only iOct of ghost (recieved) octants
+       * @param subset_iOcts_recv are iOcts of ghosts to filter and recieve
+       * List of octants to send will be computed internally
+       **/
+      OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_recv );
+      /***
+       * Initialize with list of ghost octants (recieved), but also a list of octants to send
+       * This is for optimization purpose : computing the list of octants to send (requires an 
+       * MPI communication) can then be skipped. The list must match what would be computed internally 
+       * by the other constructor
+       * @param subset_iOcts_recv are iOcts of ghosts to filter and recieve
+       * @param subset_iOcts_send are indexes of filtered iOcts in comm_full send list 
+       * NOTE : iOcts comm_full.to_send(subset_iOcts_send(i)) will be sent, not subset_iOcts_send(i)
+       */
+      OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_send, Kokkos::View<uint32_t*> subset_iOcts_recv );
 
       uint32_t nbGhosts() const
       {

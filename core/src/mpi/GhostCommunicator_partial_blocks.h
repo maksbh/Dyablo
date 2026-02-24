@@ -10,7 +10,8 @@ struct GhostCommunicator_partial_blocks_OctSubset_Pdata;
 
 struct GhostCommunicator_partial_blocks_OctSubset
 {
-  GhostCommunicator_partial_blocks_OctSubset(const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts );
+  GhostCommunicator_partial_blocks_OctSubset(const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_recv );
+  GhostCommunicator_partial_blocks_OctSubset(const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_send, Kokkos::View<uint32_t*> subset_iOcts_recv );
   ~GhostCommunicator_partial_blocks_OctSubset();
   using Pdata = GhostCommunicator_partial_blocks_OctSubset_Pdata;
   std::unique_ptr<Pdata> pdata;
@@ -35,6 +36,8 @@ public:
     }
 
     bool has_intermediates() const;
+
+    Kokkos::View<uint32_t*> iOcts_send() const;
 
     /// @copydoc GhostCommunicator_base::getNumGhosts
     uint32_t getNumGhosts() const;
