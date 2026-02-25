@@ -72,6 +72,12 @@ public:
       private_init_map(send_sizes, send_iObj);
     }
 
+    ViewCommunicator( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iObj, const Kokkos::View< uint32_t* > recv_sizes, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    : mpi_comm(mpi_comm)
+    {
+      private_init_map_with_recv_sizes(send_sizes, send_iObj, recv_sizes);
+    }
+
     /// Get the number of ghosts in local process with the current exchange pattern
     uint32_t getNumGhosts() const;
 
@@ -108,6 +114,7 @@ public:
 
 protected:
     void private_init_map( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts );
+    void private_init_map_with_recv_sizes( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts, const Kokkos::View< uint32_t* > recv_sizes );
 
     Kokkos::View<uint32_t*> recv_sizes, send_sizes; //!Number of octants to send/recv for each proc
     Kokkos::View<uint32_t*>::host_mirror_type recv_sizes_host, send_sizes_host; //!Number of octants to send/recv for each proc

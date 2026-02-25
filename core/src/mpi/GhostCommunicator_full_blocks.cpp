@@ -41,6 +41,55 @@ void GhostCommunicator_full_blocks::exchange_ghosts( ForeachCell::CellArray_glob
   ViewCommunicator::exchange_ghosts<2>(U.U, U.Ughost);
 }
 
+/**
+ * Computes sizes to send/recv form/to other processes knowing the sizes of the full communicator and the indices 
+ * of the subset octants in the original octant list
+ * @param sizes_full sizes to send/recv in full comm
+ * @param subset_iOcts indices of subset octs in full comm oct list
+ **/
+Kokkos::View<uint32_t*> compute_subset_sizes(
+  const Kokkos::View<uint32_t*>& sizes_full,
+  const Kokkos::View<uint32_t*>& subset_iOcts)
+{
+  int mpi_size = sizes_full.size();
+
+  uint32_t niOct_full;
+  Kokkos::View<uint32_t*> rank_begin_full("rank_begin_full", mpi_size);
+  Kokkos::parallel_scan( "OctSubset::compute_rank_begin_full", mpi_size,
+    KOKKOS_LAMBDA( uint32_t i, uint32_t& sum, bool final )
+  {
+    if(final)
+      rank_begin_full(i) = sum;
+    sum += sizes_full(i);
+  }, niOct_full);
+
+  Kokkos::View<uint32_t*> rank_begin_subset("rank_begin_subset", mpi_size);
+  uint32_t niOct_subset = subset_iOcts.size();
+  Kokkos::parallel_for( "OctSubset::count_sizes", niOct_subset,
+    KOKKOS_LAMBDA( uint32_t i )
+  {   
+    // Find start of rank in subset
+    uint32_t next = i < niOct_subset-1 ? subset_iOcts(i+1) : niOct_full;
+    DYABLO_ASSERT_KOKKOS_DEBUG( subset_iOcts(i) < next, "OctSubset_init_with_send : subset_iOcts is not increasing" );
+    for( int rank=0; rank<mpi_size; rank++ )
+    {
+      if(subset_iOcts(i) < rank_begin_full(rank) && rank_begin_full(rank) <= next )
+        rank_begin_subset(rank) = i+1;
+    }
+  });
+
+  Kokkos::View<uint32_t*> subset_sizes("subset_sizes", mpi_size);
+  Kokkos::parallel_for( "OctSubset::compute_subset_sizes", mpi_size,
+    KOKKOS_LAMBDA( uint32_t i)
+  {
+    uint32_t next = i < mpi_size-1 ? rank_begin_subset(i+1) : niOct_subset;
+    subset_sizes(i) = next - rank_begin_subset(i);
+  });
+
+  return subset_sizes;
+}
+
+
 void OctSubset_init_with_send( MpiComm mpi_comm, 
   const Kokkos::View<uint32_t*>& recv_sizes_full,
   const Kokkos::View<uint32_t*>& send_iOcts_full,
@@ -49,45 +98,19 @@ void OctSubset_init_with_send( MpiComm mpi_comm,
   Kokkos::View<uint32_t*>& subset_iOcts_send, /// positions of subset octants in send_iOcts_full
   Kokkos::View<uint32_t*>& subset_iOcts_recv)
 {
-  int mpi_size = mpi_comm.MPI_Comm_size();
-  Kokkos::View<uint32_t*> rank_begin_full("rank_begin", mpi_size);
-  Kokkos::parallel_scan( "OctSubset::compute_rank_begin", mpi_size,
-    KOKKOS_LAMBDA( uint32_t i, uint32_t& sum, bool final )
-  {
-    if(final)
-      rank_begin_full(i) = sum;
-    sum += send_sizes_full(i);
-  });
-
-  uint32_t niOct_send_full = send_iOcts_full.size();
   uint32_t niOct_send = subset_iOcts_send.size();
   Kokkos::View<uint32_t*> send_iOcts("send_iOcts", niOct_send);
-  Kokkos::View<uint32_t*> rank_begin_subset("rank_begin_subset", mpi_size);
-  Kokkos::parallel_for( "OctSubset::count_send_iOcts_sizes", niOct_send,
+  Kokkos::parallel_for( "OctSubset::fill_send_iOcts", niOct_send,
     KOKKOS_LAMBDA( uint32_t i )
   {
     uint32_t i_full = subset_iOcts_send(i);
     send_iOcts(i) = send_iOcts_full(i_full);
-    
-    // Find start of rank in subset
-    uint32_t next = i < niOct_send-1 ? subset_iOcts_send(i+1) : niOct_send_full;
-    DYABLO_ASSERT_KOKKOS_DEBUG( subset_iOcts_send(i) < next, "OctSubset_init_with_send : subset_iOcts_send is not increasing" );
-    for( int rank=0; rank<mpi_size; rank++ )
-    {
-      if(subset_iOcts_send(i) < rank_begin_full(rank) && rank_begin_full(rank) <= next )
-        rank_begin_subset(rank) = i+1;
-    }
   });
 
-  Kokkos::View<uint32_t*> send_iOcts_sizes("send_iOcts_sizes", mpi_size);
-  Kokkos::parallel_for( "OctSubset::compute_send_iOcts_sizes", mpi_size,
-    KOKKOS_LAMBDA( uint32_t i)
-  {
-    uint32_t next = i < mpi_size-1 ? rank_begin_subset(i+1) : niOct_send;
-    send_iOcts_sizes(i) = next - rank_begin_subset(i);
-  });
+  auto send_iOcts_sizes = compute_subset_sizes(send_sizes_full, subset_iOcts_send);
+  auto recv_iOcts_sizes = compute_subset_sizes(recv_sizes_full, subset_iOcts_recv);
 
-  partial_comm = std::make_unique<ViewCommunicator>( send_iOcts_sizes, send_iOcts);
+  partial_comm = std::make_unique<ViewCommunicator>( send_iOcts_sizes, send_iOcts, recv_iOcts_sizes);
 }
 
 void OctSubset_init( MpiComm mpi_comm, 
