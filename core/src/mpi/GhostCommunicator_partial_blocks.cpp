@@ -475,6 +475,76 @@ struct Subset_GhostMap
   Kokkos::View<uint32_t*> ghostmap_recv_iGhosts; 
 };
 
+
+/**
+ * Computes sizes to send/recv form/to other processes knowing the sizes of the full communicator and the indices 
+ * of the subset octants in the original octant list
+ * @param sizes_full sizes to send/recv in full comm
+ * @param subset_iOcts indices of subset octs in full comm oct list
+ **/
+std::vector<int> compute_subset_sizes(
+  const std::vector<int>& sizes_full,
+  const Kokkos::View<uint32_t*>& subset_iOcts)
+{
+  int mpi_size = sizes_full.size();
+
+  Kokkos::View<uint32_t*> rank_begin_full("rank_begin_full", mpi_size);
+  auto rank_begin_full_host = Kokkos::create_mirror_view( rank_begin_full );
+  uint32_t niOct_full = 0;
+  for( int i=0; i<mpi_size; i++ )
+  {
+    rank_begin_full_host(i) = niOct_full;
+    niOct_full+=sizes_full[i];
+  }
+  Kokkos::deep_copy( rank_begin_full, rank_begin_full_host );
+
+  Kokkos::View<uint32_t*> rank_begin_subset("rank_begin_subset", mpi_size);
+  uint32_t niOct_subset = subset_iOcts.size();
+  Kokkos::parallel_for( "OctSubset::count_sizes", niOct_subset,
+    KOKKOS_LAMBDA( uint32_t i )
+  {   
+    // Find start of rank in subset
+    uint32_t next = i < niOct_subset-1 ? subset_iOcts(i+1) : niOct_full;
+    DYABLO_ASSERT_KOKKOS_DEBUG( subset_iOcts(i) < next, "OctSubset_init_with_send : subset_iOcts is not increasing" );
+    for( int rank=0; rank<mpi_size; rank++ )
+    {
+      if(subset_iOcts(i) < rank_begin_full(rank) && rank_begin_full(rank) <= next )
+        rank_begin_subset(rank) = i+1;
+    }
+  });
+
+  auto rank_begin_subset_host = Kokkos::create_mirror_view( rank_begin_subset );
+  Kokkos::deep_copy( rank_begin_subset_host, rank_begin_subset );
+
+  std::vector<int> subset_sizes( mpi_size );
+  for( int i=0; i<mpi_size; i++ )
+  {
+    uint32_t next = i < mpi_size-1 ? rank_begin_subset_host(i+1) : niOct_subset;
+    subset_sizes[i] = next - rank_begin_subset_host(i);
+  }
+
+  return subset_sizes;
+}
+
+Subset_GhostMap compute_subset_ghostmap_with_send( 
+  const MpiComm& mpi_comm,
+  const std::vector<int>& send_sizes_full,
+  const Kokkos::View<uint32_t*>& send_iOcts_full,
+  const std::vector<int>& recv_sizes_full,
+  const Kokkos::View<uint32_t*>& subset_iOcts_send,
+  const Kokkos::View<uint32_t*>& subset_iOcts_recv )
+{
+  auto send_sizes = compute_subset_sizes(send_sizes_full, subset_iOcts_send);
+  auto recv_sizes = compute_subset_sizes(recv_sizes_full, subset_iOcts_recv);
+
+  return {
+    send_sizes,
+    recv_sizes,    
+    subset_iOcts_send,
+    subset_iOcts_recv
+  };
+}
+
 Subset_GhostMap compute_subset_ghostmap( 
   const MpiComm& mpi_comm,
   const std::vector<int>& send_sizes_full,
@@ -594,16 +664,9 @@ View_t filter_view(
   return array_filtered;
 };
 
-GhostCommunicator_partial_blocks_OctSubset_Pdata init_subset( const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts )
+GhostCommunicator_partial_blocks_OctSubset_Pdata init_subset_aux( const GhostCommunicator_partial_blocks& comm_full, Subset_GhostMap& subset_map )
 {
   const MpiComm& mpi_comm = comm_full.pdata->mpi_comm;
-
-  Subset_GhostMap subset_map = compute_subset_ghostmap(
-    mpi_comm,
-    comm_full.pdata->ghostmap_send_sizes,
-    comm_full.pdata->ghostmap_send_iOcts,
-    comm_full.pdata->ghostmap_recv_sizes,
-    subset_iOcts);
 
   const std::vector<int>& ghostmap_send_sizes = subset_map.ghostmap_send_sizes;
   const std::vector<int>& ghostmap_recv_sizes = subset_map.ghostmap_recv_sizes;
@@ -649,6 +712,35 @@ GhostCommunicator_partial_blocks_OctSubset_Pdata init_subset( const GhostCommuni
   return GhostCommunicator_partial_blocks_OctSubset_Pdata{ 
     GhostCommunicator_partial_blocks(pdata),
   };  
+}
+
+GhostCommunicator_partial_blocks_OctSubset_Pdata init_subset( const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts )
+{
+  const MpiComm& mpi_comm = comm_full.pdata->mpi_comm;
+
+  Subset_GhostMap subset_map = compute_subset_ghostmap(
+    mpi_comm,
+    comm_full.pdata->ghostmap_send_sizes,
+    comm_full.pdata->ghostmap_send_iOcts,
+    comm_full.pdata->ghostmap_recv_sizes,
+    subset_iOcts);
+
+  return init_subset_aux( comm_full, subset_map );
+}
+
+GhostCommunicator_partial_blocks_OctSubset_Pdata init_subset_with_send( const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_send, Kokkos::View<uint32_t*> subset_iOcts_recv )
+{
+  const MpiComm& mpi_comm = comm_full.pdata->mpi_comm;
+
+  Subset_GhostMap subset_map = compute_subset_ghostmap_with_send(
+    mpi_comm,
+    comm_full.pdata->ghostmap_send_sizes,
+    comm_full.pdata->ghostmap_send_iOcts,
+    comm_full.pdata->ghostmap_recv_sizes,
+    subset_iOcts_send,
+    subset_iOcts_recv);
+
+  return init_subset_aux( comm_full, subset_map );
 }
 
 } // namespace
@@ -708,10 +800,8 @@ GhostCommunicator_partial_blocks_OctSubset::GhostCommunicator_partial_blocks_Oct
 {}
 
 GhostCommunicator_partial_blocks_OctSubset::GhostCommunicator_partial_blocks_OctSubset( const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_send, Kokkos::View<uint32_t*> subset_iOcts_recv)
-: pdata( std::make_unique<Pdata>( Pdata{ init_subset(comm_full, subset_iOcts_recv) } ) )
-{
-  #warning TODO : implement version using subset_iOcts_send
-}
+: pdata( std::make_unique<Pdata>( Pdata{ init_subset_with_send(comm_full, subset_iOcts_send, subset_iOcts_recv) } ) )
+{}
 
 GhostCommunicator_partial_blocks_OctSubset::~GhostCommunicator_partial_blocks_OctSubset()
 {}
