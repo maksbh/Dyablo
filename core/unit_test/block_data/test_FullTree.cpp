@@ -137,11 +137,11 @@ void test_FullTree_average_children()
   for( int level = level_max-1; level >= level_min; level-- )
   {
     //ghost_communicator_leaves.exchange_ghosts( Ua );
-    auto subset_level_leaves = level_subsets.getGhostCommunicatorSubset_level(level, ghost_communicator_leaves);
+    auto subset_level_leaves = level_subsets.getGhostCommunicatorSubset_level(level+1, ghost_communicator_leaves);
     ghost_communicator_leaves.exchange_ghosts_subset( Ua, subset_level_leaves );
 
     //ghost_communicator_intermediates.exchange_ghosts( Ua );
-    auto subset_level_intermediates = level_subsets.getGhostCommunicatorSubset_level(level, ghost_communicator_intermediates);
+    auto subset_level_intermediates = level_subsets.getGhostCommunicatorSubset_level(level+1, ghost_communicator_intermediates);
     ghost_communicator_intermediates.exchange_ghosts_subset( Ua, subset_level_intermediates );
 
     auto iter_space_level_intermediates = iterationspace_levels.getIterationSpace<without_locals, without_ghosts, with_intermediates>(level, Ua.getShape());
