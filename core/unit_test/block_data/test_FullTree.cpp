@@ -300,8 +300,8 @@ void test_FullTree_average_stencil()
   }
 
   const LightOctree& lmesh = amr_mesh->getLightOctree();  
-  GhostCommunicator_full_blocks ghost_communicator_leaves( *amr_mesh, Uin.getShape(), -1, false );
-  GhostCommunicator_full_blocks ghost_communicator_intermediates( *amr_mesh, Uin.getShape(), -1, true );
+  GhostCommunicator_partial_blocks ghost_communicator_leaves( *amr_mesh, Uin.getShape(), 1, false );
+  GhostCommunicator_partial_blocks ghost_communicator_intermediates( *amr_mesh, Uin.getShape(), 1, true );
 
   ghost_communicator_leaves.exchange_ghosts( Uin );
   ghost_communicator_intermediates.exchange_ghosts( Uin );

@@ -777,6 +777,12 @@ Kokkos::View<uint32_t*> GhostCommunicator_partial_blocks::iOcts_send() const
 
 void GhostCommunicator_partial_blocks::exchange_ghosts( const UserData::FieldAccessor& U) const
 {
+  DYABLO_ASSERT_HOST_RELEASE( !this->has_intermediates(), "Trying to exchange intermediates with FieldAccessor without intermediates" );
+  exchange_ghosts_aux(*pdata, U);
+}
+
+void GhostCommunicator_partial_blocks::exchange_ghosts( const UserData::FieldAccessor_intermediates& U) const
+{
   exchange_ghosts_aux(*pdata, U);
 }
 
@@ -786,6 +792,12 @@ void GhostCommunicator_partial_blocks::exchange_ghosts( const ForeachCell::CellA
 }
 
 void GhostCommunicator_partial_blocks::reduce_ghosts( UserData::FieldAccessor& U) const
+{
+  DYABLO_ASSERT_HOST_RELEASE( !this->has_intermediates(), "Trying to exchange intermediates with FieldAccessor without intermediates" );
+  reduce_ghosts_aux(*pdata, U);
+}
+
+void GhostCommunicator_partial_blocks::reduce_ghosts( UserData::FieldAccessor_intermediates& U) const
 {
   reduce_ghosts_aux(*pdata, U);
 }
@@ -807,6 +819,12 @@ GhostCommunicator_partial_blocks_OctSubset::~GhostCommunicator_partial_blocks_Oc
 {}
 
 void GhostCommunicator_partial_blocks::exchange_ghosts_subset( const UserData::FieldAccessor& U, const OctSubset& subset ) const
+{
+  DYABLO_ASSERT_HOST_RELEASE( !this->has_intermediates(), "Trying to exchange intermediates with FieldAccessor without intermediates" );
+  subset.pdata->comm_subset.exchange_ghosts(U);
+}
+
+void GhostCommunicator_partial_blocks::exchange_ghosts_subset( const UserData::FieldAccessor_intermediates& U, const OctSubset& subset ) const
 {
   subset.pdata->comm_subset.exchange_ghosts(U);
 }
