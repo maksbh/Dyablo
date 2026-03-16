@@ -73,8 +73,8 @@ public:
         DYABLO_ASSERT_KOKKOS_DEBUG(nbFields() > 0, "Cannot getShape() of an empty UserData_fields" );
         auto iter_space = fields.getShape();
         auto iter_space_inter = fields_intermediates.getShape();
-        iter_space.nbIntermediates = iter_space_inter.nbOcts;
-        //TODO: Rajouter inter ghosts
+        iter_space.nbIntermediateOcts = iter_space_inter.nbOcts;
+        iter_space.nbIntermediateGhosts = iter_space_inter.nbGhosts;
         return iter_space;
     }
 

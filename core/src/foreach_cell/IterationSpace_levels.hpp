@@ -4,12 +4,12 @@
 
 namespace dyablo {
 
-template<bool _locals, bool _ghosts, bool _intermediates>
+template<bool _leaves_local, bool _leaves_ghost, bool _intermediates_local, bool _intermediates_ghost>
 class IterationSpace_subset_impl
 {
 private:
 
-  ForeachCell::IterationSpace_fullArray_impl<_locals, _ghosts, _intermediates> full_array;
+  ForeachCell::IterationSpace_fullArray_impl<_leaves_local, _leaves_ghost, _intermediates_local, _intermediates_ghost> full_array;
 
   Kokkos::View<uint32_t*> iOcts_locals;
   Kokkos::View<uint32_t*> iOcts_ghosts;
@@ -80,8 +80,8 @@ public:
    * @param level IterationSpace will select only cells at this level
    * @param shape shape of the (full) array from which cells are filtered
    */
-  template<bool locals, bool ghosts, bool intermediates>
-  IterationSpace_subset_impl<locals, ghosts, intermediates> getIterationSpace(int level, const ForeachCell::CellArray_shape& shape )
+  template<bool locals, bool ghosts, bool intermediates, bool intermediates_ghosts>
+  IterationSpace_subset_impl<locals, ghosts, intermediates, intermediates_ghosts> getIterationSpace(int level, const ForeachCell::CellArray_shape& shape )
   {
       uint32_t bx = shape.bx;
       uint32_t by = shape.by;
@@ -92,17 +92,18 @@ public:
       if( locals ) iOcts_locals = binned_iOcts_levels.get_iOcts_leaves(level);
       if( ghosts ) iOcts_ghosts = binned_iOcts_levels.get_iOcts_ghost_leaves(level);
       if( intermediates ) iOcts_intermediates = binned_iOcts_levels.get_iOcts_intermediates(level);
-      if( intermediates && ghosts ) iOcts_intermediate_ghosts = binned_iOcts_levels.get_iOcts_ghost_intermediates(level);
+      if( intermediates_ghosts ) iOcts_intermediate_ghosts = binned_iOcts_levels.get_iOcts_ghost_intermediates(level);
       
       ForeachCell::CellArray_shape iter_space{
           .bx=bx, .by=by, .bz=bz, 
           .nbFields = nbFields,
           .nbOcts = (uint32_t)iOcts_locals.size(),
           .nbGhosts = (uint32_t)iOcts_ghosts.size(),
-          .nbIntermediates = (uint32_t)iOcts_intermediates.size(),
+          .nbIntermediateOcts = (uint32_t)iOcts_intermediates.size(),
+          .nbIntermediateGhosts = (uint32_t)iOcts_intermediate_ghosts.size(),
       };
 
-      return IterationSpace_subset_impl<locals, ghosts, intermediates>( iter_space, iOcts_locals, iOcts_ghosts, iOcts_intermediates, iOcts_intermediate_ghosts );
+      return IterationSpace_subset_impl<locals, ghosts, intermediates, intermediates_ghosts>( iter_space, iOcts_locals, iOcts_ghosts, iOcts_intermediates, iOcts_intermediate_ghosts );
   }
 
 private:

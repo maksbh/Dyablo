@@ -539,7 +539,7 @@ struct CellArray_shape
 {
   uint32_t bx=0, by=0, bz=0;
   uint32_t nbFields=0;
-  uint32_t nbOcts=0, nbGhosts=0, nbIntermediates=0;
+  uint32_t nbOcts=0, nbGhosts=0, nbIntermediateOcts=0, nbIntermediateGhosts=0;
 
   /**
    * Convert cell index used for another array into an index compatible with current shape. 

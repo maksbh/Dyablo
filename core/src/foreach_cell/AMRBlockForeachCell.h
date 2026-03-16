@@ -303,67 +303,106 @@ public:
     patchmanager.foreach_patch(kernel_name, f);
   }
 
-  template<bool _locals, bool _ghosts, bool _intermediates>
+
+  template<bool _leaves_local, bool _leaves_ghost, bool _intermediates_local, bool _intermediates_ghost>
   class IterationSpace_fullArray_impl
   {
   private:
-    uint32_t _bx, _by, _bz, nbOcts, nbGhosts, nbIntermediates;
+    CellArray_shape shape;
+    KOKKOS_INLINE_FUNCTION
+    uint32_t nbOcts() const 
+    {return _leaves_local ? shape.nbOcts : 0;}
+    KOKKOS_INLINE_FUNCTION
+    uint32_t nbGhosts() const 
+    {return _leaves_ghost ? shape.nbGhosts : 0;};
+    KOKKOS_INLINE_FUNCTION
+    uint32_t nbIntermediateOcts() const 
+    {return _intermediates_local ? shape.nbIntermediateOcts : 0;};
+    KOKKOS_INLINE_FUNCTION
+    uint32_t nbIntermediateGhosts() const 
+    {return _intermediates_ghost ? shape.nbIntermediateGhosts : 0;};
   public:
     IterationSpace_fullArray_impl(const CellArray_shape& iter_space)
-    : _bx(iter_space.bx),_by(iter_space.by),_bz(iter_space.bz),
-      nbOcts(_locals?iter_space.nbOcts:0),
-      nbGhosts(_ghosts?iter_space.nbGhosts:0),
-      nbIntermediates(_intermediates?iter_space.nbIntermediates:0)
+    : shape(iter_space) 
     {}
 
     KOKKOS_INLINE_FUNCTION
-    uint32_t bx() const         { return _bx; }
+    uint32_t bx() const         { return shape.bx; }
     KOKKOS_INLINE_FUNCTION
-    uint32_t by() const         { return _by; }
+    uint32_t by() const         { return shape.by; }
     KOKKOS_INLINE_FUNCTION
-    uint32_t bz() const         { return _bz; }
+    uint32_t bz() const         { return shape.bz; }
 
     KOKKOS_INLINE_FUNCTION
-    uint32_t iOct_count() const { return nbOcts+nbGhosts+nbIntermediates; }
+    uint32_t iOct_count() const { return nbOcts() + nbGhosts() + nbIntermediateOcts() + nbIntermediateGhosts(); }
 
     KOKKOS_INLINE_FUNCTION
     CellIndex getCellIndex(uint32_t iOct_in, uint32_t i, uint32_t j, uint32_t k) const
     {
-      uint32_t iOct_out = iOct_in;
-      bool is_ghost = false;      
-      bool is_intermediate = false;
+      using OctantIndex = LightOctree::OctantIndex;
+      DYABLO_ASSERT_KOKKOS_DEBUG( iOct_in < iOct_count(), "iOct_in out of range" );
 
-      if constexpr (_ghosts)
+      if constexpr (_leaves_local)
       {
-        if( iOct_in >= nbOcts && iOct_in < nbOcts+nbGhosts )
+        if( iOct_in < nbOcts() )
         {
-          iOct_out = iOct_in - nbOcts;
-          is_ghost = true;
+          return CellIndex{
+            OctantIndex{
+              .iOct = iOct_in,
+              .isGhost=false,
+              .isIntermediate=false,
+            }, 
+            i, j, k, bx(), by(), bz()};
         }
-      }      
-      if constexpr (_intermediates)
+      }
+      if constexpr (_leaves_ghost)
       {
-        if( iOct_in >= nbOcts+nbGhosts )
+        if( iOct_in >= nbOcts() 
+         && iOct_in < nbOcts()+nbGhosts() )
         {
-          iOct_out = iOct_in - (nbOcts+nbGhosts);
-          is_intermediate = true;
-          if constexpr (_ghosts)
-          {
-            if( iOct_out >= nbIntermediates )
-            {
-              iOct_out -= nbIntermediates;
-              is_ghost = true;
-            }
-          } 
+          return CellIndex{
+            OctantIndex{
+              .iOct = iOct_in - nbOcts(),
+              .isGhost=true,
+              .isIntermediate=false,
+            }, 
+            i, j, k, bx(), by(), bz()};
+        }
+      }
+      if constexpr (_intermediates_local)
+      {
+        if( iOct_in >= nbOcts()+nbGhosts() 
+         && iOct_in < nbOcts()+nbGhosts()+nbIntermediateOcts() )
+        {
+          return CellIndex{
+            OctantIndex{
+              .iOct = iOct_in - nbOcts() - nbGhosts(),
+              .isGhost=false,
+              .isIntermediate=true,
+            }, 
+            i, j, k, bx(), by(), bz()};
+        }
+      }
+      if constexpr (_intermediates_ghost)
+      {
+        if( iOct_in >= nbOcts()+nbGhosts()+nbIntermediateOcts()
+         && iOct_in < nbOcts()+nbGhosts()+nbIntermediateOcts()+nbIntermediateGhosts() )
+        {
+          return CellIndex{
+            OctantIndex{
+              .iOct = iOct_in - nbOcts() - nbGhosts() - nbIntermediateOcts(),
+              .isGhost=true,
+              .isIntermediate=true,
+            }, 
+            i, j, k, bx(), by(), bz()};
         }
       }
 
-      CellIndex iCell = {{iOct_out,is_ghost,is_intermediate}, i, j, k, bx(), by(), bz()};
-      return iCell;
+      return CellIndex{};
     }
   };
-  using IterationSpace_fullArray = IterationSpace_fullArray_impl<true, false, false>;
-  using IterationSpace_fullArray_ghost = IterationSpace_fullArray_impl<false, true, false>;
+  using IterationSpace_fullArray = IterationSpace_fullArray_impl<true, false, false, false>;
+  using IterationSpace_fullArray_ghost = IterationSpace_fullArray_impl<false, true, false, false>;
 
   /**
    * Same as a single foreach_cell inside foreach_patch with no temporaries

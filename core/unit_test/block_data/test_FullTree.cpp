@@ -144,7 +144,7 @@ void test_FullTree_average_children()
     auto subset_level_intermediates = level_subsets.getGhostCommunicatorSubset_level(level+1, ghost_communicator_intermediates);
     ghost_communicator_intermediates.exchange_ghosts_subset( Ua, subset_level_intermediates );
 
-    auto iter_space_level_intermediates = iterationspace_levels.getIterationSpace<without_locals, without_ghosts, with_intermediates>(level, Ua.getShape());
+    auto iter_space_level_intermediates = iterationspace_levels.getIterationSpace<without_locals, without_ghosts, with_intermediates, without_ghosts>(level, Ua.getShape());
     foreach_cell.foreach_cell("average_parent_cell", iter_space_level_intermediates,
       KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell)
     {
@@ -172,7 +172,7 @@ void test_FullTree_average_children()
     
   }
   
-  ForeachCell::IterationSpace_fullArray_impl<with_locals, without_ghosts, with_intermediates> iter_space_with_intermediates(Ua.getShape());
+  ForeachCell::IterationSpace_fullArray_impl<with_locals, without_ghosts, with_intermediates, without_ghosts> iter_space_with_intermediates(Ua.getShape());
   int error_count = 0;
   int total_count = 0;
   const uint32_t total_cells = bx * by * bz * (amr_mesh->getNumOctants() + amr_mesh->getNumIntermediates());
@@ -286,7 +286,7 @@ void test_FullTree_average_stencil()
   enum VarIndex_test{Px,Py,Pz};
   UserData::FieldAccessor_intermediates Uin = U.getAccessor_intermediates( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
 
-  ForeachCell::IterationSpace_fullArray_impl<with_locals, without_ghosts, with_intermediates> iter_space_with_intermediates(Uin.getShape());
+  ForeachCell::IterationSpace_fullArray_impl<with_locals, without_ghosts, with_intermediates, without_ghosts> iter_space_with_intermediates(Uin.getShape());
 
   { // Initialize U
     foreach_cell.foreach_cell( "Init_U", iter_space_with_intermediates,
@@ -309,7 +309,7 @@ void test_FullTree_average_stencil()
   U.new_fields({"px_new", "py_new", "pz_new"});
   U.new_intermediate_fields( {"px_new","py_new","pz_new"} );
   UserData::FieldAccessor_intermediates Uout = U.getAccessor_intermediates( {{"px_new", Px}, {"py_new", Py}, {"pz_new", Pz}} );
-  ForeachCell::IterationSpace_fullArray_impl<without_locals, without_ghosts, with_intermediates> iter_space_only_intermediates(Uout.getShape());
+  ForeachCell::IterationSpace_fullArray_impl<without_locals, without_ghosts, with_intermediates, without_ghosts> iter_space_only_intermediates(Uout.getShape());
 
   foreach_cell.foreach_cell("stencil_mean", iter_space_with_intermediates,
     KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell)

@@ -30,7 +30,8 @@ public:
     /***
      * @brief Return a CellArray_global_ghosted::Shape_t instance 
      * with the same size as all fields in current UserData_fields
-     * UserData_fields must have at least on active field
+     * UserData_fields must have at least one active field
+     * WARNING : resulting shape doesn't account for intermediates
      ***/
     const FieldView_t::Shape_t getShape() const
     {
