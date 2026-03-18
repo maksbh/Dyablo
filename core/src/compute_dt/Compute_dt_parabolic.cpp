@@ -5,6 +5,8 @@
 #include "parabolic/ParabolicTerm_thermal_conduction.h"
 #include "parabolic/ParabolicTerm_viscosity.h"
 
+#include "hyperbolic/policy/HyperbolicPolicy_Hydro.h"
+
 namespace dyablo {
 
 /**
@@ -25,6 +27,7 @@ public:
                         ForeachCell& foreach_cell,
                         Timers& timers )
   : foreach_cell(foreach_cell),
+    policy_params(HyperbolicPolicy_Hydro::getParams(configMap)),
     pt_tc(configMap),
     pt_visc(configMap)
   {
@@ -45,9 +48,9 @@ public:
     int ndim = foreach_cell.getDim();
 
     if (ndim == 2)
-      dt_local = compute_dt_aux<2>(U);
+      dt_local = compute_dt_aux<2>(U, scalar_data);
     else
-      dt_local = compute_dt_aux<3>(U);
+      dt_local = compute_dt_aux<3>(U, scalar_data);
     
     DYABLO_ASSERT_HOST_RELEASE(dt_local>0, "invalid dt = " << dt_local);
 
@@ -59,7 +62,7 @@ public:
   }
 
   template <int ndim>
-  double compute_dt_aux( UserData& U )
+  double compute_dt_aux( UserData& U, ScalarSimulationData& scalar_data  )
   {
     ForeachCell::CellMetaData cells = foreach_cell.getCellMetaData();
 
@@ -67,6 +70,11 @@ public:
     auto pt_visc = this->pt_visc;
     auto compute_for_tc = this->compute_dt_for_tc;
     auto compute_for_visc = this->compute_dt_for_visc;
+
+    const real_t gamma0 = this->policy_params.policy_params.gamma0;
+    
+    HyperbolicPolicy_Hydro policy( this->policy_params, scalar_data );
+    UserData::FieldAccessor Uin = policy.getUin(U);
 
     real_t inv_dt;
     foreach_cell.reduce_cell( "compute_dt_parabolic", U.getShape(),
@@ -77,14 +85,21 @@ public:
       real_t dx2 = cell_size[IX]*cell_size[IX];
       real_t dy2 = cell_size[IY]*cell_size[IY];
       real_t dz2 = cell_size[IZ]*cell_size[IZ];
+
+      ConsHydroState uLoc = policy.getConsState( Uin, iCell );
+      PrimHydroState qLoc = policy.consToPrim(uLoc);
       
       // Computing for thermal conduction
       real_t max_dt_tc = 0.0;
       if (compute_for_tc) {
-        real_t kappa = pt_tc.compute_kappa<ndim>(cell_pos);
+        const real_t T = qLoc.p / qLoc.rho;
+        // Assuming R = 1 here.
+        const real_t cv = 1.0 / (gamma0-1.0);
+        real_t kappa = pt_tc.compute_kappa(cell_pos, T); 
         max_dt_tc = FMAX(kappa/dx2, kappa/dy2);
         if (ndim == 3)
           max_dt_tc = FMAX(max_dt_tc, kappa/dz2);
+        max_dt_tc /= 0.5 * qLoc.rho * cv;
       }
 
       // Computing for viscosity
@@ -107,6 +122,8 @@ public:
 
 private:
   ForeachCell& foreach_cell;
+
+  HyperbolicPolicy_Hydro::Params policy_params;
 
   real_t cfl;
   bool compute_dt_for_tc;

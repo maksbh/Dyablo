@@ -58,13 +58,13 @@ public:
    */
   template <int ndim, typename U_t>
   KOKKOS_INLINE_FUNCTION
-  void compute_rhs(const U_t&          Uin,
-                   const PatchArray&   Ugroup,
-                   const PatchArray&   Qgroup,
-                   const PatchArray&   rhs,
-                   const CellIndex&    iCell_Uout,
-                   const CellIndex&    iCell_rhs,
-                   const CellMetaData& cellmetadata) const
+  void compute_rhs(const U_t&           Uin,
+                   const PatchArray&    Ugroup,
+                   const PatchArray&    Qgroup,
+                   const GhostedArray&  rhs,
+                   const CellIndex&     iCell_Uout,
+                   const CellIndex&     iCell_Qgroup,
+                   const CellMetaData&  cellmetadata) const
   {
     // Aliases
     using offset_t = CellIndex::offset_t;
@@ -74,7 +74,7 @@ public:
 
     // Index in grouped array
     ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );
-    auto iCell_Qgroup = Qgroup.getShape().convert_index(iCell_Uout, search_local);
+    auto iCell_rhs = rhs.getShape().convert_index(iCell_Uout, search_local);
     PrimHydroState q;
     getPrimitiveState<ndim>(Qgroup, iCell_Qgroup, q);
 
@@ -207,7 +207,7 @@ public:
 
         // Building flux
         real_t sign = (side == 0 ? -1.0 : 1.0);
-	real_t area = size[IX] * size[IY];
+	      real_t area = size[IX] * size[IY];
         vf.rho_u += sign * area * tau_xz;
         vf.rho_v += sign * area * tau_yz;
         vf.rho_w += sign * area * tau_zz;

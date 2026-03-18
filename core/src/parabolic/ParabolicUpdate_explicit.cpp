@@ -5,6 +5,8 @@
 #include "ScalarSimulationData.h"
 #include "ParabolicUpdate_base.h"
 #include "ParabolicTerm.h"
+#include "mpi/GhostCommunicator.h"
+
 
 #include "foreach_cell/ForeachCell.h"
 #include "foreach_cell/ForeachCell_utils.h"
@@ -121,7 +123,7 @@ public:
     // Note : Should that be 2, 2, 2 ? or 1, 1, 1 ? or parabolic-term-type dependent ?
     PatchArray::Ref Ugroup_ = foreach_cell.reserve_patch_tmp("Ugroup", 2, 2, (ndim == 3)?2:0, State::N);
     PatchArray::Ref Qgroup_ = foreach_cell.reserve_patch_tmp("Qgroup", 2, 2, (ndim == 3)?2:0, State::N);
-    PatchArray::Ref rhs_    = foreach_cell.reserve_patch_tmp("rhs", 0, 0, 0, State::N);
+    GhostedArray rhs = foreach_cell.allocate_ghosted_array("rhs", State::N);
 
     ParabolicTerm parabolic_term{configMap};
 
@@ -146,9 +148,8 @@ public:
       // Allocating temporary patchs
       PatchArray Ugroup = patch.allocate_tmp(Ugroup_);
       PatchArray Qgroup = patch.allocate_tmp(Qgroup_);
-      PatchArray rhs    = patch.allocate_tmp(rhs_);
 
-      // 2- Copy non ghosted array Uin into temporary ghosted Ugroup with two ghosts
+      // 1- Copy non ghosted array Uin into temporary ghosted Ugroup with two ghosts
       patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
       {
           copyGhostBlockCellData<ndim, State>(
@@ -158,25 +159,32 @@ public:
           Ugroup);
       });
 
-      // 3- Convert to primitives
+      // 2- Convert to primitives
       patch.foreach_cell(Ugroup, CELL_LAMBDA(const CellIndex& iCell_Ugroup)
       { 
         compute_primitives<ndim, State>(gamma0, Ugroup, iCell_Ugroup, Qgroup);
       });
 
-      // 4- Calculating rhs term and applying parabolic term
+      // 3- Calculating rhs term and applying parabolic term
       patch.foreach_cell(Uout.getShape(), CELL_LAMBDA(const CellIndex& iCell_Uout)
       {
         ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::ASSERT );
-        CellIndex iCell_rhs = rhs.getShape().convert_index(iCell_Uout, search_local);
-        parabolic_term.template compute_rhs<ndim>(Uin, Ugroup, Qgroup, rhs, iCell_Uout, iCell_rhs, cellmetadata);
-
-        ConsState u0, v_out{};
-        getConservativeState<ndim>(Uout, iCell_Uout, u0);
-        getConservativeState<ndim>(rhs,  iCell_rhs, v_out);
-        
-        setConservativeState<ndim>(Uout, iCell_Uout, u0 + dt * v_out);
+        CellIndex iCell_Qgroup = Qgroup.getShape().convert_index(iCell_Uout, search_local);
+        parabolic_term.template compute_rhs<ndim>(Uin, Ugroup, Qgroup, rhs, iCell_Uout, iCell_Qgroup, cellmetadata);
       });
+    });
+
+    // 4- Communicating rhs values and adding up everything
+    const int ghost_count = 2;
+    GhostCommunicator ghost_comm(foreach_cell.get_amr_mesh(), rhs.getShape(), ghost_count );
+    ghost_comm.reduce_ghosts( rhs );
+
+    // 5- Updating Uout
+    foreach_cell.foreach_cell("Parabolic explicit update", Uout.getShape(), CELL_LAMBDA(const CellIndex& iCell_Uout) {
+      ConsState u, rhs_val;
+      getConservativeState<ndim>(Uout, iCell_Uout, u);
+      getConservativeState<ndim>(rhs, iCell_Uout, rhs_val);
+      setConservativeState<ndim>(Uout, iCell_Uout, u+dt*rhs_val); 
     });
 
     timers.get(kernel_name).stop();

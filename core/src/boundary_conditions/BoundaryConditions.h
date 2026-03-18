@@ -180,19 +180,6 @@ public:
     return flux_in;
   }
 
-  template<
-    int ndim,
-    typename State>
-  KOKKOS_INLINE_FUNCTION
-  real_t overrideBoundaryHeatFlux(real_t                          flux_in,
-                                  const typename State::PrimState q,
-                                  const real_t                    kappa,
-                                  const real_t                    dh,
-                                  const ComponentIndex3D          dir,
-                                  const bool                      min_bound) const {
-    return flux_in;
-  }
-
   BoundaryConditionType bc_min[3], bc_max[3];
   real_t xmin, xmax;
   real_t ymin, ymax;
