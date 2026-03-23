@@ -49,9 +49,6 @@ public:
     auto indicator_scalar_gradient = [&](real_t qi, real_t qj) -> real_t
     {
       real_t max = FMAX (FABS (qi), FABS (qj));        
-      if (max < 0.001) {
-        return 0;
-      }        
       max = FABS (qi - qj) / max;
       return FMAX (FMIN (max, 1.0), 0.0);        
     };
