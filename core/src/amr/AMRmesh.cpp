@@ -91,6 +91,7 @@ AMRmesh::GhostMap_t discover_ghosts(
   const Kokkos::Array<bool,3>& periodic,
   const MpiComm& mpi_comm)
 {
+  using GhostMap_t = AMRmesh::GhostMap_t;
   using CellMask = AMRmesh::GhostMap_t::CellMask;
   using Face = AMRmesh::GhostMap_t::Face;
 
@@ -265,7 +266,7 @@ AMRmesh::GhostMap_t discover_ghosts(
           morton_t morton_n = compute_morton( pos_n, level );
           int neighbor_rank = find_rank( morton_n );
 
-          Face neighbor_face = Face::FACE_COUNT; // face of current cell facing neighbor
+          Face neighbor_face = Face::FACE_COUNT; // To avoid warnings, should be set in one of the if below
           if      ( dx==-1 ) neighbor_face = Face::XL; // Whole face is included for corners 
           else if ( dx== 1 ) neighbor_face = Face::XR; 
           else if ( dy==-1 ) neighbor_face = Face::YL;
@@ -368,6 +369,17 @@ AMRmesh::GhostMap_t discover_ghosts(
     intermediates.send_iOcts = Kokkos::View<uint32_t*>( "discover_ghosts::intermediates::iOcts", total_intermediate_count );
     intermediates.send_cell_masks = Kokkos::View<CellMask*>( "discover_ghosts::intermediates::cell_masks", total_intermediate_count );
 
+    // Clean CellMasks values 
+    // remove other faces when Face::FULL_BLOCK is present
+    // ensures that resulting mask is < GhostMap_t::MASK_COUNT
+    auto clean_mask = KOKKOS_LAMBDA(CellMask mask)
+    {
+      if( mask & (1 << Face::FULL_BLOCK) )
+        mask = GhostMap_t::MASK_FULL_BLOCK;
+      DYABLO_ASSERT_KOKKOS_DEBUG( mask < GhostMap_t::MASK_COUNT, "discover_ghosts : Mask out ouf bounds" );
+      return mask;
+    };
+
     uint32_t offset_first_leaf = 0;
     uint32_t offset_first_intermediate = 0;
     for( int rank=0; rank<mpi_size; rank++ )
@@ -376,15 +388,6 @@ AMRmesh::GhostMap_t discover_ghosts(
       Kokkos::parallel_scan( "discover_ghosts::fill_ghostmap_leaves", neighborMap.capacity(),
         KOKKOS_LAMBDA( uint32_t i, oct_index_t& offset_local, bool final)
       {
-        auto clean_mask = [&](CellMask mask)
-        {
-          constexpr CellMask full_block_mask = (1 << Face::FACE_COUNT);
-          if( mask & (1 << Face::FULL_BLOCK) )
-            mask = full_block_mask;
-          DYABLO_ASSERT_KOKKOS_DEBUG( mask <= full_block_mask, "discover_ghosts : Mask out ouf bounds" );
-          return mask;
-        };
-
         if( neighborMap.valid_at(i) )
         {
           const NeighborPair& p = neighborMap.key_at(i);
@@ -408,14 +411,6 @@ AMRmesh::GhostMap_t discover_ghosts(
       Kokkos::parallel_scan( "discover_ghosts::fill_ghostmap_intermediates", neighborMap.capacity(),
         KOKKOS_LAMBDA( uint32_t i, oct_index_t& offset_local, bool final)
       {
-        auto clean_mask = [&](CellMask mask)
-        {
-          constexpr CellMask full_block_mask = (1 << Face::FACE_COUNT);
-          if( mask & (1 << Face::FULL_BLOCK) )
-            mask = full_block_mask;
-          DYABLO_ASSERT_KOKKOS_DEBUG( mask <= full_block_mask, "discover_ghosts : Mask out ouf bounds" );
-          return mask;
-        };
 
         if( neighborMap.valid_at(i) )
         {

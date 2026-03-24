@@ -65,13 +65,13 @@ const Precomputed_Mask_Cells& precompute_facemask_cells( uint32_t bx, uint32_t b
   
   if( precomputed_map.count(key) == 0 )  
   {
+    using GhostMap_t = AMRmesh::GhostMap_t;
     using CellMask = AMRmesh::GhostMap_t::CellMask;
     using Face = AMRmesh::GhostMap_t::Face;
 
-    int masks_count = (1 << Face::FACE_COUNT);
     int max_icells = bx*by*bz;
-    Kokkos::View<uint32_t*> facemask_count("facemask_count", masks_count+1);// number of cells to add for facemask
-    Kokkos::View<uint32_t**, Kokkos::LayoutRight> facemask_iCells("facemask_iCells", masks_count+1, max_icells);// cells to add for facemask
+    Kokkos::View<uint32_t*> facemask_count("facemask_count", GhostMap_t::MASK_COUNT);// number of cells to add for facemask
+    Kokkos::View<uint32_t**, Kokkos::LayoutRight> facemask_iCells("facemask_iCells", GhostMap_t::MASK_COUNT, max_icells);// cells to add for facemask
 
     auto facemask_count_host = Kokkos::create_mirror_view(facemask_count);
 
@@ -108,7 +108,8 @@ const Precomputed_Mask_Cells& precompute_facemask_cells( uint32_t bx, uint32_t b
 
     DYABLO_ASSERT_HOST_RELEASE( ghost_count <= bx || ghost_count <= by, "GhostCommunicator_partial_blocks::init : ghost_count ("<<ghost_count<<") not compatible with block size (" << bx << "," << by << "," << bz << ")"  );
 
-    for( CellMask mask = 1; mask < masks_count; mask++  )
+    int faces_mask_count = (1 << Face::FACE_COUNT);
+    for( CellMask mask = 1; mask < faces_mask_count; mask++  )
     {
 
       // Uncomment to add full block each time for debug
@@ -158,7 +159,7 @@ const Precomputed_Mask_Cells& precompute_facemask_cells( uint32_t bx, uint32_t b
     }
 
     // Last mask is full block
-    add_cells( masks_count, 0, bx, 0, by, 0, bz );
+    add_cells( GhostMap_t::MASK_FULL_BLOCK, 0, bx, 0, by, 0, bz );
 
     Kokkos::deep_copy( facemask_count, facemask_count_host );
 

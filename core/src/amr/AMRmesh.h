@@ -93,13 +93,16 @@ public:
       FACE_COUNT,
       FULL_BLOCK,
     };
+    /// CellMasks represent a set of faces or special values defined below
     using CellMask = int;
+    static constexpr CellMask MASK_FULL_BLOCK = 1 << Face::FACE_COUNT; /// Special CellMask value for full blocks
+    static constexpr CellMask MASK_COUNT = MASK_FULL_BLOCK+1; /// Last CellMask value, all valid CellMask values must be <= cellMask_MAX
 
     struct SendList
     {
       Kokkos::View< uint32_t* > send_sizes; /// Number of octants to send to each process (of size nb_proc)
       Kokkos::View< uint32_t* > send_iOcts; /// Octants to send (of size sum(neighbor_leaves_send_sizes(i)) )
-      Kokkos::View<CellMask*> send_cell_masks; /// Mask for each leaf octant to send representing which faces of the octant are needed
+      Kokkos::View<CellMask*> send_cell_masks; /// Mask for each octant to send representing which faces of the octant are needed
     };
 
     SendList to_send_leaves; /// Leaf octants to send for stencil operations
