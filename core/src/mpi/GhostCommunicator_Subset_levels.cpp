@@ -98,13 +98,12 @@ typename GhostComm_t::OctSubset getGhostCommunicatorSubset_level_impl(dyablo::Su
         uint32_t iOct = iOcts_send_full(i);
         return lmesh.getLevel( {iOct, false, intermediate} );
     };
-    Binned_iOcts subset_iOcts_send_binned = bin_iOcts( pdata.level_max, nbOcts, gen_bin);
-    auto subset_iOcts_send_level = get_bin( subset_iOcts_send_binned, level );
 
-    if( intermediate )
-        return typename GhostComm_t::OctSubset( comm, subset_iOcts_send_level, pdata.binned_iOcts_levels.get_iOcts_ghost_intermediates(level) );
-    else
-        return typename GhostComm_t::OctSubset( comm, subset_iOcts_send_level, pdata.binned_iOcts_levels.get_iOcts_ghost_leaves(level) );
+    Binned_iOcts iOcts_send_binned = bin_iOcts( pdata.level_max, nbOcts, gen_bin);
+    auto iOcts_send_level = get_bin( iOcts_send_binned, level );
+    auto iOcts_recv_level = intermediate ? pdata.binned_iOcts_levels.get_iOcts_ghost_intermediates(level) : pdata.binned_iOcts_levels.get_iOcts_ghost_leaves(level);
+    return typename GhostComm_t::OctSubset( comm, iOcts_send_level, iOcts_recv_level );
+
 }
     
 } //namespace
