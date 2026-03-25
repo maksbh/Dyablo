@@ -42,6 +42,8 @@ option (Kokkos_ENABLE_OPENMP "enable Kokkos::OpenMP backend" ON)
 set (Kokkos_ENABLE_CUDA_LAMBDA ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable use of cuda lambdas" FORCE)
 set (Kokkos_ENABLE_CUDA_CONSTEXPR ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable use of cuda constexpr" FORCE)
 
+set (BUILD_SHARED_LIBS ON)
+
 # Use CMAKE_DL_LIBS to find the dl library
 set( LIBDL_LIBRARY CACHE STRING "LIBDL library" "${CMAKE_DL_LIBS}" )
 

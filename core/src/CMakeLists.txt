@@ -2,6 +2,9 @@ set( core_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/AMRmesh.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/user_data/UserData_fields.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/user_data/UserData_particles.cpp
+)
+
+set( plugins_src
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_base.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_mean.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_linear.cpp
@@ -80,7 +83,7 @@ set( hdf5_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_tiled_restart.cpp
 )
 
-add_library( dyablo_core ${core_src} ${ic_src})
+add_library( dyablo_core ${core_src})
 target_include_directories( dyablo_core PUBLIC . )
 target_link_libraries( dyablo_core PUBLIC
     Kokkos::kokkos
