@@ -18,7 +18,7 @@ add_subdirectory(
 add_library(dyablo_units "")
 
 target_sources(dyablo_units
-  PUBLIC
+  PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/Units.h
   ${CMAKE_CURRENT_SOURCE_DIR}/CodeUnits.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/UnitParser.cpp

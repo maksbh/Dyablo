@@ -82,11 +82,17 @@ set( hdf5_src
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_restart.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/init/InitialConditions_tiled_restart.cpp
 )
+# config file reader / ConfigMap / monitoring timer
+add_subdirectory(utils)
 
 add_library( dyablo_core ${core_src})
 target_include_directories( dyablo_core PUBLIC . )
 target_link_libraries( dyablo_core PUBLIC
+    config
+    dyablo_units
     Kokkos::kokkos
+    monitoring
+    dl
 )
 
 if (DYABLO_USE_MPI)
@@ -94,12 +100,14 @@ if (DYABLO_USE_MPI)
     target_sources( dyablo_core PRIVATE ${mpi_src} )
 endif (DYABLO_USE_MPI)
 
+
+add_library( dyablo_plugins ${ic_src} ${plugins_src})
+target_link_libraries( dyablo_plugins PRIVATE dyablo_core )
 if (DYABLO_USE_HDF5)
     #target_link_libraries( dyablo_core PUBLIC HDF5::HDF5 )
     #TODO : properly use all flags with target HDF5::HDF5 (including -D_FORTIFY_SOURCE=2)
-    target_link_libraries( dyablo_core PUBLIC ${HDF5_LIBRARIES} )
-    target_sources( dyablo_core PRIVATE ${hdf5_src} )
+    target_link_libraries( dyablo_plugins PUBLIC ${HDF5_LIBRARIES} )
+    target_sources( dyablo_plugins PRIVATE ${hdf5_src} )
 endif (DYABLO_USE_HDF5)
 
-# config file reader / ConfigMap / monitoring timer
-add_subdirectory(utils)
+

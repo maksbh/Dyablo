@@ -27,10 +27,7 @@ function(dyablo_add_test UNIT_TEST_NAME TEST_MPI)
 
   target_link_libraries(${UNIT_TEST_NAME} PUBLIC
     dyablo_core
-    config
-    dyablo_units
-    Kokkos::kokkos
-    monitoring
+    dyablo_plugins
     gtest)
 
   if (DYABLO_USE_MPI)

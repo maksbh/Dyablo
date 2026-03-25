@@ -1,7 +1,7 @@
 add_library(config "")
 
 target_sources(config
-  PUBLIC
+  PRIVATE
   #${CMAKE_CURRENT_SOURCE_DIR}/ConfigMap.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ConfigMap.h
   ${CMAKE_CURRENT_SOURCE_DIR}/inih/ini.cpp
