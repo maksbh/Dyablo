@@ -219,7 +219,6 @@ GhostCommunicator_full_blocks::OctSubset::OctSubset(const GhostCommunicator_full
 GhostCommunicator_full_blocks::OctSubset::OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_send, Kokkos::View<uint32_t*> subset_iOcts_recv)
   : subset_iOcts( subset_iOcts_recv )
 {
-  std::unique_ptr<ViewCommunicator> partial_comm1;
   // nvcc doesnt like kokkos kernels in constructors
   OctSubset_init_with_send( 
     comm_full.mpi_comm, 
