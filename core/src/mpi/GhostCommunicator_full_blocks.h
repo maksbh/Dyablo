@@ -11,7 +11,7 @@ private:
     bool intermediates;
 public:
     template< typename AMRmesh_t >
-    GhostCommunicator_full_blocks( const AMRmesh_t& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& shape,  int ghost_count, bool intermediates=false, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
+    GhostCommunicator_full_blocks( const AMRmesh_t& amr_mesh, const ForeachCell::CellArray_global_ghosted::Shape_t& /*shape*/,  int /*ghost_count*/, bool intermediates=false, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
     : ViewCommunicator( ViewCommunicator::from_mesh(amr_mesh, intermediates, mpi_comm) ),
       intermediates(intermediates)
     {}
