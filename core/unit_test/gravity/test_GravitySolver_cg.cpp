@@ -23,7 +23,7 @@
 #include "gtest/gtest.h"
 #include "amr/AMRmesh.h"
 #include "mpi/GhostCommunicator.h"
-#include "gravity/GravitySolver_cg.h"
+#include "gravity/GravitySolver.h"
 #include "io/IOManager.h"
 
 namespace dyablo {
@@ -212,8 +212,8 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
 
   Timers timers;
 
-  // TODO use factory here instead?
-  GravitySolver_cg gravitysolver( 
+  std::unique_ptr<GravitySolver> gravitysolver = GravitySolverFactory::make_instance( 
+    "GravitySolver_cg",
     configMap,
     foreach_cell,
     timers
@@ -227,7 +227,7 @@ void test_GravitySolver( std::shared_ptr<AMRmesh> amr_mesh )
 
   ScalarSimulationData scalar_data;
   
-  gravitysolver.update_gravity_field( U_, scalar_data);
+  gravitysolver->update_gravity_field( U_, scalar_data);
 
   int iter = 0;
   int time = 0;
