@@ -11,7 +11,7 @@ class ParabolicUpdate_explicit;
 template<>
 inline bool dyablo::ParabolicUpdateFactory::init()
 {
-  DECLARE_REGISTERED(dyablo::ParabolicUpdate_explicit);
+  //  DECLARE_REGISTERED(dyablo::ParabolicUpdate_explicit);
 
   return true;
 }

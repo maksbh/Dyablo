@@ -14,9 +14,9 @@ class SourceUpdate_Photons_Beam;
 template<>
 inline bool dyablo::SourceUpdateFactory::init()
 {
-  DECLARE_REGISTERED(dyablo::SourceUpdate_Cooling_FF);
-  DECLARE_REGISTERED(dyablo::SourceUpdate_GLM);
-  DECLARE_REGISTERED(dyablo::SourceUpdate_Photons_Beam);
+  //  DECLARE_REGISTERED(dyablo::SourceUpdate_Cooling_FF);
+  //  DECLARE_REGISTERED(dyablo::SourceUpdate_GLM);
+  //  DECLARE_REGISTERED(dyablo::SourceUpdate_Photons_Beam);
   return true;
 }
 

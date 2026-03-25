@@ -13,7 +13,7 @@ class DerivedFields_divB;
 template<>
 bool dyablo::DerivedFieldsFactory::init()
 {
-  DECLARE_REGISTERED( dyablo::DerivedFields_divB);
+  //  DECLARE_REGISTERED( dyablo::DerivedFields_divB);
 
   return true;
 }

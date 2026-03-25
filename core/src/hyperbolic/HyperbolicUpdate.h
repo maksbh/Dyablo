@@ -23,16 +23,16 @@ class RadUpdate_euler;
 template<>
 inline bool dyablo::HyperbolicUpdateFactory::init()
 { 
-  DECLARE_REGISTERED(dyablo::HydroUpdate_euler);
-  DECLARE_REGISTERED(dyablo::HydroUpdate_RK2);
-  DECLARE_REGISTERED(dyablo::HydroUpdate_euler_nopatch);
-  DECLARE_REGISTERED(dyablo::HydroUpdate_hancock);
-  DECLARE_REGISTERED(dyablo::HydroUpdate_hancock_oneneighbor);
-  DECLARE_REGISTERED(dyablo::HydroUpdate_gravity);  
-  DECLARE_REGISTERED(dyablo::GLMMHDUpdate_euler);
-  DECLARE_REGISTERED(dyablo::GLMMHDUpdate_RK2);
-  DECLARE_REGISTERED(dyablo::GLMMHDUpdate_hancock);
-  DECLARE_REGISTERED(dyablo::RadUpdate_euler);
+  //  DECLARE_REGISTERED(dyablo::HydroUpdate_euler);
+  //  DECLARE_REGISTERED(dyablo::HydroUpdate_RK2);
+  //  DECLARE_REGISTERED(dyablo::HydroUpdate_euler_nopatch);
+  //  DECLARE_REGISTERED(dyablo::HydroUpdate_hancock);
+  //  DECLARE_REGISTERED(dyablo::HydroUpdate_hancock_oneneighbor);
+  //  DECLARE_REGISTERED(dyablo::HydroUpdate_gravity);  
+  //  DECLARE_REGISTERED(dyablo::GLMMHDUpdate_euler);
+  //  DECLARE_REGISTERED(dyablo::GLMMHDUpdate_RK2);
+  //  DECLARE_REGISTERED(dyablo::GLMMHDUpdate_hancock);
+  //  DECLARE_REGISTERED(dyablo::RadUpdate_euler);
 
   return true;
 }

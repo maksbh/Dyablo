@@ -16,11 +16,11 @@ class RefineCondition_downflows;
 template<>
 inline bool dyablo::RefineConditionFactory::init()
 {
-  DECLARE_REGISTERED(dyablo::RefineCondition_second_derivative_error);
-  DECLARE_REGISTERED(dyablo::RefineCondition_pseudo_gradient);
-  DECLARE_REGISTERED(dyablo::RefineCondition_pseudo_gradient_rad);
-  DECLARE_REGISTERED(dyablo::RefineCondition_mass);
-  DECLARE_REGISTERED(dyablo::RefineCondition_downflows);
+  //  DECLARE_REGISTERED(dyablo::RefineCondition_second_derivative_error);
+  //  DECLARE_REGISTERED(dyablo::RefineCondition_pseudo_gradient);
+  //  DECLARE_REGISTERED(dyablo::RefineCondition_pseudo_gradient_rad);
+  //  DECLARE_REGISTERED(dyablo::RefineCondition_mass);
+  //  DECLARE_REGISTERED(dyablo::RefineCondition_downflows);
 
   return true;
 }
