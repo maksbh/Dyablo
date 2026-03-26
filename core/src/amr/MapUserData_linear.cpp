@@ -29,7 +29,7 @@ public:
   void remap_aux( const UserData::FieldAccessor& Uin, const UserData::FieldAccessor& Uout, const CellIndexRemapper& remapper ) override
   {
     using CellIndex = ForeachCell::CellIndex;
-    using pos_t = AMRBlockForeachCell_CellMetaData::pos_t;
+    using pos_t = ForeachCell::CellMetaData::pos_t;
     int ndim = foreach_cell.getDim();
     int nbfields = Uin.nbFields();
 
