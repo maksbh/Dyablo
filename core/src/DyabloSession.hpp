@@ -5,6 +5,7 @@
 #include "utils/mpi/GlobalMpiSession.h"
 
 #include "kokkos_shared.h"
+#include "plugins_lib.h"
 
 namespace dyablo {
 
@@ -78,6 +79,8 @@ public:
                 << " pinned to GPU #" << cudaDeviceId << "\n";
     }
 #endif // KOKKOS_ENABLE_CUDA
+  
+    load_dyablo_plugins_lib();
   }
 
   ~DyabloSession() { Kokkos::finalize(); }

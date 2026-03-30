@@ -5,6 +5,7 @@ set( core_src
 )
 
 set( plugins_src
+    ${CMAKE_CURRENT_SOURCE_DIR}/plugins_lib.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_base.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_mean.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/amr/MapUserData_linear.cpp
