@@ -51,14 +51,9 @@ after_script:
   stage: build
   artifacts:
     paths:
-      - build/dyablo/bin/dyablo
-      - build/dyablo/bin/*.py
-      - build/dyablo/bin/*.ini
-      - build/dyablo/bin/*.pvsm
-      - build/dyablo/unit_test/utest_*
-      - build/dyablo/unit_test/block_data
-      - build/dyablo/unit_test/hydro
-      - build/dyablo/unit_test/CTestTestfile.cmake
+      - build/
+    exclude:
+      - build/**/CMakeFiles/**/*
     expire_in: 1 week
   extends: .rules_mr_always_branch_manual
 
