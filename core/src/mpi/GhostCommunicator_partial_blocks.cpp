@@ -830,4 +830,15 @@ void GhostCommunicator_partial_blocks::exchange_ghosts_subset( const UserData::F
   subset.pdata->comm_subset.exchange_ghosts(U);
 }
 
+void GhostCommunicator_partial_blocks::reduce_ghosts_subset( UserData::FieldAccessor& U, const OctSubset& subset ) const
+{
+  DYABLO_ASSERT_HOST_RELEASE( !this->has_intermediates(), "Trying to exchange intermediates with FieldAccessor without intermediates" );
+  subset.pdata->comm_subset.reduce_ghosts(U);
+}
+
+void GhostCommunicator_partial_blocks::reduce_ghosts_subset( UserData::FieldAccessor_intermediates& U, const OctSubset& subset ) const
+{
+  subset.pdata->comm_subset.reduce_ghosts(U);
+}
+
 } // namespace dyablo

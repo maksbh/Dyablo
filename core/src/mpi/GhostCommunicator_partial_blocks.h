@@ -55,6 +55,9 @@ public:
     void reduce_ghosts( UserData::FieldAccessor_intermediates& U ) const;
     void reduce_ghosts( ForeachCell::CellArray_global_ghosted& U ) const; 
 
+    void reduce_ghosts_subset( UserData::FieldAccessor& U, const OctSubset& subset ) const;
+    void reduce_ghosts_subset( UserData::FieldAccessor_intermediates& U, const OctSubset& subset ) const;
+
 //private:
     using Pdata = GhostCommunicator_partial_blocks_Pdata;
     std::unique_ptr<Pdata> pdata;  
