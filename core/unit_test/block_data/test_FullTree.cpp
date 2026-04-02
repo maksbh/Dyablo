@@ -216,10 +216,11 @@ void test_FullTree_average_children(bool getParent_mode)
         Kokkos::atomic_add( &Ua.at( iCell_p, Pz ), pz/ns );
       }); 
 
-      // Reduce current level's ghosts to send updated value to parent
+      // Reduce ghosts for parent level to have up to date parents
       
-      // TODO : per-level reduction
-      ghost_communicator_intermediates.reduce_ghosts( Ua );
+      //ghost_communicator_intermediates.reduce_ghosts( Ua );
+      auto subset_level_intermediates = level_subsets.getGhostCommunicatorSubset_level(level-1, ghost_communicator_intermediates);
+      ghost_communicator_intermediates.reduce_ghosts_subset( Ua, subset_level_intermediates );
     }
   }
   
