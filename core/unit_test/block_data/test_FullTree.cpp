@@ -37,13 +37,19 @@ using CellArray_shape = ForeachCell::CellArray_shape;
 /***
  * Fill cells with cell centers, average to parent cells until level_min and check if value is still cell center. 
  * Leaves are filled with cell center position.
- * Level by level from fine to  : 
- *    - Values of intermediates are updated with mean value from getChildren()
+ * Level by level from fine to corase : 
+ *  - getChildren mode :
+ *    - iterate over parents, use getChildren + foreach_sibling to get mean value
  *    - MPI ghosts are exchanged
+ *  - getParent mode :
+ *    - iterate over children and accumulate in parent with getparent
+ *    - MPI reduction is performed to update parent values
  * All Cells including intermediates should have their cell center matching cell position
  ***/
-void test_FullTree_average_children()
+void test_FullTree_average_children(bool getParent_mode)
 {
+  bool getChildren_mode = !getParent_mode;
+
   using namespace dyablo;
 
   std::cout << "// =========================================\n";
@@ -129,47 +135,92 @@ void test_FullTree_average_children()
 
   constexpr bool with_locals = true;
   constexpr bool without_locals = false;
+  constexpr bool with_ghosts = true;
   constexpr bool without_ghosts = false;
   constexpr bool with_intermediates = true;
+  constexpr bool without_intermediates = false;
   Subset_levels level_subsets( lmesh, amr_mesh->get_level_max() );
   IterationSpace_levels iterationspace_levels( lmesh, amr_mesh->get_level_max() );
 
-  for( int level = level_max-1; level >= level_min; level-- )
+  if( getChildren_mode )
   {
-    //ghost_communicator_leaves.exchange_ghosts( Ua );
-    auto subset_level_leaves = level_subsets.getGhostCommunicatorSubset_level(level+1, ghost_communicator_leaves);
-    ghost_communicator_leaves.exchange_ghosts_subset( Ua, subset_level_leaves );
-
-    //ghost_communicator_intermediates.exchange_ghosts( Ua );
-    auto subset_level_intermediates = level_subsets.getGhostCommunicatorSubset_level(level+1, ghost_communicator_intermediates);
-    ghost_communicator_intermediates.exchange_ghosts_subset( Ua, subset_level_intermediates );
-
-    auto iter_space_level_intermediates = iterationspace_levels.getIterationSpace<without_locals, without_ghosts, with_intermediates, without_ghosts>(level, Ua.getShape());
-    foreach_cell.foreach_cell("average_parent_cell", iter_space_level_intermediates,
-      KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell)
+    for( int level = level_max-1; level >= level_min; level-- )
     {
-      ForeachCell::SearchMode_intermediates search_neighbor_intermediate(lmesh, ForeachCell::SearchMode_intermediates::BiggerNeighborMode::ASSERT);
+      // Exhange children of current level to have all needed siblings
 
-      ForeachCell::CellIndex iCell_c0 = iCell.getChildren(lmesh);
+      //ghost_communicator_leaves.exchange_ghosts( Ua );
+      auto subset_level_leaves = level_subsets.getGhostCommunicatorSubset_level(level+1, ghost_communicator_leaves);
+      ghost_communicator_leaves.exchange_ghosts_subset( Ua, subset_level_leaves );
 
-      pos_t p{};
-      int ns = foreach_sibling( ndim, iCell_c0, search_neighbor_intermediate,
-        [&]( const ForeachCell::CellIndex& iCell_c )
-      {
-        real_t px = Ua.at(iCell_c, Px);
-        real_t py = Ua.at(iCell_c, Py);
-        real_t pz = Ua.at(iCell_c, Pz);
-
-        p[IX] += px;
-        p[IY] += py;
-        p[IZ] += pz;
-      });
-
-      Ua.at( iCell, Px ) = p[IX]/ns;
-      Ua.at( iCell, Py ) = p[IY]/ns;
-      Ua.at( iCell, Pz ) = p[IZ]/ns;
-    }); 
+      //ghost_communicator_intermediates.exchange_ghosts( Ua );
+      auto subset_level_intermediates = level_subsets.getGhostCommunicatorSubset_level(level+1, ghost_communicator_intermediates);
+      ghost_communicator_intermediates.exchange_ghosts_subset( Ua, subset_level_intermediates );
     
+      auto iter_space_level_intermediates = iterationspace_levels.getIterationSpace<without_locals, without_ghosts, with_intermediates, without_ghosts>(level, Ua.getShape());
+      foreach_cell.foreach_cell("average_parent_cell", iter_space_level_intermediates,
+        KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell)
+      {
+        ForeachCell::SearchMode_intermediates search_neighbor_intermediate(lmesh, ForeachCell::SearchMode_intermediates::BiggerNeighborMode::ASSERT);
+
+        ForeachCell::CellIndex iCell_c0 = iCell.getChildren(lmesh);
+
+        pos_t p{};
+        int ns = foreach_sibling( ndim, iCell_c0, search_neighbor_intermediate,
+          [&]( const ForeachCell::CellIndex& iCell_c )
+        {
+          real_t px = Ua.at(iCell_c, Px);
+          real_t py = Ua.at(iCell_c, Py);
+          real_t pz = Ua.at(iCell_c, Pz);
+
+          p[IX] += px;
+          p[IY] += py;
+          p[IZ] += pz;
+        });
+
+        Ua.at( iCell, Px ) = p[IX]/ns;
+        Ua.at( iCell, Py ) = p[IY]/ns;
+        Ua.at( iCell, Pz ) = p[IZ]/ns;
+      });
+    }
+  }
+  else //if( getParent_mode )
+  {
+    for( int level = level_max; level > level_min; level-- )
+    {
+      // Reset intermediate ghosts
+      ForeachCell::IterationSpace_fullArray_impl<without_locals, without_ghosts, without_intermediates, with_ghosts> iter_space_inter_ghosts(Ua.getShape());
+      foreach_cell.foreach_cell( "zero ghosts", iter_space_inter_ghosts, 
+        KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell)
+      {
+        Ua.at( iCell, Px ) = 0;
+        Ua.at( iCell, Py ) = 0;
+        Ua.at( iCell, Pz ) = 0;
+      }); 
+
+      auto iter_space_level = iterationspace_levels.getIterationSpace<with_locals, without_ghosts, with_intermediates, without_ghosts>(level, Ua.getShape());
+      foreach_cell.foreach_cell("average_parent_cell", iter_space_level,
+        KOKKOS_LAMBDA( ForeachCell::CellIndex& iCell)
+      {
+        ForeachCell::SearchMode_intermediates search_neighbor_intermediate(lmesh, ForeachCell::SearchMode_intermediates::BiggerNeighborMode::ASSERT);
+
+        ForeachCell::CellIndex iCell_p = iCell.getParent(lmesh);
+
+        int ns = 8; //number of suboctants
+
+        real_t px = Ua.at(iCell, Px);
+        real_t py = Ua.at(iCell, Py);
+        real_t pz = Ua.at(iCell, Pz);
+
+        Kokkos::atomic_add( &Ua.at( iCell_p, Px ), px/ns );
+        Kokkos::atomic_add( &Ua.at( iCell_p, Py ), py/ns );
+        Kokkos::atomic_add( &Ua.at( iCell_p, Pz ), pz/ns );
+      }); 
+
+      // Reduce current level's ghosts to send updated value to parent
+      
+      // TODO : per-level reduction
+      ghost_communicator_intermediates.reduce_ghosts( Ua );
+    }
   }
   
   ForeachCell::IterationSpace_fullArray_impl<with_locals, without_ghosts, with_intermediates, without_ghosts> iter_space_with_intermediates(Ua.getShape());
@@ -200,10 +251,18 @@ void test_FullTree_average_children()
   EXPECT_EQ(total_cells, total_count);
 }
 
-TEST(dyablo, test_FullTree_average_children)
+TEST(dyablo, test_FullTree_average_getChildren)
 {
   using namespace dyablo;
-  test_FullTree_average_children();
+  bool getChildren_mode = false;
+  test_FullTree_average_children(getChildren_mode);
+}
+
+TEST(dyablo, test_FullTree_average_getParent)
+{
+  using namespace dyablo;
+  bool getParent_mode = true;
+  test_FullTree_average_children(getParent_mode);
 }
 
 
