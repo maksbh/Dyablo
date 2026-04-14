@@ -76,12 +76,12 @@ public:
   /***
    * Generate an IterationSpace for foreach_cell that filters only cells from a specific AMR level
    * 
-   * @tparam locals, ghosts, intermediates select what kind of cells are enabled (same as IterationSpace_fullArray_impl)
+   * @tparam leaves_local, leaves_ghost, intermediates_local select what kind of cells are enabled (same as IterationSpace_fullArray_impl)
    * @param level IterationSpace will select only cells at this level
    * @param shape shape of the (full) array from which cells are filtered
    */
-  template<bool locals, bool ghosts, bool intermediates, bool intermediates_ghosts>
-  IterationSpace_subset_impl<locals, ghosts, intermediates, intermediates_ghosts> getIterationSpace(int level, const ForeachCell::CellArray_shape& shape )
+  template<bool leaves_local, bool leaves_ghost, bool intermediates_local, bool intermediates_ghost>
+  IterationSpace_subset_impl<leaves_local, leaves_ghost, intermediates_local, intermediates_ghost> getIterationSpace(int level, const ForeachCell::CellArray_shape& shape )
   {
       uint32_t bx = shape.bx;
       uint32_t by = shape.by;
@@ -89,10 +89,10 @@ public:
       uint32_t nbFields = shape.nbFields;
 
       Kokkos::View<uint32_t*> iOcts_locals, iOcts_ghosts, iOcts_intermediates, iOcts_intermediate_ghosts;
-      if( locals ) iOcts_locals = binned_iOcts_levels.get_iOcts_leaves(level);
-      if( ghosts ) iOcts_ghosts = binned_iOcts_levels.get_iOcts_ghost_leaves(level);
-      if( intermediates ) iOcts_intermediates = binned_iOcts_levels.get_iOcts_intermediates(level);
-      if( intermediates_ghosts ) iOcts_intermediate_ghosts = binned_iOcts_levels.get_iOcts_ghost_intermediates(level);
+      if( leaves_local ) iOcts_locals = binned_iOcts_levels.get_iOcts_leaves(level);
+      if( leaves_ghost ) iOcts_ghosts = binned_iOcts_levels.get_iOcts_ghost_leaves(level);
+      if( intermediates_local ) iOcts_intermediates = binned_iOcts_levels.get_iOcts_intermediates(level);
+      if( intermediates_ghost ) iOcts_intermediate_ghosts = binned_iOcts_levels.get_iOcts_ghost_intermediates(level);
       
       ForeachCell::CellArray_shape iter_space{
           .bx=bx, .by=by, .bz=bz, 
@@ -103,7 +103,7 @@ public:
           .nbIntermediateGhosts = (uint32_t)iOcts_intermediate_ghosts.size(),
       };
 
-      return IterationSpace_subset_impl<locals, ghosts, intermediates, intermediates_ghosts>( iter_space, iOcts_locals, iOcts_ghosts, iOcts_intermediates, iOcts_intermediate_ghosts );
+      return IterationSpace_subset_impl<leaves_local, leaves_ghost, intermediates_local, intermediates_ghost>( iter_space, iOcts_locals, iOcts_ghosts, iOcts_intermediates, iOcts_intermediate_ghosts );
   }
 
 private:
