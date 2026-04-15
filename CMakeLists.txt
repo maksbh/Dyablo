@@ -115,7 +115,7 @@ ExternalProject_Add (dyablo
 # add target dyablo-test
 if (DYABLO_ENABLE_UNIT_TESTING)
   ExternalProject_Add_Step (dyablo test
-    COMMAND           make test
+    COMMAND           ${CMAKE_COMMAND} --build . --target test 
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/dyablo
     COMMENT           "running dyablo unit tests"
     ALWAYS            TRUE
