@@ -11,4 +11,4 @@ mkdir build
 cd build
 
 cmake -DCMAKE_BUILD_TYPE=Release -DDYABLO_ENABLE_UNIT_TESTING=ON -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH=${Kokkos_ARCH} ..
-make -j `nproc`
+cmake --build . -j `nproc`

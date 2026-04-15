@@ -12,11 +12,7 @@ target_include_directories(${EXE_NAME}
 
 target_link_libraries(${EXE_NAME}
   dyablo_core
-  config
-  dyablo_units
-  Kokkos::kokkos
-  dl
-  monitoring
+  dyablo_plugins
   )
 
 if (DYABLO_USE_MPI)  

@@ -4,7 +4,7 @@
 add_library(misc "")
 
 target_sources(misc
-  PUBLIC
+  PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/utils.h
 )

@@ -28,8 +28,8 @@ template <typename T> struct Impl2;
 template<>
 bool BaseFactory::init()
 {
-  DECLARE_REGISTERED(Impl<int>);
-  DECLARE_REGISTERED(Impl<double>);
+  //DECLARE_REGISTERED(Impl<int>);
+  //DECLARE_REGISTERED(Impl<double>);
   DECLARE_REGISTERED(Impl2<double>);
 
   return true;

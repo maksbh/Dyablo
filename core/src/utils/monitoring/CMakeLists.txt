@@ -3,7 +3,7 @@ find_package(OpenMP)
 add_library(monitoring "")
 
 target_sources(monitoring
-  PUBLIC
+  PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/OpenMPTimer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/OpenMPTimer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/SimpleTimer.cpp

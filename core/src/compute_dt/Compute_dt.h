@@ -2,27 +2,8 @@
 
 #include "compute_dt/Compute_dt_base.h"
 
-namespace dyablo {
-
-class Compute_dt_hydro;
-class Compute_dt_GLMMHD;
-class Compute_dt_particle_velocity;
-class Compute_dt_cosmology;
-class Compute_dt_parabolic;
-class Compute_dt_rad;
-
-} //namespace dyablo 
-
-
 template<>
 inline bool dyablo::Compute_dtFactory::init()
 {
-  DECLARE_REGISTERED(dyablo::Compute_dt_hydro);
-  DECLARE_REGISTERED(dyablo::Compute_dt_GLMMHD);
-  DECLARE_REGISTERED(dyablo::Compute_dt_particle_velocity);
-  DECLARE_REGISTERED(dyablo::Compute_dt_cosmology);
-  DECLARE_REGISTERED(dyablo::Compute_dt_parabolic);
-  DECLARE_REGISTERED(dyablo::Compute_dt_rad);
-
   return true;
 }
