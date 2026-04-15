@@ -43,20 +43,20 @@ public:
     uint32_t getNumGhosts() const;
 
     void exchange_ghosts( const UserData::FieldAccessor& U ) const;
-    void exchange_ghosts( const UserData::FieldAccessor_intermediates& U ) const;
+    void exchange_ghosts( const UserData::FieldAccessor_fulltree& U ) const;
     void exchange_ghosts( const ForeachCell::CellArray_global_ghosted& U ) const;
 
     using OctSubset = GhostCommunicator_partial_blocks_OctSubset;
 
     void exchange_ghosts_subset( const UserData::FieldAccessor& U, const OctSubset& subset ) const;
-    void exchange_ghosts_subset( const UserData::FieldAccessor_intermediates& U, const OctSubset& subset ) const;
+    void exchange_ghosts_subset( const UserData::FieldAccessor_fulltree& U, const OctSubset& subset ) const;
 
     void reduce_ghosts( UserData::FieldAccessor& U ) const;
-    void reduce_ghosts( UserData::FieldAccessor_intermediates& U ) const;
+    void reduce_ghosts( UserData::FieldAccessor_fulltree& U ) const;
     void reduce_ghosts( ForeachCell::CellArray_global_ghosted& U ) const; 
 
     void reduce_ghosts_subset( UserData::FieldAccessor& U, const OctSubset& subset ) const;
-    void reduce_ghosts_subset( UserData::FieldAccessor_intermediates& U, const OctSubset& subset ) const;
+    void reduce_ghosts_subset( UserData::FieldAccessor_fulltree& U, const OctSubset& subset ) const;
 
 //private:
     using Pdata = GhostCommunicator_partial_blocks_Pdata;

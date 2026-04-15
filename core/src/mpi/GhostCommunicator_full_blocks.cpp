@@ -22,7 +22,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts( const UserData::FieldAccess
   }
 }
 
-void GhostCommunicator_full_blocks::exchange_ghosts( const UserData::FieldAccessor_intermediates& U ) const
+void GhostCommunicator_full_blocks::exchange_ghosts( const UserData::FieldAccessor_fulltree& U ) const
 {
   auto &fields = this->intermediates?U.fields_intermediates:U.fields;
 
@@ -265,7 +265,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
   });      
 }
 
-void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::FieldAccessor_intermediates& U, const OctSubset& subset ) const
+void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::FieldAccessor_fulltree& U, const OctSubset& subset ) const
 {
   auto &fields = this->intermediates?U.fields_intermediates:U.fields;
 
@@ -300,7 +300,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
 }
 
 
-void GhostCommunicator_full_blocks::reduce_ghosts( UserData::FieldAccessor_intermediates& U ) const
+void GhostCommunicator_full_blocks::reduce_ghosts( UserData::FieldAccessor_fulltree& U ) const
 {
   auto &fields = this->intermediates?U.fields_intermediates:U.fields;
 
@@ -331,7 +331,7 @@ void GhostCommunicator_full_blocks::reduce_ghosts( ForeachCell::CellArray_global
   ViewCommunicator::reduce_ghosts<2>(U.U, U.Ughost);
 }  
 
-void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccessor_intermediates& U, const OctSubset& subset ) const
+void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccessor_fulltree& U, const OctSubset& subset ) const
 {
   auto &fields = this->intermediates?U.fields_intermediates:U.fields;
 

@@ -10,7 +10,7 @@ namespace dyablo {
 namespace UserData_Impl{
   struct UserData_Fields_Pdata;
   class UserData_FieldAccessor;
-  class UserData_FieldAccessor_intermediates;
+  class UserData_FieldAccessor_fulltree;
   struct UserData_FieldAccessor_FieldInfo;
 
   struct UserData_Particles_Pdata;
@@ -94,9 +94,13 @@ public:
    ***/
   int nbFields() const;
 
-  using FieldAccessor = UserData_Impl::UserData_FieldAccessor; 
-  using FieldAccessor_intermediates = UserData_Impl::UserData_FieldAccessor_intermediates; 
   using FieldAccessor_FieldInfo = UserData_Impl::UserData_FieldAccessor_FieldInfo;
+
+  using FieldAccessor = UserData_Impl::UserData_FieldAccessor; /// FieldAccessor with only leaves
+  using FieldAccessor_leaves = FieldAccessor; /// FieldAccessor with only leaves
+
+  using FieldAccessor_fulltree = UserData_Impl::UserData_FieldAccessor_fulltree; /// FieldAccessor with leaves and intermediates  
+  using FieldAccessor_intermediates [[deprecated]] = FieldAccessor_fulltree; /// Replaced by FieldAccessor_fulltree
 
   /***
    * @brief create a FieldAccessor to access fields listed in `fields_info`
@@ -108,7 +112,13 @@ public:
   /***
    * @brief create a FieldAccessor to access fields listed in `fields_info` and allow access to intermediate cells
    ***/
-  FieldAccessor_intermediates getAccessor_intermediates( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const;
+  FieldAccessor_fulltree getAccessor_fulltree( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const;
+
+  /***
+   * @copydoc getAccessor_fulltree
+   * @note Deprecated : replaced by getAccessor_fulltree
+   ***/
+   [[deprecated]] FieldAccessor_fulltree getAccessor_intermediates( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const;
 
   /***
    * @brief Reallocate Userdata to fit new AMRmesh size

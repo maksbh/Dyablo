@@ -271,9 +271,9 @@ public:
       return UserData::FieldAccessor(*this, fields_info);
     }
 
-    UserData::FieldAccessor_intermediates getAccessor_intermediates( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
+    UserData::FieldAccessor_fulltree getAccessor_fulltree( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
     {
-      return UserData::FieldAccessor_intermediates(*this, fields_info);
+      return UserData::FieldAccessor_fulltree(*this, fields_info);
     }
 
     UserData::FieldAccessor backup_and_realloc()
@@ -400,9 +400,14 @@ UserData::FieldAccessor UserData::getAccessor( const std::vector<UserData::Field
   return this->fields.pdata->getAccessor(fields_info);
 }
 
-UserData::FieldAccessor_intermediates UserData::getAccessor_intermediates( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
+UserData::FieldAccessor_fulltree UserData::getAccessor_fulltree( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
 {
-  return this->fields.pdata->getAccessor_intermediates(fields_info);
+  return this->fields.pdata->getAccessor_fulltree(fields_info);
+}
+
+[[deprecated]] UserData::FieldAccessor_fulltree UserData::getAccessor_intermediates( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
+{
+  return getAccessor_fulltree(fields_info);
 }
 
 namespace UserData_Impl {

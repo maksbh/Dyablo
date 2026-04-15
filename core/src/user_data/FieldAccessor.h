@@ -127,7 +127,7 @@ public:
     using UserData_FieldAccessor_impl::UserData_FieldAccessor_impl;
 };
 
-class UserData_FieldAccessor_intermediates : public UserData_FieldAccessor_impl<true>{
+class UserData_FieldAccessor_fulltree : public UserData_FieldAccessor_impl<true>{
 public:
     using UserData_FieldAccessor_impl::UserData_FieldAccessor_impl;
 };

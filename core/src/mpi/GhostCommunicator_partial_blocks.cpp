@@ -782,7 +782,7 @@ void GhostCommunicator_partial_blocks::exchange_ghosts( const UserData::FieldAcc
   exchange_ghosts_aux(*pdata, U);
 }
 
-void GhostCommunicator_partial_blocks::exchange_ghosts( const UserData::FieldAccessor_intermediates& U) const
+void GhostCommunicator_partial_blocks::exchange_ghosts( const UserData::FieldAccessor_fulltree& U) const
 {
   exchange_ghosts_aux(*pdata, U);
 }
@@ -798,7 +798,7 @@ void GhostCommunicator_partial_blocks::reduce_ghosts( UserData::FieldAccessor& U
   reduce_ghosts_aux(*pdata, U);
 }
 
-void GhostCommunicator_partial_blocks::reduce_ghosts( UserData::FieldAccessor_intermediates& U) const
+void GhostCommunicator_partial_blocks::reduce_ghosts( UserData::FieldAccessor_fulltree& U) const
 {
   reduce_ghosts_aux(*pdata, U);
 }
@@ -825,7 +825,7 @@ void GhostCommunicator_partial_blocks::exchange_ghosts_subset( const UserData::F
   subset.pdata->comm_subset.exchange_ghosts(U);
 }
 
-void GhostCommunicator_partial_blocks::exchange_ghosts_subset( const UserData::FieldAccessor_intermediates& U, const OctSubset& subset ) const
+void GhostCommunicator_partial_blocks::exchange_ghosts_subset( const UserData::FieldAccessor_fulltree& U, const OctSubset& subset ) const
 {
   subset.pdata->comm_subset.exchange_ghosts(U);
 }
@@ -836,7 +836,7 @@ void GhostCommunicator_partial_blocks::reduce_ghosts_subset( UserData::FieldAcce
   subset.pdata->comm_subset.reduce_ghosts(U);
 }
 
-void GhostCommunicator_partial_blocks::reduce_ghosts_subset( UserData::FieldAccessor_intermediates& U, const OctSubset& subset ) const
+void GhostCommunicator_partial_blocks::reduce_ghosts_subset( UserData::FieldAccessor_fulltree& U, const OctSubset& subset ) const
 {
   subset.pdata->comm_subset.reduce_ghosts(U);
 }

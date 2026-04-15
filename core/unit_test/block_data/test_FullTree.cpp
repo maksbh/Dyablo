@@ -127,7 +127,7 @@ void test_FullTree_average_children(bool getParent_mode)
   U.new_intermediate_fields( {"px","py","pz"} );
 
   enum VarIndex_test{Px,Py,Pz};
-  UserData::FieldAccessor_intermediates Ua = U.getAccessor_intermediates( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+  UserData::FieldAccessor_fulltree Ua = U.getAccessor_fulltree( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
 
   const LightOctree& lmesh = amr_mesh->getLightOctree();
   GhostCommunicator_full_blocks ghost_communicator_leaves( *amr_mesh, Ua.getShape(), -1, false );
@@ -344,7 +344,7 @@ void test_FullTree_average_stencil()
   constexpr bool with_intermediates = true;
 
   enum VarIndex_test{Px,Py,Pz};
-  UserData::FieldAccessor_intermediates Uin = U.getAccessor_intermediates( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
+  UserData::FieldAccessor_fulltree Uin = U.getAccessor_fulltree( {{"px", Px}, {"py", Py}, {"pz", Pz}} );
 
   ForeachCell::IterationSpace_fullArray_impl<with_locals, without_ghosts, with_intermediates, without_ghosts> iter_space_with_intermediates(Uin.getShape());
 
@@ -368,7 +368,7 @@ void test_FullTree_average_stencil()
 
   U.new_fields({"px_new", "py_new", "pz_new"});
   U.new_intermediate_fields( {"px_new","py_new","pz_new"} );
-  UserData::FieldAccessor_intermediates Uout = U.getAccessor_intermediates( {{"px_new", Px}, {"py_new", Py}, {"pz_new", Pz}} );
+  UserData::FieldAccessor_fulltree Uout = U.getAccessor_fulltree( {{"px_new", Px}, {"py_new", Py}, {"pz_new", Pz}} );
   ForeachCell::IterationSpace_fullArray_impl<without_locals, without_ghosts, with_intermediates, without_ghosts> iter_space_only_intermediates(Uout.getShape());
 
   foreach_cell.foreach_cell("stencil_mean", iter_space_with_intermediates,
