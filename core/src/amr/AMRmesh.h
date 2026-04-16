@@ -76,23 +76,37 @@ public:
   /// Get total number of octants across all MPI process
   uint64_t getGlobalNumOctants() const;
 
+  /// Get number of local octants
+  uint32_t getNumIntermediates() const;
+  /// Get number of ghost octants
+  uint32_t getNumIntermediateGhosts() const;
+
   /// Get the global id associated to local octant idx
   uint64_t getGlobalIdx( uint32_t idx ) const;
 
   struct GhostMap_t
   {
-    Kokkos::View< uint32_t* > send_sizes; // Number of octants to send to each process (of size nb_proc)
-    Kokkos::View< uint32_t* > send_iOcts; // Octants to send (of size sum(send_sizes(i)) )
-    
     enum Face{
       XL, XR,
       YL, YR,
       ZL, ZR,
-      FACE_COUNT
+      FACE_COUNT,
+      FULL_BLOCK,
     };
+    /// CellMasks represent a set of faces or special values defined below
     using CellMask = int;
+    static constexpr CellMask MASK_FULL_BLOCK = 1 << Face::FACE_COUNT; /// Special CellMask value for full blocks
+    static constexpr CellMask MASK_COUNT = MASK_FULL_BLOCK+1; /// Last CellMask value, all valid CellMask values must be <= cellMask_MAX
 
-    Kokkos::View<CellMask*> send_cell_masks;
+    struct SendList
+    {
+      Kokkos::View< uint32_t* > send_sizes; /// Number of octants to send to each process (of size nb_proc)
+      Kokkos::View< uint32_t* > send_iOcts; /// Octants to send (of size sum(neighbor_leaves_send_sizes(i)) )
+      Kokkos::View<CellMask*> send_cell_masks; /// Mask for each octant to send representing which faces of the octant are needed
+    };
+
+    SendList to_send_leaves; /// Leaf octants to send for stencil operations
+    SendList to_send_intermediates; /// Intermediate octants to send for stencil operations
   };
 
   //----- Mesh modification -----

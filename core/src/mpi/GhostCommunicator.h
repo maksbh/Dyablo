@@ -11,7 +11,7 @@ template< typename Impl >
 /***
  * Interface to implement for a GhostCommunicator
  ***/
-class GhostCommunicator_impl : protected Impl
+class GhostCommunicator_impl : public Impl
 {
 public:
   /**
@@ -22,9 +22,10 @@ public:
    **/
   GhostCommunicator_impl( const AMRmesh& mesh, 
                           const ForeachCell::CellArray_global_ghosted::Shape_t& shape, 
-                          int ghost_count, 
+                          int ghost_count,
+                          bool intermediates = false, 
                           const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world() )
-  : Impl(mesh, shape, ghost_count, mpi_comm)
+  : Impl(mesh, shape, ghost_count, intermediates, mpi_comm)
   {}
 
   static std::string name()
@@ -37,6 +38,13 @@ public:
   {
     return Impl::getNumGhosts();
   }
+
+  bool has_intermediates() const
+  {
+    return Impl::has_intermediates();
+  }
+
+  using OctSubset = typename Impl::OctSubset;
 
   /***
    * Send ghosts cells for the selected Fields in the accessor
@@ -57,6 +65,11 @@ public:
   void exchange_ghosts( const ForeachCell::CellArray_global_ghosted& U ) const
   {
     Impl::exchange_ghosts(U);
+  }
+
+  void exchange_ghosts_subset( const UserData::FieldAccessor& U, const OctSubset& subset ) const
+  {
+    Impl::exchange_ghosts_subset(U, subset);
   }
 
 

@@ -2,13 +2,35 @@
 
 namespace dyablo {
 
+Kokkos::View<uint32_t*> GhostCommunicator_full_blocks::iOcts_send() const
+{
+  return this->send_iOcts;
+}
+
 void GhostCommunicator_full_blocks::exchange_ghosts( const UserData::FieldAccessor& U ) const
 {
+  DYABLO_ASSERT_HOST_DEBUG( !this->intermediates, "Trying to echange intermediate ghosts but FieldAccessor don't have intermediates" );
+  auto &fields = U.fields;
+
   for(int i=0; i<U.nbFields(); i++)
   {
     int iVar = U.get_index_from_ivar_host(i);
-    auto U_subview      = Kokkos::subview( U.fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-    auto Ughost_subview = Kokkos::subview( U.fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto U_subview      = Kokkos::subview( fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+
+    ViewCommunicator::exchange_ghosts<2>(U_subview, Ughost_subview);
+  }
+}
+
+void GhostCommunicator_full_blocks::exchange_ghosts( const UserData::FieldAccessor_fulltree& U ) const
+{
+  auto &fields = this->intermediates?U.fields_intermediates:U.fields;
+
+  for(int i=0; i<U.nbFields(); i++)
+  {
+    int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
+    auto U_subview      = Kokkos::subview( fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
 
     ViewCommunicator::exchange_ghosts<2>(U_subview, Ughost_subview);
   }
@@ -19,6 +41,77 @@ void GhostCommunicator_full_blocks::exchange_ghosts( ForeachCell::CellArray_glob
   ViewCommunicator::exchange_ghosts<2>(U.U, U.Ughost);
 }
 
+/**
+ * Computes sizes to send/recv form/to other processes knowing the sizes of the full communicator and the indices 
+ * of the subset octants in the original octant list
+ * @param sizes_full sizes to send/recv in full comm
+ * @param subset_iOcts indices of subset octs in full comm oct list
+ **/
+Kokkos::View<uint32_t*> compute_subset_sizes(
+  const Kokkos::View<uint32_t*>& sizes_full,
+  const Kokkos::View<uint32_t*>& subset_iOcts)
+{
+  int mpi_size = sizes_full.size();
+
+  uint32_t niOct_full;
+  Kokkos::View<uint32_t*> rank_begin_full("rank_begin_full", mpi_size);
+  Kokkos::parallel_scan( "OctSubset::compute_rank_begin_full", mpi_size,
+    KOKKOS_LAMBDA( uint32_t i, uint32_t& sum, bool final )
+  {
+    if(final)
+      rank_begin_full(i) = sum;
+    sum += sizes_full(i);
+  }, niOct_full);
+
+  Kokkos::View<uint32_t*> rank_begin_subset("rank_begin_subset", mpi_size);
+  uint32_t niOct_subset = subset_iOcts.size();
+  Kokkos::parallel_for( "OctSubset::count_sizes", niOct_subset,
+    KOKKOS_LAMBDA( uint32_t i )
+  {   
+    // Find start of rank in subset
+    uint32_t next = i < niOct_subset-1 ? subset_iOcts(i+1) : niOct_full;
+    DYABLO_ASSERT_KOKKOS_DEBUG( subset_iOcts(i) < next, "OctSubset_init_with_send : subset_iOcts is not increasing" );
+    for( int rank=0; rank<mpi_size; rank++ )
+    {
+      if(subset_iOcts(i) < rank_begin_full(rank) && rank_begin_full(rank) <= next )
+        rank_begin_subset(rank) = i+1;
+    }
+  });
+
+  Kokkos::View<uint32_t*> subset_sizes("subset_sizes", mpi_size);
+  Kokkos::parallel_for( "OctSubset::compute_subset_sizes", mpi_size,
+    KOKKOS_LAMBDA( uint32_t i)
+  {
+    uint32_t next = i < mpi_size-1 ? rank_begin_subset(i+1) : niOct_subset;
+    subset_sizes(i) = next - rank_begin_subset(i);
+  });
+
+  return subset_sizes;
+}
+
+
+void OctSubset_init_with_send( MpiComm mpi_comm, 
+  const Kokkos::View<uint32_t*>& recv_sizes_full,
+  const Kokkos::View<uint32_t*>& send_iOcts_full,
+  const Kokkos::View<uint32_t*>& send_sizes_full,
+  std::unique_ptr<ViewCommunicator>& partial_comm,
+  Kokkos::View<uint32_t*>& subset_iOcts_send, /// positions of subset octants in send_iOcts_full
+  Kokkos::View<uint32_t*>& subset_iOcts_recv)
+{
+  uint32_t niOct_send = subset_iOcts_send.size();
+  Kokkos::View<uint32_t*> send_iOcts("send_iOcts", niOct_send);
+  Kokkos::parallel_for( "OctSubset::fill_send_iOcts", niOct_send,
+    KOKKOS_LAMBDA( uint32_t i )
+  {
+    uint32_t i_full = subset_iOcts_send(i);
+    send_iOcts(i) = send_iOcts_full(i_full);
+  });
+
+  auto send_iOcts_sizes = compute_subset_sizes(send_sizes_full, subset_iOcts_send);
+  auto recv_iOcts_sizes = compute_subset_sizes(recv_sizes_full, subset_iOcts_recv);
+
+  partial_comm = std::make_unique<ViewCommunicator>( send_iOcts_sizes, send_iOcts, recv_iOcts_sizes);
+}
 
 void OctSubset_init( MpiComm mpi_comm, 
   const Kokkos::View<uint32_t*>& recv_sizes_full,
@@ -109,8 +202,8 @@ void OctSubset_init( MpiComm mpi_comm,
   DYABLO_ASSERT_HOST_RELEASE( partial_comm->getNumGhosts() == subset_iOcts.size(), "GhostCommunicator_full_blocks::OctSubset : ghost count mismatch" );
 }
 
-GhostCommunicator_full_blocks::OctSubset::OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts )
-  : subset_iOcts( subset_iOcts )
+GhostCommunicator_full_blocks::OctSubset::OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_recv )
+  : subset_iOcts( subset_iOcts_recv )
 {
   // nvcc doesnt like kokkos kernels in constructors
   OctSubset_init( 
@@ -123,15 +216,34 @@ GhostCommunicator_full_blocks::OctSubset::OctSubset(const GhostCommunicator_full
    );
 }
 
+GhostCommunicator_full_blocks::OctSubset::OctSubset(const GhostCommunicator_full_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_send, Kokkos::View<uint32_t*> subset_iOcts_recv)
+  : subset_iOcts( subset_iOcts_recv )
+{
+  // nvcc doesnt like kokkos kernels in constructors
+  OctSubset_init_with_send( 
+    comm_full.mpi_comm, 
+    comm_full.recv_sizes,
+    comm_full.send_iOcts,
+    comm_full.send_sizes,
+    partial_comm,
+    subset_iOcts_send,
+    subset_iOcts_recv
+   );
+}
+
 void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::FieldAccessor& U, const OctSubset& subset ) const
 {
-  int nbCells = U.fields.U.extent(0);
+  DYABLO_ASSERT_HOST_DEBUG( !this->intermediates, "Trying to echange intermediate ghosts but FieldAccessor don't have intermediates" );
+  auto &fields = U.fields;
+
+  int nbCells = fields.U.extent(0);
   int nbFields = U.nbFields();
+
   Kokkos::View<real_t***, Kokkos::LayoutLeft> Ughost_subset( "Ughost_subset", nbCells, nbFields, subset.nbGhosts() );
   for(int i=0; i<U.nbFields(); i++)
   {
     int iVar = U.get_index_from_ivar_host(i);
-    auto U_subview      = Kokkos::subview( U.fields.U,    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto U_subview      = Kokkos::subview( fields.U,    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
     auto Ughost_subview = Kokkos::subview( Ughost_subset, Kokkos::ALL(), std::make_pair(i, i+1),       Kokkos::ALL() );
     
     subset.partial_comm->exchange_ghosts<2>( U_subview, Ughost_subview );
@@ -149,8 +261,57 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
     uint32_t ivar_dest = U.get_index_from_ivar_device(ivar_src);
     uint32_t iblock = i%nbCells;
 
-    U.fields.Ughost( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
+    fields.Ughost( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
   });      
+}
+
+void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::FieldAccessor_fulltree& U, const OctSubset& subset ) const
+{
+  auto &fields = this->intermediates?U.fields_intermediates:U.fields;
+
+  int nbCells = fields.U.extent(0);
+  int nbFields = U.nbFields();
+  const bool isIntermediate = this->intermediates;
+
+  Kokkos::View<real_t***, Kokkos::LayoutLeft> Ughost_subset( "Ughost_subset", nbCells, nbFields, subset.nbGhosts() );
+  for(int i=0; i<U.nbFields(); i++)
+  {
+    int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
+    auto U_subview      = Kokkos::subview( fields.U,    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( Ughost_subset, Kokkos::ALL(), std::make_pair(i, i+1),       Kokkos::ALL() );
+    
+    subset.partial_comm->exchange_ghosts<2>( U_subview, Ughost_subview );
+  }
+
+  auto& subset_iOcts = subset.subset_iOcts;
+
+  Kokkos::parallel_for( "exchange_ghosts_subset::unpack_ghosts", nbCells*nbFields*subset.nbGhosts(),
+                    KOKKOS_LAMBDA(uint32_t index)
+  {
+    uint32_t iOct_src = index/(nbCells*nbFields);
+    uint32_t iOct_dest = subset_iOcts(iOct_src);
+    uint32_t i = index%(nbCells*nbFields);
+    uint32_t ivar_src = i/nbCells;
+    uint32_t ivar_dest = isIntermediate? U.get_index_from_ivar_device_intermediates(ivar_src) : U.get_index_from_ivar_device(ivar_src);
+    uint32_t iblock = i%nbCells;
+
+    fields.Ughost( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
+  });
+}
+
+
+void GhostCommunicator_full_blocks::reduce_ghosts( UserData::FieldAccessor_fulltree& U ) const
+{
+  auto &fields = this->intermediates?U.fields_intermediates:U.fields;
+
+  for(int i=0; i<U.nbFields(); i++)
+  {
+    int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
+    auto U_subview      = Kokkos::subview( fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+
+    ViewCommunicator::reduce_ghosts<2>(U_subview, Ughost_subview);
+  }
 }
 
 void GhostCommunicator_full_blocks::reduce_ghosts( UserData::FieldAccessor& U ) const
@@ -169,5 +330,72 @@ void GhostCommunicator_full_blocks::reduce_ghosts( ForeachCell::CellArray_global
 {
   ViewCommunicator::reduce_ghosts<2>(U.U, U.Ughost);
 }  
+
+void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccessor_fulltree& U, const OctSubset& subset ) const
+{
+  auto &fields = this->intermediates?U.fields_intermediates:U.fields;
+
+  int nbCells = fields.U.extent(0);
+  int nbFields = U.nbFields();
+  const bool isIntermediate = this->intermediates;
+
+  Kokkos::View<real_t***, Kokkos::LayoutLeft> Ughost_subset( "Ughost_subset", nbCells, nbFields, subset.nbGhosts() );
+
+  auto& subset_iOcts = subset.subset_iOcts;
+  Kokkos::parallel_for( "exchange_ghosts_subset::pack_ghosts", nbCells*nbFields*subset.nbGhosts(),
+                    KOKKOS_LAMBDA(uint32_t index)
+  {
+    uint32_t iOct_src = index/(nbCells*nbFields);
+    uint32_t iOct_dest = subset_iOcts(iOct_src);
+    uint32_t i = index%(nbCells*nbFields);
+    uint32_t ivar_src = i/nbCells;
+    uint32_t ivar_dest = isIntermediate? U.get_index_from_ivar_device_intermediates(ivar_src) : U.get_index_from_ivar_device(ivar_src);
+    uint32_t iblock = i%nbCells;
+
+    Ughost_subset( iblock, ivar_src, iOct_src ) = fields.Ughost( iblock, ivar_dest, iOct_dest );
+  });
+
+  for(int i=0; i<U.nbFields(); i++)
+  {
+    int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
+    auto U_subview      = Kokkos::subview( fields.U,    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( Ughost_subset, Kokkos::ALL(), std::make_pair(i, i+1),       Kokkos::ALL() );
+    
+    subset.partial_comm->reduce_ghosts<2>( U_subview, Ughost_subview );
+  }
+}
+
+void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccessor& U, const OctSubset& subset ) const
+{
+  auto &fields = U.fields;
+
+  int nbCells = fields.U.extent(0);
+  int nbFields = U.nbFields();
+
+  Kokkos::View<real_t***, Kokkos::LayoutLeft> Ughost_subset( "Ughost_subset", nbCells, nbFields, subset.nbGhosts() );
+
+  auto& subset_iOcts = subset.subset_iOcts;
+  Kokkos::parallel_for( "exchange_ghosts_subset::pack_ghosts", nbCells*nbFields*subset.nbGhosts(),
+                    KOKKOS_LAMBDA(uint32_t index)
+  {
+    uint32_t iOct_src = index/(nbCells*nbFields);
+    uint32_t iOct_dest = subset_iOcts(iOct_src);
+    uint32_t i = index%(nbCells*nbFields);
+    uint32_t ivar_src = i/nbCells;
+    uint32_t ivar_dest = U.get_index_from_ivar_device(ivar_src);
+    uint32_t iblock = i%nbCells;
+
+    Ughost_subset( iblock, ivar_src, iOct_src ) = fields.Ughost( iblock, ivar_dest, iOct_dest );
+  });
+
+  for(int i=0; i<U.nbFields(); i++)
+  {
+    int iVar = U.get_index_from_ivar_host(i);
+    auto U_subview      = Kokkos::subview( fields.U,    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( Ughost_subset, Kokkos::ALL(), std::make_pair(i, i+1),       Kokkos::ALL() );
+    
+    subset.partial_comm->reduce_ghosts<2>( U_subview, Ughost_subview );
+  }
+}
 
 } // namespace dyablo

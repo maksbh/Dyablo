@@ -13,6 +13,10 @@ namespace UserData_Impl{
 
 struct UserData_Fields_Pdata
 {
+  struct field_index_t
+  {
+      int index;
+  };
 public:
     using FieldView_t = ForeachCell::CellArray_global_ghosted;
 
@@ -26,7 +30,8 @@ public:
     /***
      * @brief Return a CellArray_global_ghosted::Shape_t instance 
      * with the same size as all fields in current UserData_fields
-     * UserData_fields must have at least on active field
+     * UserData_fields must have at least one active field
+     * WARNING : resulting shape doesn't account for intermediates
      ***/
     const FieldView_t::Shape_t getShape() const
     {
@@ -36,17 +41,50 @@ public:
 
     void extend_fields( )
     {
+        int nbOcts = this->foreach_cell.get_amr_mesh().getNumOctants();
+        int nbGhosts = this->foreach_cell.get_amr_mesh().getNumGhosts();
+        extend_fields_aux(foreach_cell, fields, nbOcts, nbGhosts, max_field_count);
+    }
+
+    static void initialise_new_aux(FieldView_t& fields, const int index)
+    {
+        const auto& U = fields.U;
+        const uint32_t extent_0 = U.extent(0);
+        const uint32_t extent_2 = U.extent(2);
+
+        Kokkos::parallel_for( "zero_new_field", Kokkos::RangePolicy<>(0, extent_0*extent_2),
+            KOKKOS_LAMBDA( const uint32_t i )
+        {
+            const uint32_t iCell = i%extent_0;
+            const uint32_t iOct  = i/extent_0;
+            U(iCell, index, iOct) = 0;
+        });
+        
+        const auto& Ughost = fields.Ughost;
+        const uint32_t extent_0_ghost = Ughost.extent(0);
+        const uint32_t extent_2_ghost = Ughost.extent(2);
+        Kokkos::parallel_for( "zero_new_field_ghost", Kokkos::RangePolicy<>(0, extent_0_ghost*extent_2_ghost),
+            KOKKOS_LAMBDA( const uint32_t i )
+        {
+            const uint32_t iCell = i%extent_0_ghost;
+            const uint32_t iOct  = i/extent_0_ghost;
+            Ughost(iCell, index, iOct) = 0;
+        });
+    }
+
+    static void extend_fields_aux( ForeachCell& foreach_cell, FieldView_t& fields, uint32_t nbOcts, uint32_t nbGhosts, uint32_t max_field_count )
+    {
+        int allocated_field_count = fields.nbfields();
         FieldView_t::Shape_t shape{
           .bx = foreach_cell.blockSize()[IX],
           .by = foreach_cell.blockSize()[IY],
           .bz = foreach_cell.blockSize()[IZ],
-          .nbFields = (uint32_t)max_field_count,
-          .nbOcts = foreach_cell.get_amr_mesh().getNumOctants(),
-          .nbGhosts = foreach_cell.get_amr_mesh().getNumGhosts(),
+          .nbFields = max_field_count,
+          .nbOcts = nbOcts,
+          .nbGhosts = nbGhosts,
         };
         FieldView_t fields_new( "UserData_fields", shape );
         
-        int allocated_field_count = fields.nbfields();
         if( allocated_field_count != 0 )
         {
             Kokkos::deep_copy( 
@@ -61,30 +99,32 @@ public:
         fields = fields_new;
     }
 
-    /**
-     * Add new fields with unique identifiers 
-     * names should not be already present
-     **/
-    void new_fields( const std::set<std::string>& names)
+    static void new_fields_aux( const std::set<std::string>& names,
+                                const size_t nbOcts,
+                                const size_t nbGhosts,
+                                int& max_field_count,
+                                std::map<std::string, field_index_t>& field_index,
+                                FieldView_t& fields,
+                                ForeachCell& foreach_cell)
     {
-        if( this->nbFields() != 0 )
+        if( field_index.size() != 0 )
         {
-            DYABLO_ASSERT_HOST_RELEASE( fields.U.extent(2) == foreach_cell.get_amr_mesh().getNumOctants(), "UserData_fields internal error : mismatch between allocated size and octant count" );
-            DYABLO_ASSERT_HOST_RELEASE( fields.Ughost.extent(2) == foreach_cell.get_amr_mesh().getNumGhosts(), "UserData_fields internal error : mismatch between allocated size and ghost octant count" );
+            DYABLO_ASSERT_HOST_RELEASE( fields.U.extent(2) == nbOcts, "UserData_fields internal error : mismatch between allocated size and octant count" );
+            DYABLO_ASSERT_HOST_RELEASE( fields.Ughost.extent(2) == nbGhosts, "UserData_fields internal error : mismatch between allocated size and ghost octant count" );
         }
         
-        int needed_field_count = nbFields() + names.size();
-        this->max_field_count = std::max( this->max_field_count, needed_field_count );
+        int needed_field_count = field_index.size() + names.size();
+        max_field_count = std::max( max_field_count, needed_field_count );
         int allocated_field_count = fields.nbfields();
         if( needed_field_count > allocated_field_count )
         {   // Not enough fields : resize to add fields
             std::cout << "Reallocate : add fields " << allocated_field_count << " -> " << max_field_count << std::endl;
-            extend_fields();
+            extend_fields_aux(foreach_cell, fields, nbOcts, nbGhosts, max_field_count);
         }
 
         for( const std::string& name : names )
         {
-            if( this->has_field(name) )
+            if( 1 == field_index.count(name) )
                 throw std::runtime_error(std::string("UserData_fields::new_fields() - field already exists : ") + name);
             /// Find first free ivar in `fields` view
             auto first_free = [&]() -> int
@@ -105,29 +145,46 @@ public:
             
             int index = first_free();
             field_index[name].index = index;
-            const auto& U = fields.U;
-            Kokkos::parallel_for( "zero_new_field", U.extent(0)*U.extent(2),
-                KOKKOS_LAMBDA( uint32_t i )
-            {
-                uint32_t iCell = i%U.extent(0);
-                uint32_t iOct  = i/U.extent(0);
-                U(iCell, index, iOct) = 0;
-            });
-            const auto& Ughost = fields.Ughost;
-            Kokkos::parallel_for( "zero_new_field_ghost", Ughost.extent(0)*Ughost.extent(2),
-                KOKKOS_LAMBDA( uint32_t i )
-            {
-                uint32_t iCell = i%Ughost.extent(0);
-                uint32_t iOct  = i/Ughost.extent(0);
-                Ughost(iCell, index, iOct) = 0;
-            });
+            initialise_new_aux(fields, index);
         }
+    }
+
+    /**
+     * Add new fields with unique identifiers 
+     * names should not be already present
+     **/
+    void new_fields( const std::set<std::string>& names)
+    {
+        size_t nbOcts = this->foreach_cell.get_amr_mesh().getNumOctants();
+        size_t nbGhosts = this->foreach_cell.get_amr_mesh().getNumGhosts();
+        int& max_field_count = this->max_field_count;
+        std::map<std::string, field_index_t>& field_index = this->field_index;
+        FieldView_t& fields = this->fields;
+
+        new_fields_aux(names,nbOcts,nbGhosts,max_field_count,field_index,fields,this->foreach_cell);
+    }
+
+    void new_intermediate_fields( const std::set<std::string>& names)
+    {
+        size_t nbOcts = this->foreach_cell.get_amr_mesh().getNumIntermediates();
+        size_t nbGhosts = this->foreach_cell.get_amr_mesh().getNumIntermediateGhosts();
+        int& max_field_count = this->max_field_count_intermediate;
+        std::map<std::string, field_index_t>& field_index = this->field_index_intermediate;
+        FieldView_t& fields = this->fields_intermediate;
+
+        new_fields_aux(names,nbOcts,nbGhosts,max_field_count,field_index,fields,this->foreach_cell);
     }
 
     /// Check if field exists
     bool has_field(const std::string& name) const
     {
         return field_index.end() != field_index.find(name);
+    }
+
+    /// Check if field exists
+    bool has_intermediate_field(const std::string& name) const
+    {
+        return field_index_intermediate.end() != field_index_intermediate.find(name);
     }
 
     std::set<std::string> getEnabledFields() const
@@ -171,14 +228,26 @@ public:
         field_index.erase( name );
     }
 
+    void clear_intermediates()
+    {
+        this->fields_intermediate = FieldView_t(); // Reset intermediate fields
+        this->field_index_intermediate.clear(); // Clear the index
+    }
+
     /// Get the number of active fields in UserData_fields
     int nbFields() const
     {
         return field_index.size();
     }
 
+    int nbFields_intermediates()
+    {
+      return field_index_intermediate.size();
+    }
+
     void exchange_loadbalance( const ViewCommunicator& ghost_comm )
     {
+      DYABLO_ASSERT_HOST_RELEASE( 0 == nbFields_intermediates(), "UserData::exchange_loadbalance : Keeping intermediates between interations is not supported yet" );
       {  
         UserData::FieldAccessor fields_old = this->backup_and_realloc();
         int nb_fields = this->nbFields();
@@ -202,8 +271,15 @@ public:
       return UserData::FieldAccessor(*this, fields_info);
     }
 
+    UserData::FieldAccessor_fulltree getAccessor_fulltree( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
+    {
+      return UserData::FieldAccessor_fulltree(*this, fields_info);
+    }
+
     UserData::FieldAccessor backup_and_realloc()
     {
+      DYABLO_ASSERT_HOST_RELEASE( 0 == nbFields_intermediates(), "UserData::backup_and_realloc : Keeping intermediates between interations is not supported yet" );
+
       using FieldAccessor = UserData::FieldAccessor;
       std::vector<FieldAccessor::FieldInfo> all_fields;
       int i=0;
@@ -230,12 +306,12 @@ public:
 //private:
     ForeachCell& foreach_cell;
     FieldView_t fields;
-    struct field_index_t
-    {
-        int index;
-    };
     std::map<std::string, field_index_t> field_index;
     int max_field_count = 0;
+
+    FieldView_t fields_intermediate;
+    std::map<std::string, field_index_t> field_index_intermediate;
+    int max_field_count_intermediate = 0;
 };
 
 } //namespace UserData_Impl
@@ -264,6 +340,11 @@ void UserData::new_fields( const std::set<std::string>& names)
   this->fields.pdata->new_fields(names);
 }
 
+void UserData::new_intermediate_fields( const std::set<std::string>& names)
+{
+  this->fields.pdata->new_intermediate_fields(names);
+}
+
 bool UserData::has_field(const std::string& name) const
 {
   return this->fields.pdata->has_field(name);
@@ -287,6 +368,11 @@ void UserData::move_field( const std::string& dest, const std::string& src )
 void UserData::delete_field( const std::string& name )
 {
   this->fields.pdata->delete_field(name);
+}
+
+void UserData::clear_intermediates()
+{
+  this->fields.pdata->clear_intermediates();
 }
 
 void UserData::exchange_loadbalance( const ViewCommunicator& ghost_comm )
@@ -314,9 +400,20 @@ UserData::FieldAccessor UserData::getAccessor( const std::vector<UserData::Field
   return this->fields.pdata->getAccessor(fields_info);
 }
 
+UserData::FieldAccessor_fulltree UserData::getAccessor_fulltree( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
+{
+  return this->fields.pdata->getAccessor_fulltree(fields_info);
+}
+
+[[deprecated]] UserData::FieldAccessor_fulltree UserData::getAccessor_intermediates( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
+{
+  return getAccessor_fulltree(fields_info);
+}
+
 namespace UserData_Impl {
 
-UserData_FieldAccessor::UserData_FieldAccessor(const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info)
+template<bool has_intermediates>
+UserData_FieldAccessor_impl<has_intermediates>::UserData_FieldAccessor_impl(const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info)
 : fields(user_data.fields)
 {
     DYABLO_ASSERT_HOST_RELEASE( fields_info.size() > 0, "fields_info cannot be empty" );
@@ -358,7 +455,35 @@ UserData_FieldAccessor::UserData_FieldAccessor(const UserData_Fields_Pdata& user
     }
     Kokkos::deep_copy( this->var_to_arrayindex, var_to_arrayindex_host );
     Kokkos::deep_copy( this->ivar_to_arrayindex, this->ivar_to_arrayindex_host );
+
+    if( has_intermediates )
+    {
+      this->var_to_arrayindex_intermediates = Kokkos::View<int*>( "varindex_to_viewindex_intermediates", max_varindex+1 );
+      this->ivar_to_arrayindex_intermediates = Kokkos::View<int*>( "ivar_to_viewindex_intermediates", fields_info.size() );
+      auto var_to_arrayindex_host_intermediates = Kokkos::create_mirror_view( this->var_to_arrayindex_intermediates );
+      this->ivar_to_arrayindex_host_intermediates = Kokkos::create_mirror_view( this->ivar_to_arrayindex_intermediates );
+      for(size_t i=0; i<var_to_arrayindex_host_intermediates.size(); i++)
+          var_to_arrayindex_host_intermediates(i) = -1;
+
+      int i=0; 
+      for( const FieldInfo& info : fields_info )
+      {
+          DYABLO_ASSERT_HOST_RELEASE( user_data.has_intermediate_field(info.name), 
+                                      unknown_field_error(info.name) );
+          int index = user_data.field_index_intermediate.at(info.name).index;
+          var_to_arrayindex_host_intermediates(info.id) = index;
+          this->ivar_to_arrayindex_host_intermediates(i) = index;
+          i++;
+      }
+      Kokkos::deep_copy( this->var_to_arrayindex_intermediates, var_to_arrayindex_host_intermediates );
+      Kokkos::deep_copy( this->ivar_to_arrayindex_intermediates, this->ivar_to_arrayindex_host_intermediates );
+    
+      this->fields_intermediates = user_data.fields_intermediate;
+    }
 }
+
+template class UserData_FieldAccessor_impl<true>;
+template class UserData_FieldAccessor_impl<false>;
 
 } // namespace UserData_Impl
 } // namespace dyablo

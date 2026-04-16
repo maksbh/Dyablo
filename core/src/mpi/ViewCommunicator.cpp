@@ -80,7 +80,22 @@ void ViewCommunicator::private_init_map( const Kokkos::View< uint32_t* > send_si
     for(int i=0; i<nb_proc; i++)
       this->nbghosts_recv += recv_sizes_host(i);
   }
+}
 
+void ViewCommunicator::private_init_map_with_recv_sizes( const Kokkos::View< uint32_t* > send_sizes, const Kokkos::View< uint32_t* > send_iOcts, const Kokkos::View< uint32_t* > recv_sizes )
+{
+  this->send_sizes = send_sizes;
+  this->send_iOcts = send_iOcts;
+  this->send_sizes_host = Kokkos::create_mirror_view( this->send_sizes );
+  Kokkos::deep_copy( this->send_sizes_host, this->send_sizes );
+
+  this->recv_sizes = recv_sizes;
+  this->recv_sizes_host = Kokkos::create_mirror_view( this->recv_sizes );
+  Kokkos::deep_copy( this->recv_sizes_host, this->recv_sizes );
+
+  this->nbghosts_recv = 0;
+  for( int i=0; i<recv_sizes_host.size(); i++ )
+    this->nbghosts_recv += recv_sizes_host(i);
 }
 
 ViewCommunicator::ViewCommunicator( const std::map<int, std::vector<uint32_t>>& ghost_map, const MpiComm& mpi_comm )

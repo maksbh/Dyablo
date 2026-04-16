@@ -169,6 +169,7 @@ public:
   using CellArray_global_ghosted = AMRBlockForeachCell_CellArray_impl::CellArray_global_ghosted;
   using SearchMode_local = AMRBlockForeachCell_CellArray_impl::SearchMode_local;
   using SearchMode_neighbor = AMRBlockForeachCell_CellArray_impl::SearchMode_neighbor;
+  using SearchMode_intermediates = AMRBlockForeachCell_CellArray_impl::SearchMode_intermediates;
   using CellMetaData = AMRBlockForeachCell_CellMetaData;
   friend CellMetaData;
 
@@ -302,35 +303,106 @@ public:
     patchmanager.foreach_patch(kernel_name, f);
   }
 
-  template<bool ghosts>
+
+  template<bool _leaves_local, bool _leaves_ghost, bool _intermediates_local, bool _intermediates_ghost>
   class IterationSpace_fullArray_impl
   {
   private:
-    uint32_t _bx, _by, _bz, nbOcts;
+    CellArray_shape shape;
+    KOKKOS_INLINE_FUNCTION
+    uint32_t nbOcts() const 
+    {return _leaves_local ? shape.nbOcts : 0;}
+    KOKKOS_INLINE_FUNCTION
+    uint32_t nbGhosts() const 
+    {return _leaves_ghost ? shape.nbGhosts : 0;};
+    KOKKOS_INLINE_FUNCTION
+    uint32_t nbIntermediateOcts() const 
+    {return _intermediates_local ? shape.nbIntermediateOcts : 0;};
+    KOKKOS_INLINE_FUNCTION
+    uint32_t nbIntermediateGhosts() const 
+    {return _intermediates_ghost ? shape.nbIntermediateGhosts : 0;};
   public:
     IterationSpace_fullArray_impl(const CellArray_shape& iter_space)
-    : _bx(iter_space.bx),_by(iter_space.by),_bz(iter_space.bz),nbOcts(ghosts?iter_space.nbGhosts:iter_space.nbOcts)
+    : shape(iter_space) 
     {}
 
     KOKKOS_INLINE_FUNCTION
-    uint32_t bx() const         { return _bx; }
+    uint32_t bx() const         { return shape.bx; }
     KOKKOS_INLINE_FUNCTION
-    uint32_t by() const         { return _by; }
+    uint32_t by() const         { return shape.by; }
     KOKKOS_INLINE_FUNCTION
-    uint32_t bz() const         { return _bz; }
+    uint32_t bz() const         { return shape.bz; }
 
     KOKKOS_INLINE_FUNCTION
-    uint32_t iOct_count() const { return nbOcts;}
+    uint32_t iOct_count() const { return nbOcts() + nbGhosts() + nbIntermediateOcts() + nbIntermediateGhosts(); }
 
     KOKKOS_INLINE_FUNCTION
-    CellIndex getCellIndex(uint32_t iOct, uint32_t i, uint32_t j, uint32_t k) const
+    CellIndex getCellIndex(uint32_t iOct_in, uint32_t i, uint32_t j, uint32_t k) const
     {
-      CellIndex iCell = {{iOct,ghosts}, i, j, k, bx(), by(), bz()};
-      return iCell;
+      using OctantIndex = LightOctree::OctantIndex;
+      DYABLO_ASSERT_KOKKOS_DEBUG( iOct_in < iOct_count(), "iOct_in out of range" );
+
+      if constexpr (_leaves_local)
+      {
+        if( iOct_in < nbOcts() )
+        {
+          return CellIndex{
+            OctantIndex{
+              .iOct = iOct_in,
+              .isGhost=false,
+              .isIntermediate=false,
+            }, 
+            i, j, k, bx(), by(), bz()};
+        }
+      }
+      if constexpr (_leaves_ghost)
+      {
+        if( iOct_in >= nbOcts() 
+         && iOct_in < nbOcts()+nbGhosts() )
+        {
+          return CellIndex{
+            OctantIndex{
+              .iOct = iOct_in - nbOcts(),
+              .isGhost=true,
+              .isIntermediate=false,
+            }, 
+            i, j, k, bx(), by(), bz()};
+        }
+      }
+      if constexpr (_intermediates_local)
+      {
+        if( iOct_in >= nbOcts()+nbGhosts() 
+         && iOct_in < nbOcts()+nbGhosts()+nbIntermediateOcts() )
+        {
+          return CellIndex{
+            OctantIndex{
+              .iOct = iOct_in - nbOcts() - nbGhosts(),
+              .isGhost=false,
+              .isIntermediate=true,
+            }, 
+            i, j, k, bx(), by(), bz()};
+        }
+      }
+      if constexpr (_intermediates_ghost)
+      {
+        if( iOct_in >= nbOcts()+nbGhosts()+nbIntermediateOcts()
+         && iOct_in < nbOcts()+nbGhosts()+nbIntermediateOcts()+nbIntermediateGhosts() )
+        {
+          return CellIndex{
+            OctantIndex{
+              .iOct = iOct_in - nbOcts() - nbGhosts() - nbIntermediateOcts(),
+              .isGhost=true,
+              .isIntermediate=true,
+            }, 
+            i, j, k, bx(), by(), bz()};
+        }
+      }
+
+      return CellIndex{};
     }
   };
-  using IterationSpace_fullArray = IterationSpace_fullArray_impl<false>;
-  using IterationSpace_fullArray_ghost = IterationSpace_fullArray_impl<true>;
+  using IterationSpace_fullArray = IterationSpace_fullArray_impl<true, false, false, false>;
+  using IterationSpace_fullArray_ghost = IterationSpace_fullArray_impl<false, true, false, false>;
 
   /**
    * Same as a single foreach_cell inside foreach_patch with no temporaries

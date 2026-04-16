@@ -270,8 +270,7 @@ public:
 
         // Todo : Find this from input data ?
         const Kokkos::Array<uint32_t,3>& coarse_grid_size {old_cor_x, old_cor_y, old_cor_z};
-        LightOctree_storage<> lmesh_storage( ndim, nbCells_local, nbCells_ghost, old_lmin, coarse_grid_size ); 
-
+        LightOctree_storage<> lmesh_storage( ndim, nbCells_local, nbCells_ghost, 0, 0, old_lmin, coarse_grid_size ); 
 
         Kokkos::deep_copy( lmesh_storage.getLocalSubview(), lmesh_data );
 

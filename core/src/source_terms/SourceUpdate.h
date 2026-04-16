@@ -5,6 +5,7 @@
 template<>
 inline bool dyablo::SourceUpdateFactory::init()
 {
+  dyablo::load_dyablo_plugins_lib();
   return true;
 }
 

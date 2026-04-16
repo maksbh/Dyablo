@@ -150,3 +150,7 @@ dyablo_add_test(utest_Restart ON
 dyablo_add_test(utest_UserData ON
   block_data/test_UserData.cpp
   main.cpp)
+
+dyablo_add_test(utest_FullTree ON
+  block_data/test_FullTree.cpp
+  main.cpp)
