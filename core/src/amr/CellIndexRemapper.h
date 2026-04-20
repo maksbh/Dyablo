@@ -95,9 +95,9 @@ public:
       int8_t j_oct_offset = (iCell_new.j > (iCell_new.by-1)/2);
       int8_t k_oct_offset = (iCell_new.k > (iCell_new.bz-1)/2);
       // Get Suboctant index 
-      auto oct_neighbors = lmesh_old.findNeighbors( iOct_old, {i_oct_offset, j_oct_offset, k_oct_offset} );
-      DYABLO_ASSERT_KOKKOS_DEBUG( oct_neighbors.size() == 1, "Siblings should be same size when coarsening" );
-      OctantIndex iOct_old_smaller = oct_neighbors[0];
+      DYABLO_ASSERT_KOKKOS_DEBUG( !lmesh_old.isBoundary(iOct_old, {i_oct_offset, j_oct_offset, k_oct_offset}), "Siblings should be inside the domain" );
+      OctantIndex iOct_old_smaller = lmesh_old.findNeighbor( iOct_old, {i_oct_offset, j_oct_offset, k_oct_offset} );
+      DYABLO_ASSERT_KOKKOS_DEBUG( lmesh_old.getLevel(iOct_old) == lmesh_old.getLevel(iOct_old_smaller), "Siblings should be same size when coarsening" );
 
       // Compute position in suboctant
       uint32_t i_smaller = iCell_new.i*2 - i_oct_offset*iCell_new.bx;

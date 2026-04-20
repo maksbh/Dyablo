@@ -90,9 +90,9 @@ void MapUserData_base::remap( UserData& user_data )
         for( int8_t dy=0; dy<=1; dy++ )
         for( int8_t dx=0; dx<=1; dx++ )
         {
-          auto ns = lmesh_old.findNeighbors(iOct_old, {dx,dy,dz});
-          DYABLO_ASSERT_KOKKOS_DEBUG( ns.size() == 1, "Sibling not found" );
-          auto iOct_old_n = ns[0];
+          DYABLO_ASSERT_KOKKOS_DEBUG( !lmesh_old.isBoundary(iOct_old, {dx,dy,dz}), "Sibling should be inside domain" )
+
+          OctantIndex iOct_old_n = lmesh_old.findNeighbor(iOct_old, {dx,dy,dz});
           if( iOct_old_n.isGhost ) 
           {
             coarsened_ghosts( count ) = iOct_old_n.iOct;

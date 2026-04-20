@@ -1127,12 +1127,14 @@ void AMRmesh::adapt()
         for(int x=0; x<2; x++)
         if( x!=0 || y!=0 || z!=0 )
         {
-          auto ns = lmesh.findNeighbors({iOct, false},{(int8_t)(sx*x),(int8_t)(sy*y),(int8_t)(sz*z)});
-          DYABLO_ASSERT_KOKKOS_DEBUG(ns.size()>0, "Siblings can't be outside domain");
-          level_t level_siblings = lmesh.getLevel( ns[0] );
+          LightOctree::offset_t offset = {(int8_t)(sx*x),(int8_t)(sy*y),(int8_t)(sz*z)};
+          DYABLO_ASSERT_KOKKOS_DEBUG(!lmesh.isBoundary({iOct, false}, offset), "Siblings can't be outside domain");
+
+          OctantIndex iOct_n = lmesh.findNeighbor({iOct, false},offset);
+          level_t level_siblings = lmesh.getLevel( iOct_n );
           DYABLO_ASSERT_KOKKOS_DEBUG( level_siblings >= level_current, "Siblings cannot be coarser");
 
-          int marker_siblings = getMarker( ns[0] );
+          int marker_siblings = getMarker( iOct_n );
           // Cancel coarsening if siblings cannot be coarsened enough
           if( level_current+marker_current < level_siblings+marker_siblings )
             marker_current = 0;

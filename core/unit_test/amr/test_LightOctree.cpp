@@ -160,8 +160,8 @@ void run_test()
         int8_t x = (i-3*y); 
         LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),0};
 
-        LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
-        actual_neighbors(y,x) = ns[0].iOct;
+        LightOctree::OctantIndex iOct_n = mesh.findNeighbor( {ioct,false}, offset );
+        actual_neighbors(y,x) = iOct_n.iOct;
       } );
       std::cout << "[DONE]" << std::endl;
       Kokkos::View<real_t[3][3]>::host_mirror_type actual_neighbors_host("2D::actual_neighbors_host");
@@ -325,8 +325,8 @@ void run_test()
         int8_t x = (i-3*y-3*3*z); 
         LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),(int8_t)(z-1)};
 
-        LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
-        actual_neighbors(z,y,x) = ns[0].iOct;
+        LightOctree::OctantIndex iOct_n = mesh.findNeighbor( {ioct,false}, offset );
+        actual_neighbors(z,y,x) = iOct_n.iOct;
       } );
       std::cout << "[DONE]" << std::endl;
       Kokkos::View<real_t[3][3][3]>::host_mirror_type actual_neighbors_host("2D::actual_neighbors_host");

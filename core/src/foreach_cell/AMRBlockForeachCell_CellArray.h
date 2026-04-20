@@ -339,10 +339,11 @@ struct CellIndex
         }
         else //constexpr if( std::is_same_v<SearchMode, SearchMode_neighbor>  )
         {
-          LightOctree::NeighborList oct_neighbors = lmesh.findNeighbors(iOct, oct_offset);
-          DYABLO_ASSERT_KOKKOS_DEBUG( oct_neighbors.size() != 0, "Could not find neighbor" );
+          DYABLO_ASSERT_KOKKOS_DEBUG( !lmesh.isBoundary(iOct, oct_offset), "Should not be boundary here" );
 
-          int level_diff = lmesh.getLevel(iOct) - lmesh.getLevel(oct_neighbors[0]);
+          LightOctree::OctantIndex iOct_neighbor = lmesh.findNeighbor(iOct, oct_offset);
+
+          int level_diff = lmesh.getLevel(iOct) - lmesh.getLevel(iOct_neighbor);
           
           // Compute position of cell in neighbor when neighbor is same size;
           uint32_t i_same = i - oct_offset[IX] * bx;
@@ -355,7 +356,7 @@ struct CellIndex
             DYABLO_ASSERT_KOKKOS_DEBUG(j_same<by, "internal error : j out of block bounds");
             DYABLO_ASSERT_KOKKOS_DEBUG(k_same<bz, "internal error : k out of block bounds");
             return CellIndex{
-              oct_neighbors[0],
+              iOct_neighbor,
               i_same, j_same, k_same,
               bx, by, bz,
               CellIndex::SAME_SIZE
@@ -390,7 +391,7 @@ struct CellIndex
             DYABLO_ASSERT_KOKKOS_DEBUG(k_larger<bz, "internal error : k out of block bounds");
 
             CellIndex res{
-              oct_neighbors[0], 
+              iOct_neighbor, 
               i_larger, j_larger, k_larger,
               bx, by, bz,
               CellIndex::BIGGER
@@ -442,6 +443,7 @@ struct CellIndex
               current_oct_center[IZ] + oct_offset[IZ] * current_oct_size[IZ] 
             };
             int suboctant = -1;
+            LightOctree::NeighborList oct_neighbors = lmesh.findNeighbors(iOct, oct_offset);
             for( size_t i=0; i<oct_neighbors.size(); i++ )
             {
               LightOctree::pos_t neighbor_suboct_center = lmesh.getCenter(oct_neighbors[i]);
