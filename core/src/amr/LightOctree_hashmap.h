@@ -404,7 +404,7 @@ public:
     using oct_ref_t = OctantIndex; //! value type for the hashmap
     using oct_map_t = Kokkos::UnorderedMap<key_t, oct_ref_t>; //! hashmap returning an octant form a key
 
-private:
+protected:
     Storage_t storage;
     
     oct_map_t oct_map; //! hashmap returning an octant form a key

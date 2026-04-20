@@ -23,6 +23,7 @@ static LightOctree_base::offset_t index_to_offset(uint32_t index, uint32_t ndims
 } // namespace
 
 inline void LightOctree_hashmap_precompute_init( const LightOctree_hashmap& lmesh_hashmap, 
+    const LightOctree_hashmap::Storage_t& storage,
     Kokkos::View< uint8_t**, Kokkos::LayoutLeft >& neighbors_count, 
     Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbors_offset,
     Kokkos::View< uint32_t* >& neighbors_iOct, 
@@ -68,7 +69,7 @@ inline void LightOctree_hashmap_precompute_init( const LightOctree_hashmap& lmes
                 neighbors_offset(iOct, offset_index) = iOct_offset;
                 for(int i=0; i<nneighbors; i++)
                 {
-                    neighbors_iOct(iOct_offset+i) = LightOctree_base::OctantIndex::OctantIndex_to_iOctLocal(ns[i], nbOcts);
+                    neighbors_iOct(iOct_offset+i) = storage.OctantIndex_to_iOctLocal(ns[i]);
                 }                
             }
             iOct_offset += nneighbors;
@@ -86,7 +87,7 @@ public:
     LightOctree_hashmap_precompute( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
     : LightOctree_hashmap(pmesh, level_min, level_max)
     {
-        LightOctree_hashmap_precompute_init(*this, neighbors_count, neighbors_offset, neighbors_iOct, getNdim());
+        LightOctree_hashmap_precompute_init(*this, this->storage, neighbors_count, neighbors_offset, neighbors_iOct, getNdim());
     }
     
     //! @copydoc LightOctree_base::findNeighbors()
@@ -105,7 +106,7 @@ public:
             Kokkos::Array<OctantIndex,4> neighbors;
             for( int i=0; i<nneighbors; i++ )
             {
-                neighbors[i] = LightOctree_base::OctantIndex::iOctLocal_to_OctantIndex( neighbors_iOct( n_offset + i ), getNumOctants() );
+                neighbors[i] = storage.iOctLocal_to_OctantIndex( neighbors_iOct( n_offset + i ) );
             }
             
             DYABLO_ASSERT_KOKKOS_DEBUG( nneighbors == LightOctree_hashmap::findNeighbors(iOct, offset).size(), "Precomputed neighbor count mismatch" );
