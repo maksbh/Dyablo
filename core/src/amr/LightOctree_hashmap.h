@@ -187,6 +187,7 @@ public:
     }
 
     //! @copydoc LightOctree_base::findNeighbors()
+    [[deprecated]]
     KOKKOS_INLINE_FUNCTION 
     NeighborList findNeighbors( const OctantIndex& iOct, const offset_t& offset )  const
     {
