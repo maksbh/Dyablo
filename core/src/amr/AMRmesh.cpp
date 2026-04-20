@@ -1070,9 +1070,9 @@ void AMRmesh::adapt()
   int mpi_size = mpi_comm.MPI_Comm_size();
   level_t level_max = pdata->level_max;
 
-  using OctantIndex = LightOctree_hashmap::OctantIndex;
+  using OctantIndex = LightOctree::OctantIndex;
 
-  LightOctree_hashmap lmesh(this, pdata->level_min, pdata->level_max);
+  LightOctree lmesh(this, pdata->level_min, pdata->level_max);
   LightOctree_storage<> old_storage_device = this->getStorage().deep_copy<LightOctree_storage<>::MemorySpace>();
 
   int ndim = lmesh.getNdim();
