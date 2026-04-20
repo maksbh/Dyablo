@@ -442,11 +442,14 @@ struct CellIndex
               current_oct_center[IY] + oct_offset[IY] * current_oct_size[IY], 
               current_oct_center[IZ] + oct_offset[IZ] * current_oct_size[IZ] 
             };
-            int suboctant = -1;
-            LightOctree::NeighborList oct_neighbors = lmesh.findNeighbors(iOct, oct_offset);
-            for( size_t i=0; i<oct_neighbors.size(); i++ )
+
+            bool found = false;
+            LightOctree::OctantIndex suboctant;
+
+            LightOctree_tools::foreach_neighbor_octant( lmesh, iOct, iOct_neighbor, oct_offset,
+              [&]( const LightOctree::OctantIndex& iOct_neighbor_i )
             {
-              LightOctree::pos_t neighbor_suboct_center = lmesh.getCenter(oct_neighbors[i]);
+              LightOctree::pos_t neighbor_suboct_center = lmesh.getCenter(iOct_neighbor_i);
               // Compute position of suboctant in bigger neighbor octant
               int this_suboctant_x = neighbor_suboct_center[IX] > neighbor_superoct_center[IX];
               int this_suboctant_y = neighbor_suboct_center[IY] > neighbor_superoct_center[IY];
@@ -455,15 +458,15 @@ struct CellIndex
               // Match suboctant with suboctant containing first neighbor cell
               if( suboctant_x == this_suboctant_x && suboctant_y == this_suboctant_y && suboctant_z == this_suboctant_z )
               {
-                suboctant = i;
-                break;
+                suboctant = iOct_neighbor_i;
+                found = true;
               }
-            }
+            });
 
-            DYABLO_ASSERT_KOKKOS_DEBUG( suboctant != -1, "smaller neighbor : corresponding suboctant not found" );
+            DYABLO_ASSERT_KOKKOS_DEBUG( found, "smaller neighbor : corresponding suboctant not found" );
 
             return CellIndex{
-              oct_neighbors[suboctant], 
+              suboctant, 
               (uint32_t)i_smaller, (uint32_t)j_smaller, (uint32_t)k_smaller,
               bx, by, bz,
               CellIndex::SMALLER};

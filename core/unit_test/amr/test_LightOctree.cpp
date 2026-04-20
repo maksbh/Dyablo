@@ -508,11 +508,19 @@ void test_perf()
 
         if(neigh[IX]==0 && neigh[IY]==0 && neigh[IZ]==0) return;
 
-        LightOctree_t::NeighborList ns = lmesh.findNeighbors({iOct,false}, neigh);
-        neighbors_view(iOct, 0) = ns.size();
-        for(int k=0; k<ns.size(); k++)
+        LightOctree_t::OctantIndex iOct_c = {iOct, false};
+        if( !lmesh.isBoundary( {iOct, false}, neigh ) )
         {
-          neighbors_view(iOct, k+1) = ns[k].iOct;
+          LightOctree_t::OctantIndex iOct_neighbor = lmesh.findNeighbor( iOct_c, neigh );
+          int k = 0;
+          int count = dyablo::LightOctree_tools::foreach_neighbor_octant( lmesh, iOct_c, iOct_neighbor, neigh,
+            [&]( const LightOctree_t::OctantIndex& iOct_neighbor_i )
+          {
+            neighbors_view(iOct, k+1) = iOct_neighbor_i.iOct;
+            k++;
+          });
+          EXPECT_EQ( k, count );
+          neighbors_view(iOct, 0) = count;
         }
       }
     }); 

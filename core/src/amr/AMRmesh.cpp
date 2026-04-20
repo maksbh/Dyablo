@@ -1139,7 +1139,9 @@ void AMRmesh::adapt()
           if( level_current+marker_current < level_siblings+marker_siblings )
             marker_current = 0;
         }
-      }          
+      }   
+      
+      OctantIndex iOct_c = {iOct,false};
 
       // Check neighborhood for 2:1 violations
       int nz_max = ndim == 2? 0:1;
@@ -1148,17 +1150,21 @@ void AMRmesh::adapt()
       for( int8_t nx=-1; nx<=1; nx++ )
       if( nx!=0 || ny!=0 || nz!=0 )
       {
-        auto ns = lmesh.findNeighbors({iOct,false}, {nx,ny,nz});
-        for(int n=0; n<ns.size(); n++)
+        if( !lmesh.isBoundary({iOct,false}, {nx,ny,nz}) )
         {
-          level_t level_neighbor = lmesh.getLevel(ns[n]);
-          int maker_neighbor = getMarker( ns[n] );
-          // If current marker violates 2:1 (too coarse compared to neighbors)
-          if( level_current+marker_current < level_neighbor+maker_neighbor-1 )
+          OctantIndex iOct_neighbor = lmesh.findNeighbor(iOct_c, {nx,ny,nz});
+          LightOctree_tools::foreach_neighbor_octant( lmesh, iOct_c, iOct_neighbor, {nx,ny,nz},
+              [&]( const LightOctree::OctantIndex& iOct_neighbor_i )
           {
-            // Set to smallest compatible marker
-            marker_current = (level_neighbor-level_current)+maker_neighbor-1;
-          }
+            level_t level_neighbor = lmesh.getLevel(iOct_neighbor_i);
+            int maker_neighbor = getMarker( iOct_neighbor_i );
+            // If current marker violates 2:1 (too coarse compared to neighbors)
+            if( level_current+marker_current < level_neighbor+maker_neighbor-1 )
+            {
+              // Set to smallest compatible marker
+              marker_current = (level_neighbor-level_current)+maker_neighbor-1;
+            }
+          });
         }
       }
 
