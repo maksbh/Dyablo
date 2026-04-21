@@ -60,9 +60,12 @@ inline void LightOctree_hashmap_precompute_init(
         LightOctree_base::OctantIndex iOct = iOctLocal_to_OctantIndex(iOct_local, nbOcts);
         LightOctree_base::offset_t offset = index_to_offset(neighbor_id, ndims);
 
-        LightOctree_base::OctantIndex iOct_neighbor_leaves = lmesh_hashmap.findNeighbor( iOct, offset );
-        uint32_t iOct_local_neighbor_leaves = OctantIndex_to_iOctLocal( iOct_neighbor_leaves, nbOcts );
-        neighbor_iOcts_leaves(iOct_local, neighbor_id) = iOct_local_neighbor_leaves;
+        if( !lmesh_hashmap.isBoundary( iOct, offset ) )
+        {
+            LightOctree_base::OctantIndex iOct_neighbor_leaves = lmesh_hashmap.findNeighbor( iOct, offset );
+            uint32_t iOct_local_neighbor_leaves = OctantIndex_to_iOctLocal( iOct_neighbor_leaves, nbOcts );
+            neighbor_iOcts_leaves(iOct_local, neighbor_id) = iOct_local_neighbor_leaves;
+        }
     });
 
     uint32_t nbOcts_total = (nbOcts+nbIntermediates);
@@ -75,9 +78,12 @@ inline void LightOctree_hashmap_precompute_init(
         LightOctree_base::OctantIndex iOct = iOctLocal_to_OctantIndex(iOct_local, nbOcts);
         LightOctree_base::offset_t offset = index_to_offset(neighbor_id, ndims);
 
-        LightOctree_base::OctantIndex iOct_neighbor_intermediates = lmesh_hashmap.findNeighbor_intermediate( iOct, offset );
-        uint32_t iOct_local_neighbor_intermediates = OctantIndex_to_iOctLocal( iOct_neighbor_intermediates, nbOcts );
-        neighbor_iOcts_intermediates(iOct_local, neighbor_id) = iOct_local_neighbor_intermediates;
+        if( !lmesh_hashmap.isBoundary( iOct, offset ) )
+        {
+            LightOctree_base::OctantIndex iOct_neighbor_intermediates = lmesh_hashmap.findNeighbor_intermediate( iOct, offset );
+            uint32_t iOct_local_neighbor_intermediates = OctantIndex_to_iOctLocal( iOct_neighbor_intermediates, nbOcts );
+            neighbor_iOcts_intermediates(iOct_local, neighbor_id) = iOct_local_neighbor_intermediates;
+        }
     });
 }
 
