@@ -168,7 +168,7 @@ void run_test(const Test_data& test_data)
 
   // Verify 2:1 balance
   {
-    dyablo::LightOctree_hashmap lmesh( &amr_mesh, amr_mesh.get_level_min(), amr_mesh.get_level_max() );
+    dyablo::LightOctree lmesh( &amr_mesh, amr_mesh.get_level_min(), amr_mesh.get_level_max() );
 
     int error_count = 0;
     Kokkos::parallel_reduce( "Check 2:1", nbOcts,
