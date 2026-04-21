@@ -443,7 +443,7 @@ struct CellIndex
               current_oct_center[IZ] + oct_offset[IZ] * current_oct_size[IZ] 
             };
 
-            bool found = false;
+            [[maybe_unused]] bool found = false;
             LightOctree::OctantIndex suboctant;
 
             LightOctree_tools::foreach_neighbor_octant( lmesh, iOct, iOct_neighbor, oct_offset,
