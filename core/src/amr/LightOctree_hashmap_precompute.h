@@ -111,7 +111,13 @@ public:
 
         //DYABLO_ASSERT_KOKKOS_DEBUG( !iOct.isGhost, "findNeighbor can't get neighbor of ghost octant" );
         if( iOct.isGhost )
-            return LightOctree_hashmap::findNeighbor( iOct, offset ); //Ghosts are only on demand because we don't have all their neighbors.
+        {   
+            //Ghosts are only on demand because we don't have all their neighbors.
+            if( has_intermediates )
+                return LightOctree_hashmap::findNeighbor_intermediate( iOct, offset );
+            else
+                return LightOctree_hashmap::findNeighbor( iOct, offset ); 
+        }
 
         uint32_t nbOcts = storage.getNumOctants();
 
