@@ -28,19 +28,21 @@ inline void LightOctree_hashmap_precompute_init(
     const LightOctree_hashmap::Storage_t& storage,
     Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbor_iOct_leaves,
     Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbor_iOct_intermediates,
-    Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbor_iOct_parents,
-    Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbor_iOct_children,
+    Kokkos::View< uint32_t*, Kokkos::LayoutLeft >& neighbor_iOct_parents,
+    Kokkos::View< uint32_t*, Kokkos::LayoutLeft >& neighbor_iOct_children,
     uint32_t ndims )
 {
     using OctantIndex = LightOctree_base::OctantIndex;
     using offset_t = LightOctree_base::offset_t;
 
     uint32_t nneighbors = (ndims==2) ? 3*3 : 3*3*3;
-    
-    auto precompute = [&](std::string name, uint32_t nbOcts_total, uint32_t nneighbors,
-                          const auto& generate_iOct,
-                          const auto& findNeighbor)
+    uint32_t nbOcts = storage.getNumOctants();
+    uint32_t nbIntermediates = storage.getNumIntermediates();
+    uint32_t level_min = storage.level_min;
+
     {
+        std::string name = "neighbor_iOct_leaves";
+        uint32_t nbOcts_total = nbOcts;
         Kokkos::View< uint32_t**, Kokkos::LayoutLeft > neighbor_iOcts(name, nbOcts_total, nneighbors );
         Kokkos::parallel_for( name+"::compute", nbOcts_total*nneighbors,
             KOKKOS_LAMBDA(uint32_t index)
@@ -48,69 +50,76 @@ inline void LightOctree_hashmap_precompute_init(
             uint32_t iOct_local = index%nbOcts_total;
             uint32_t neighbor_id = index/nbOcts_total;
 
-            LightOctree_base::OctantIndex iOct = generate_iOct(iOct_local);
-            LightOctree_base::offset_t offset = index_to_offset(neighbor_id, ndims);
+            OctantIndex iOct = OctantIndex{iOct_local};
+            offset_t offset = index_to_offset(neighbor_id, ndims);
 
-            OctantIndex iOct_neighbor = findNeighbor( iOct, offset );
-            uint32_t iOct_local_neighbor = storage.OctantIndex_to_iOctLocal( iOct_neighbor );
-            neighbor_iOcts(iOct_local, neighbor_id) = iOct_local_neighbor;
+            if( !lmesh_hashmap.isBoundary(iOct, offset) )
+            {
+                OctantIndex iOct_neighbor = lmesh_hashmap.findNeighbor( iOct, offset );
+                uint32_t iOct_local_neighbor = storage.OctantIndex_to_iOctLocal( iOct_neighbor );
+                neighbor_iOcts(iOct_local, neighbor_id) = iOct_local_neighbor;
+            }
         });
-        return neighbor_iOcts;
-    };
+        neighbor_iOct_leaves = neighbor_iOcts;
+    }
 
-    uint32_t nbOcts = storage.getNumOctants();
-    uint32_t nbIntermediates = storage.getNumIntermediates();
-    neighbor_iOct_leaves = precompute( "LightOctree_hashmap_precompute::neighbor_iOct_leaves", nbOcts, nneighbors, 
-        []( uint32_t i ){return OctantIndex{i};},
-        [&]( const OctantIndex& iOct, const offset_t& offset )
+    {
+        std::string name = "neighbor_iOct_intermediates";
+        uint32_t nbOcts_total = nbOcts+nbIntermediates;
+        Kokkos::View< uint32_t**, Kokkos::LayoutLeft > neighbor_iOcts(name, nbOcts_total, nneighbors );
+        Kokkos::parallel_for( name+"::compute", nbOcts_total*nneighbors,
+            KOKKOS_LAMBDA(uint32_t index)
         {
-            if(lmesh_hashmap.isBoundary( iOct, offset ))
-                return OctantIndex{};
-            else 
-                return lmesh_hashmap.findNeighbor(iOct, offset); 
-        } 
-    );
+            uint32_t iOct_local = index%nbOcts_total;
+            uint32_t neighbor_id = index/nbOcts_total;
 
-    neighbor_iOct_intermediates = precompute( "LightOctree_hashmap_precompute::neighbor_iOct_intermediates", nbOcts+nbIntermediates, nneighbors, 
-        [&]( uint32_t i )
-        {
-            if( i<nbOcts )
-                return OctantIndex{i};
-            else
-                return OctantIndex{i-nbOcts, false, true};
-        },
-        [&]( const OctantIndex& iOct, const offset_t& offset )
-        {
-            if(lmesh_hashmap.isBoundary( iOct, offset ))
-                return OctantIndex{};
-            else 
-                return lmesh_hashmap.findNeighbor_intermediate(iOct, offset); 
-        } 
-    );
+            OctantIndex iOct = ( iOct_local<nbOcts ) ? OctantIndex{iOct_local} : OctantIndex{iOct_local-nbOcts, false, true};
+            offset_t offset = index_to_offset(neighbor_id, ndims);
 
-    int level_min = storage.level_min;
-    neighbor_iOct_parents = precompute( "LightOctree_hashmap_precompute::neighbor_iOct_parents", nbOcts+nbIntermediates, 1, 
-        [&]( uint32_t i )
-        {
-            if( i<nbOcts )
-                return OctantIndex{i};
-            else
-                return OctantIndex{i-nbOcts, false, true};
-        },
-        [&]( const OctantIndex& iOct, const offset_t& offset )
-        {
-            if(lmesh_hashmap.getLevel( iOct ) == level_min)
-                return OctantIndex{};
-            else 
-                return lmesh_hashmap.findParent(iOct); 
-        } 
-    );
+            if( !lmesh_hashmap.isBoundary(iOct, offset) )
+            {
+                OctantIndex iOct_neighbor = lmesh_hashmap.findNeighbor_intermediate( iOct, offset );
+                uint32_t iOct_local_neighbor = storage.OctantIndex_to_iOctLocal( iOct_neighbor );
+                neighbor_iOcts(iOct_local, neighbor_id) = iOct_local_neighbor;
+            }
+        });
+        neighbor_iOct_intermediates = neighbor_iOcts;
+    }
 
-    neighbor_iOct_children = precompute( "LightOctree_hashmap_precompute::neighbor_iOct_children", nbIntermediates, 1, 
-        []( uint32_t i ){ return OctantIndex{i, false, true}; },
-        [&]( const OctantIndex& iOct, const offset_t& offset )
-        { return lmesh_hashmap.findChild(iOct, {0,0,0}); } 
-    );
+    {
+        std::string name = "neighbor_iOct_parents";
+        uint32_t nbOcts_total = nbOcts+nbIntermediates;
+        Kokkos::View< uint32_t*, Kokkos::LayoutLeft > neighbor_iOcts(name, nbOcts_total);
+        Kokkos::parallel_for( name+"::compute", nbOcts_total,
+            KOKKOS_LAMBDA(uint32_t iOct_local)
+        {
+            OctantIndex iOct = ( iOct_local<nbOcts ) ? OctantIndex{iOct_local} : OctantIndex{iOct_local-nbOcts, false, true};
+
+            if(lmesh_hashmap.getLevel( iOct ) > level_min)
+            {
+                OctantIndex iOct_neighbor = lmesh_hashmap.findParent( iOct );
+                uint32_t iOct_local_neighbor = storage.OctantIndex_to_iOctLocal( iOct_neighbor );
+                neighbor_iOcts(iOct_local) = iOct_local_neighbor;
+            }
+        });
+        neighbor_iOct_parents = neighbor_iOcts;
+    }
+
+    {
+        std::string name = "neighbor_iOct_children";
+        uint32_t nbOcts_total = nbIntermediates;
+        Kokkos::View< uint32_t*, Kokkos::LayoutLeft > neighbor_iOcts(name, nbOcts_total);
+        Kokkos::parallel_for( name+"::compute", nbOcts_total,
+            KOKKOS_LAMBDA(uint32_t iOct_local)
+        {
+            OctantIndex iOct = OctantIndex{iOct_local, false, true};
+
+            OctantIndex iOct_neighbor = lmesh_hashmap.findChild( iOct, {0,0,0} );
+            uint32_t iOct_local_neighbor = storage.OctantIndex_to_iOctLocal( iOct_neighbor );
+            neighbor_iOcts(iOct_local) = iOct_local_neighbor;
+        });
+        neighbor_iOct_children = neighbor_iOcts;
+    }
 }
 
 
@@ -195,7 +204,7 @@ public:
             return LightOctree_hashmap::findParent( iOct );
         
         uint32_t iOct_local = iOct.iOct + iOct.isIntermediate * getNumOctants();
-        uint32_t iOct_local_p = neighbor_iOct_parents(iOct_local,0);
+        uint32_t iOct_local_p = neighbor_iOct_parents(iOct_local);
 
         OctantIndex iOct_p = storage.iOctLocal_to_OctantIndex( iOct_local_p );
 
@@ -218,7 +227,7 @@ public:
             return LightOctree_hashmap::findChild( iOct, offset );
         
         uint32_t iOct_local = iOct.iOct;
-        uint32_t iOct_local_c0 = neighbor_iOct_children(iOct_local,0);
+        uint32_t iOct_local_c0 = neighbor_iOct_children(iOct_local);
         OctantIndex iOct_c0 = storage.iOctLocal_to_OctantIndex( iOct_local_c0 );
 
         OctantIndex iOct_c = findNeighbor_intermediate(iOct_c0, offset);
@@ -235,8 +244,8 @@ public:
 private:
     Kokkos::View< uint32_t**, Kokkos::LayoutLeft > neighbor_iOct_leaves; 
     Kokkos::View< uint32_t**, Kokkos::LayoutLeft > neighbor_iOct_intermediates; 
-    Kokkos::View< uint32_t**, Kokkos::LayoutLeft > neighbor_iOct_parents; 
-    Kokkos::View< uint32_t**, Kokkos::LayoutLeft > neighbor_iOct_children; 
+    Kokkos::View< uint32_t*, Kokkos::LayoutLeft > neighbor_iOct_parents; 
+    Kokkos::View< uint32_t*, Kokkos::LayoutLeft > neighbor_iOct_children; 
 };
 
 } //namespace dyablo
