@@ -100,8 +100,9 @@ public:
         LightOctree_hashmap_precompute_init(*this, this->storage, this->neighbor_iOct_leaves, this->neighbor_iOct_intermediates, getNdim());
     }
 
+    template< bool has_intermediates >
     KOKKOS_INLINE_FUNCTION
-    OctantIndex findNeighbor_aux(const OctantIndex& iOct, const offset_t& offset, bool has_intermediates, const Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbor_iOcts) const
+    OctantIndex findNeighbor_aux(const OctantIndex& iOct, const offset_t& offset, const Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbor_iOcts) const
     {
         if( offset[IX] == 0 && offset[IY] == 0 && offset[IZ] == 0 )
             return iOct;
@@ -116,10 +117,7 @@ public:
         if( iOct.isGhost )
         {   
             //Ghosts are only on demand because we don't have all their neighbors.
-            if( has_intermediates )
-                return LightOctree_hashmap::findNeighbor_intermediate( iOct, offset );
-            else
-                return LightOctree_hashmap::findNeighbor( iOct, offset ); 
+            return LightOctree_hashmap::findNeighbor_aux<has_intermediates>( iOct, offset );
         }
 
         uint32_t nbOcts = storage.getNumOctants();
@@ -132,9 +130,7 @@ public:
 
         DYABLO_ASSERT_KOKKOS_DEBUG( [&]()
             {
-                OctantIndex iOct_expected = has_intermediates 
-                    ? LightOctree_hashmap::findNeighbor_intermediate( iOct, offset )
-                    : LightOctree_hashmap::findNeighbor( iOct, offset );
+                OctantIndex iOct_expected = LightOctree_hashmap::findNeighbor_aux<has_intermediates>( iOct, offset );
                 return iOct_expected.iOct == iOct_n.iOct && iOct_expected.isGhost == iOct_n.isGhost && iOct_expected.isIntermediate == iOct_n.isIntermediate;
             }() 
             , "LightOctree_hashmap_precompute::findNeighbor does not match LightOctree_hashmap" );
@@ -146,14 +142,14 @@ public:
     KOKKOS_INLINE_FUNCTION
     OctantIndex findNeighbor(const OctantIndex& iOct, const offset_t& offset) const
     {
-        return findNeighbor_aux( iOct, offset, false, neighbor_iOct_leaves );
+        return findNeighbor_aux<false>( iOct, offset, neighbor_iOct_leaves );
     }
 
     //! @copydoc LightOctree_base::findNeighbor_intermediates()
     KOKKOS_INLINE_FUNCTION
     OctantIndex findNeighbor_intermediate(const OctantIndex& iOct, const offset_t& offset) const
     {
-        return findNeighbor_aux( iOct, offset, true, neighbor_iOct_intermediates );
+        return findNeighbor_aux<true>( iOct, offset, neighbor_iOct_intermediates );
     }
 
 
