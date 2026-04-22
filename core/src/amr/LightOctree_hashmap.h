@@ -258,6 +258,10 @@ public:
     OctantIndex findChild( const OctantIndex& iOct, const offset_t& offset )  const
     {
         DYABLO_ASSERT_KOKKOS_DEBUG( iOct.isIntermediate, "Leaves have no children" );
+        DYABLO_ASSERT_KOKKOS_DEBUG(     offset[IX] >=0 && offset[IX] < 2 
+                                    &&  offset[IY] >=0 && offset[IY] < 2 
+                                    &&  offset[IZ] >=0 && offset[IZ] < 2,
+                                    "findChild offset must be in [0,1]" );
         
         auto lc = storage.get_logical_coords(iOct);
         
@@ -273,6 +277,8 @@ public:
     KOKKOS_INLINE_FUNCTION
     OctantIndex findParent( const OctantIndex& iOct )  const
     {
+        DYABLO_ASSERT_KOKKOS_DEBUG( this->getLevel( iOct ) > this->min_level, "Can't get parent at coarse level" );
+
         const auto lc = storage.get_logical_coords(iOct);
         key_t logical_coords;
         logical_coords.level = this->getLevel(iOct) - 1u;
