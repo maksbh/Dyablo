@@ -103,6 +103,9 @@ public:
     KOKKOS_INLINE_FUNCTION
     OctantIndex findNeighbor_aux(const OctantIndex& iOct, const offset_t& offset, bool has_intermediates, const Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbor_iOcts) const
     {
+        if( offset[IX] == 0 && offset[IY] == 0 && offset[IZ] == 0 )
+            return iOct;
+
         DYABLO_ASSERT_KOKKOS_DEBUG( !this->isBoundary(iOct, offset), "findNeighbor not compatible with boundaries, please check isBoundary() before" );
         if( !has_intermediates )
         {
