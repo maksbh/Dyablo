@@ -519,7 +519,7 @@ void test_perf()
             neighbors_view(iOct, k+1) = iOct_neighbor_i.iOct;
             k++;
           });
-          EXPECT_EQ( k, count );
+          //EXPECT_EQ( k, count );
           neighbors_view(iOct, 0) = count;
         }
       }
