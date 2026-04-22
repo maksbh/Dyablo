@@ -129,6 +129,16 @@ public:
         uint32_t iOct_local_neighbor = neighbor_iOcts( iOct_local, neighbor_id );
 
         OctantIndex iOct_n = storage.iOctLocal_to_OctantIndex(iOct_local_neighbor);
+
+        DYABLO_ASSERT_KOKKOS_DEBUG( [&]()
+            {
+                OctantIndex iOct_expected = has_intermediates 
+                    ? LightOctree_hashmap::findNeighbor_intermediate( iOct, offset )
+                    : LightOctree_hashmap::findNeighbor( iOct, offset );
+                return iOct_expected.iOct == iOct_n.iOct && iOct_expected.isGhost == iOct_n.isGhost && iOct_expected.isIntermediate == iOct_n.isIntermediate;
+            }() 
+            , "LightOctree_hashmap_precompute::findNeighbor does not match LightOctree_hashmap" );
+
         return iOct_n;
     }
 
