@@ -63,7 +63,7 @@ inline void LightOctree_hashmap_precompute_init(
         if( !lmesh_hashmap.isBoundary( iOct, offset ) )
         {
             LightOctree_base::OctantIndex iOct_neighbor_leaves = lmesh_hashmap.findNeighbor( iOct, offset );
-            uint32_t iOct_local_neighbor_leaves = OctantIndex_to_iOctLocal( iOct_neighbor_leaves, nbOcts );
+            uint32_t iOct_local_neighbor_leaves = storage.OctantIndex_to_iOctLocal( iOct_neighbor_leaves );
             neighbor_iOcts_leaves(iOct_local, neighbor_id) = iOct_local_neighbor_leaves;
         }
     });
@@ -81,7 +81,7 @@ inline void LightOctree_hashmap_precompute_init(
         if( !lmesh_hashmap.isBoundary( iOct, offset ) )
         {
             LightOctree_base::OctantIndex iOct_neighbor_intermediates = lmesh_hashmap.findNeighbor_intermediate( iOct, offset );
-            uint32_t iOct_local_neighbor_intermediates = OctantIndex_to_iOctLocal( iOct_neighbor_intermediates, nbOcts );
+            uint32_t iOct_local_neighbor_intermediates = storage.OctantIndex_to_iOctLocal( iOct_neighbor_intermediates );
             neighbor_iOcts_intermediates(iOct_local, neighbor_id) = iOct_local_neighbor_intermediates;
         }
     });
@@ -125,7 +125,7 @@ public:
         uint32_t neighbor_id = offset_to_index(offset, getNdim());
         uint32_t iOct_local_neighbor = neighbor_iOcts( iOct_local, neighbor_id );
 
-        OctantIndex iOct_n = iOctLocal_to_OctantIndex(iOct_local_neighbor, nbOcts);
+        OctantIndex iOct_n = storage.iOctLocal_to_OctantIndex(iOct_local_neighbor);
         return iOct_n;
     }
 
