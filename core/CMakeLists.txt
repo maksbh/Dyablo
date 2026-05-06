@@ -31,6 +31,7 @@ option (Kokkos_ENABLE_HIP   "enable Kokkos::HIP backend" OFF)
 option (Kokkos_ENABLE_SYCL   "enable Kokkos::SyCL backend" OFF)
 option (Kokkos_ENABLE_IMPL_CUDA_MALLOC_ASYNC "Use CudaMallocAsync for Kokkos allocations" OFF)
 set    (Kokkos_DIR "Kokkos installation directory or internal source" CACHE PATH ""  )
+set    (DYABLO_KOKKOS_COMPILE_FLAGS "" CACHE STRING "Compile flags Added to targets including Kokkos (nvccs -G goes here)"   )
 
 
 # Options not forwarded from superbuild
@@ -77,6 +78,10 @@ if(   KOKKOS_CXX_COMPILER_ID STREQUAL "NVIDIA" AND KOKKOS_CXX_COMPILER_VERSION L
     message( FATAL_ERROR "nvcc version ${KOKKOS_CXX_COMPILER_VERSION} (< ${NVCC_FIRST_VERSION}) is deprecated because it may cause wrong numerical results. If you want to use it anyway, set DYABLO_ENABLE_DEPRECATED_NVCC to \"I want wrong results\" " )
   endif()
 endif()
+
+separate_arguments(DYABLO_KOKKOS_COMPILE_FLAGS_LIST UNIX_COMMAND "${DYABLO_KOKKOS_COMPILE_FLAGS}")
+target_compile_options(kokkos INTERFACE ${DYABLO_KOKKOS_COMPILE_FLAGS_LIST} )
+
 
 #####################################################################
 # MPI
