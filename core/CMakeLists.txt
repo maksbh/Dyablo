@@ -78,6 +78,10 @@ if(   KOKKOS_CXX_COMPILER_ID STREQUAL "NVIDIA" AND KOKKOS_CXX_COMPILER_VERSION L
   endif()
 endif()
 
+separate_arguments(DYABLO_KOKKOS_COMPILE_FLAGS_LIST UNIX_COMMAND "${DYABLO_KOKKOS_COMPILE_FLAGS}")
+target_compile_options(kokkos INTERFACE ${DYABLO_KOKKOS_COMPILE_FLAGS_LIST} )
+
+
 #####################################################################
 # MPI
 #####################################################################
