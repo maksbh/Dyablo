@@ -31,6 +31,7 @@ option (Kokkos_ENABLE_HIP   "enable Kokkos::HIP backend" OFF)
 option (Kokkos_ENABLE_SYCL   "enable Kokkos::SyCL backend" OFF)
 option (Kokkos_ENABLE_IMPL_CUDA_MALLOC_ASYNC "Use CudaMallocAsync for Kokkos allocations" OFF)
 set    (Kokkos_DIR "Kokkos installation directory or internal source" CACHE PATH ""  )
+set    (DYABLO_KOKKOS_COMPILE_FLAGS "" CACHE STRING "Compile flags Added to targets including Kokkos (nvccs -G goes here)"   )
 
 
 # Options not forwarded from superbuild
