@@ -537,7 +537,7 @@ public:
    **/
   void run()
   {
-    timers.get("TimeLoop").start();
+    
 
     // Stop simulation when recieving SIGINT 
     // NOTE : mpirun catches SIGINT and forwards SIGTERM to child process
@@ -546,14 +546,16 @@ public:
     bool finished = false;
     while( !finished )
     {
+      timers.get("TimeLoop").start();
       step();      
+      timers.get("TimeLoop").stop();
       int any_interrupted;
       m_communicator.MPI_Allreduce(&interrupted, &any_interrupted, 1, MpiComm::MPI_Op_t::LOR);
       finished = m_iteration_handler->stop_criterion( m_scalar_data ) || any_interrupted;
     }
     signal( SIGINT, SIG_DFL );
 
-    timers.get("TimeLoop").stop();
+    
 
     // Always output after last iteration
     timers.get("outputs").start();
