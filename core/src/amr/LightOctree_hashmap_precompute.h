@@ -73,7 +73,7 @@ inline void LightOctree_hashmap_precompute_init(
             uint32_t iOct_local = index%nbOcts_total;
             uint32_t neighbor_id = index/nbOcts_total;
 
-            OctantIndex iOct = ( iOct_local<nbOcts ) ? OctantIndex{iOct_local} : OctantIndex{iOct_local-nbOcts, false, true};
+            OctantIndex iOct = ( iOct_local<nbOcts ) ? OctantIndex{iOct_local, false, false} : OctantIndex{iOct_local-nbOcts, false, true};
             offset_t offset = index_to_offset(neighbor_id, ndims);
 
             if( !lmesh_hashmap.isBoundary(iOct, offset) )
@@ -93,7 +93,7 @@ inline void LightOctree_hashmap_precompute_init(
         Kokkos::parallel_for( name+"::compute", nbOcts_total,
             KOKKOS_LAMBDA(uint32_t iOct_local)
         {
-            OctantIndex iOct = ( iOct_local<nbOcts ) ? OctantIndex{iOct_local} : OctantIndex{iOct_local-nbOcts, false, true};
+            OctantIndex iOct = ( iOct_local<nbOcts ) ? OctantIndex{iOct_local, false, false} : OctantIndex{iOct_local-nbOcts, false, true};
 
             if(lmesh_hashmap.getLevel( iOct ) > level_min)
             {
