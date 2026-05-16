@@ -131,14 +131,22 @@ public:
     return lp[IX] == 0 || lp[IY] == 0 || lp[IZ] == 0 
         || lp[IX] == last_oct_x || lp[IY] == last_oct_y || lp[IZ] == last_oct_z;
   }
+
+  KOKKOS_INLINE_FUNCTION 
+  pos_t getSize(level_t level)  const
+  {
+      return { 1.0/cell_count( IX, level ),
+               1.0/cell_count( IY, level ),
+               1.0/cell_count( IZ, level ) };
+  }
+
   //! @copydoc LightOctree_base::getSize()
   KOKKOS_INLINE_FUNCTION 
   pos_t getSize(const OctantIndex& iOct)  const
   {
-      return { 1.0/cell_count( IX, getLevel(iOct) ),
-               1.0/cell_count( IY, getLevel(iOct) ),
-               1.0/cell_count( IZ, getLevel(iOct) ) };
+    return getSize(getLevel(iOct));
   }
+
   //! @copydoc LightOctree_base::getLevel()
   KOKKOS_INLINE_FUNCTION level_t getLevel(const OctantIndex& iOct)  const
   {

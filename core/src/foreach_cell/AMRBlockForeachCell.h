@@ -41,13 +41,11 @@ public:
 
   /// Get the physical size of the cell
   KOKKOS_INLINE_FUNCTION
-  pos_t getCellSize( const CellIndex& iCell ) const
+  pos_t getCellSize( LightOctree::level_t level ) const
   {
-    DYABLO_ASSERT_KOKKOS_DEBUG( iCell.is_valid(), "iCell should be valid to get size" );
-
     const AMRBlockForeachCell_CData& cdata = this->cdata;
     const LightOctree& lmesh = this->lmesh;
-    auto oct_size = lmesh.getSize(iCell.iOct);
+    auto oct_size = lmesh.getSize(level);
 
     real_t dx_scale = (cdata.xmax-cdata.xmin)/cdata.bx;
     real_t dy_scale = (cdata.ymax-cdata.ymin)/cdata.by;
@@ -58,6 +56,13 @@ public:
       oct_size[IY] * dy_scale,
       oct_size[IZ] * dz_scale
     };
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  pos_t getCellSize( const CellIndex& iCell ) const
+  {
+    DYABLO_ASSERT_KOKKOS_DEBUG( iCell.is_valid(), "iCell should be valid to get size" );
+    return getCellSize( lmesh.getLevel(iCell.iOct) );
   }
   
   /// Get the physical position of the center of the cell

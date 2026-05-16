@@ -60,6 +60,10 @@ public:
     KOKKOS_INLINE_FUNCTION
     pos_t getSize(const OctantIndex& iOct)  const
     {return storage.getSize(iOct);}
+
+    KOKKOS_INLINE_FUNCTION
+    pos_t getSize(Storage_t::level_t level)  const
+    {return storage.getSize(level);}
     
     KOKKOS_INLINE_FUNCTION
     uint8_t getLevel(const OctantIndex& iOct)  const
