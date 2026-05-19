@@ -256,20 +256,14 @@ public:
     /// @copydoc LightOctree_base::isBoundary()
     KOKKOS_INLINE_FUNCTION
     bool isBoundary(const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z) const {
-        #warning TODO : use logical coordinates
-        auto dh = this->getSize(iOct);
-        pos_t center = this->getCenter(iOct);    
-        pos_t pos {
-            center[IX] + offset_x*dh[IX],
-            center[IY] + offset_y*dh[IY],
-            center[IZ] + offset_z*dh[IZ]
-        };
-    
-        //       Not periodic   and     not inside domain
-        // in at least one dimension
-        return (!this->is_periodic[IX] && !( 0<pos[IX] && pos[IX]<1 ))
-            || (!this->is_periodic[IY] && !( 0<pos[IY] && pos[IY]<1 ))
-            || (!this->is_periodic[IZ] && !( 0<=pos[IZ] && pos[IZ]<1 )) ; 
+        auto logical_coord = this->get_logical_coords( iOct );
+        int level = this->getLevel( iOct );
+        uint32_t cell_count_x = this->storage.cell_count( IX, level );
+        uint32_t cell_count_y = this->storage.cell_count( IX, level );
+        uint32_t cell_count_z = this->storage.cell_count( IX, level );
+        return ( offset_x != 0 && !this->is_periodic[IX] && ( (logical_coord[IX] + offset_x) < 0 || (logical_coord[IX] + offset_x ) >= cell_count_x ) )
+            || ( offset_y != 0 && !this->is_periodic[IY] && ( (logical_coord[IY] + offset_y) < 0 || (logical_coord[IY] + offset_y ) >= cell_count_y ) )
+            || ( offset_z != 0 && !this->is_periodic[IZ] && ( (logical_coord[IZ] + offset_z) < 0 || (logical_coord[IZ] + offset_z ) >= cell_count_z ) );
     }
 
 
