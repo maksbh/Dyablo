@@ -343,16 +343,19 @@ private:
     real_t rcr = rr*(SR-ur);
     
     // Compute acoustic star state
-    real_t ustar    = (rcr*ur   +rcl*ul   +  (ptotl-ptotr))/(rcr+rcl);
-    real_t ptotstar = (rcr*ptotl+rcl*ptotr+rcl*rcr*(ul-ur))/(rcr+rcl);
+    real_t inv_rcrl = 1/(rcr+rcl);
+    real_t ustar    = (rcr*ur   +rcl*ul   +  (ptotl-ptotr))*inv_rcrl;
+    real_t ptotstar = (rcr*ptotl+rcl*ptotr+rcl*rcr*(ul-ur))*inv_rcrl;
 
     // Left star region variables
-    real_t rstarl    = rl*(SL-ul)/(SL-ustar);
-    real_t etotstarl = ((SL-ul)*etotl-ptotl*ul+ptotstar*ustar)/(SL-ustar);
+    real_t inv_SLustar = 1/(SL-ustar);
+    real_t rstarl    = rl*(SL-ul)*inv_SLustar;
+    real_t etotstarl = ((SL-ul)*etotl-ptotl*ul+ptotstar*ustar)*inv_SLustar;
     
     // Right star region variables
-    real_t rstarr    = rr*(SR-ur)/(SR-ustar);
-    real_t etotstarr = ((SR-ur)*etotr-ptotr*ur+ptotstar*ustar)/(SR-ustar);
+    real_t inv_SRustar = 1/(SR-ustar);
+    real_t rstarr    = rr*(SR-ur)*inv_SRustar;
+    real_t etotstarr = ((SR-ur)*etotr-ptotr*ur+ptotstar*ustar)*inv_SRustar;
     
     // Sample the solution at x/t=0
     real_t ro, uo, ptoto, etoto;
