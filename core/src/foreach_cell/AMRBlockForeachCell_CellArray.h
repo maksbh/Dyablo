@@ -242,11 +242,36 @@ struct CellIndex
   {
     DYABLO_ASSERT_KOKKOS_DEBUG(this->is_valid(), "Index needs to be valid to get neighbor");
 
+    bool assume_local_oct = false;
+    if constexpr( std::is_same_v<SearchMode, SearchMode_local> )
+      assume_local_oct = search_mode.error_mode() == SearchMode_local::ASSERT;
+
     int32_t i = this->i + offset_x;
     int32_t j = this->j + offset_y;
     int32_t k = this->k + offset_z;
 
-    if( i<0 || i>=(int32_t)bx || j<0 || j>=(int32_t)by || k<0 || k>=(int32_t)bz )
+    if ( assume_local_oct )
+    {
+      DYABLO_ASSERT_KOKKOS_DEBUG(i>=0, "i out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(i<(int32_t)bx, "i out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(j>=0, "j out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(j<(int32_t)by, "j out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(k>=0, "k out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(k<(int32_t)bz, "k out of block bounds");
+    }
+
+    bool i_inside = assume_local_oct || (offset_x==0) || (i>=0 && i<bx);
+    bool j_inside = assume_local_oct || (offset_y==0) || (j>=0 && j<by);
+    bool k_inside = assume_local_oct || (offset_z==0) || (k>=0 && k<bz);
+
+    if( i_inside && j_inside && k_inside )
+    {
+      // Index is inside block
+      // non-local cells keep their non-local status, but not their level difference
+      CellIndex::Status cell_status = this->is_local() ?
+                                        CellIndex::LOCAL_TO_BLOCK
+                                      : CellIndex::SAME_SIZE;
+      return CellIndex{this->iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, (uint32_t)bx, (uint32_t)by, (uint32_t)bz, cell_status};
+    
+    }
+    else
     {
       // Index is outside of block : find neighbor?
       if constexpr (std::is_same_v<SearchMode, SearchMode_local>)
@@ -482,15 +507,7 @@ struct CellIndex
         static_assert( !std::is_same_v<SearchMode, SearchMode>, "Unsupported search mode" );
       }
     }
-    else 
-    {
-      // Index is inside block
-      // non-local cells keep their non-local status, but not their level difference
-      CellIndex::Status cell_status = this->is_local() ?
-                                        CellIndex::LOCAL_TO_BLOCK
-                                      : CellIndex::SAME_SIZE;
-      return CellIndex{this->iOct, (uint32_t)i, (uint32_t)j, (uint32_t)k, (uint32_t)bx, (uint32_t)by, (uint32_t)bz, cell_status};
-    }
+
   }
 
   KOKKOS_INLINE_FUNCTION
