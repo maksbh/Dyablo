@@ -54,7 +54,7 @@ private:
 class SearchMode_neighbor
 {
 public:
-  enum SmallerNeighborMode{ CLOSEST, ORIGIN };
+  enum SmallerNeighborMode{ CLOSEST, ORIGIN, INVALID, ASSERT };
   KOKKOS_INLINE_FUNCTION
   SearchMode_neighbor( const LightOctree& lmesh, SmallerNeighborMode mode )
   : lmesh(lmesh), _smaller_neighbor_mode(mode)
@@ -257,9 +257,9 @@ struct CellIndex
       DYABLO_ASSERT_KOKKOS_DEBUG(k>=0, "k out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(k<(int32_t)bz, "k out of block bounds");
     }
 
-    bool i_inside = assume_local_oct || (offset_x==0) || (i>=0 && i<bx);
-    bool j_inside = assume_local_oct || (offset_y==0) || (j>=0 && j<by);
-    bool k_inside = assume_local_oct || (offset_z==0) || (k>=0 && k<bz);
+    bool i_inside = assume_local_oct || (offset_x==0) || (/*i>=0 &&*/ (uint32_t)i<bx);
+    bool j_inside = assume_local_oct || (offset_y==0) || (/*j>=0 &&*/ (uint32_t)j<by);
+    bool k_inside = assume_local_oct || (offset_z==0) || (/*k>=0 &&*/ (uint32_t)k<bz);
 
     if( i_inside && j_inside && k_inside )
     {
@@ -276,13 +276,6 @@ struct CellIndex
       // Index is outside of block : find neighbor?
       if constexpr (std::is_same_v<SearchMode, SearchMode_local>)
       { 
-        // Local only convert, no neighbor search
-        if( search_mode.error_mode() == SearchMode_local::ASSERT )
-        {
-          DYABLO_ASSERT_KOKKOS_DEBUG(i>=0, "i out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(i<(int32_t)bx, "i out of block bounds");
-          DYABLO_ASSERT_KOKKOS_DEBUG(j>=0, "j out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(j<(int32_t)by, "j out of block bounds");
-          DYABLO_ASSERT_KOKKOS_DEBUG(k>=0, "k out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(k<(int32_t)bz, "k out of block bounds");
-        }
         return CELLINDEX_INVALID;
       }
       else if constexpr (  std::is_same_v<SearchMode, SearchMode_neighbor> 
@@ -291,9 +284,9 @@ struct CellIndex
         // Neighbor search
         const LightOctree& lmesh = search_mode.getLightOctree();
 
-        int16_t oct_offset_x = i/bx;
-        int16_t oct_offset_y = j/by;
-        int16_t oct_offset_z = k/bz;
+        int32_t oct_offset_x = (offset_x==0) ? 0 : ((i>=(int32_t)bx) - (i<0));
+        int32_t oct_offset_y = (offset_y==0) ? 0 : ((j>=(int32_t)by) - (j<0));
+        int32_t oct_offset_z = (offset_z==0) ? 0 : ((k>=(int32_t)bz) - (k<0));
 
         const LightOctree::OctantIndex& iOct = this->iOct;
         if( lmesh.isBoundary( iOct, oct_offset_x, oct_offset_y, oct_offset_z ) )
@@ -301,213 +294,185 @@ struct CellIndex
           return CellIndex{iOct,i+bx,j+by,k+bz,bx,by,bz, CellIndex::BOUNDARY};;
         }
 
-        if constexpr ( std::is_same_v<SearchMode, SearchMode_intermediates>  )
+        // Compute position of cell in neighbor when neighbor is same size;
+        uint32_t i_same = (offset_x==0) ? this->i : i - oct_offset_x * bx;
+        uint32_t j_same = (offset_y==0) ? this->j : j - oct_offset_y * by;
+        uint32_t k_same = (offset_z==0) ? this->k : k - oct_offset_z * bz;
+        DYABLO_ASSERT_KOKKOS_DEBUG(i_same<bx, "internal error : i out of block bounds");
+        DYABLO_ASSERT_KOKKOS_DEBUG(j_same<by, "internal error : j out of block bounds");
+        DYABLO_ASSERT_KOKKOS_DEBUG(k_same<bz, "internal error : k out of block bounds");
+
+        LightOctree::OctantIndex iOct_n;        
+        if constexpr ( std::is_same_v<SearchMode, SearchMode_intermediates> )
+          iOct_n = lmesh.findNeighbor_intermediate(iOct, oct_offset_x, oct_offset_y, oct_offset_z);
+        else //constexpr if( std::is_same_v<SearchMode, SearchMode_neighbor>  )
+          iOct_n = lmesh.findNeighbor(iOct, oct_offset_x, oct_offset_y, oct_offset_z);
+
+        // can_be_bigger/smaller are here for optimization purpose to quickly exit 
+        // branches depending on SearchMode. Ideally this should all be known at compile time        
+        bool can_be_bigger;        
+        bool bigger_returns_invalid;
+        bool can_be_smaller;
+        bool smaller_returns_invalid;        
+        bool smaller_search_mode_closest;
+        if constexpr ( std::is_same_v<SearchMode, SearchMode_neighbor> )
         {
-          #warning TODO include level_diff in OctantIndex
-          LightOctree::OctantIndex iOct_n = lmesh.findNeighbor_intermediate(iOct, oct_offset_x, oct_offset_y, oct_offset_z);
-          // Compute position of cell in neighbor when neighbor is same size;
-          uint32_t i_same = i - oct_offset_x * bx;
-          uint32_t j_same = j - oct_offset_y * by;
-          uint32_t k_same = k - oct_offset_z * bz;
-          DYABLO_ASSERT_KOKKOS_DEBUG(i_same<bx, "internal error : i out of block bounds");
-          DYABLO_ASSERT_KOKKOS_DEBUG(j_same<by, "internal error : j out of block bounds");
-          DYABLO_ASSERT_KOKKOS_DEBUG(k_same<bz, "internal error : k out of block bounds");
+          can_be_bigger = true;
+          bigger_returns_invalid = false;
+          can_be_smaller = (search_mode.smaller_neighbor_mode() != SearchMode_neighbor::ASSERT);
+          smaller_returns_invalid = (search_mode.smaller_neighbor_mode() == SearchMode_neighbor::INVALID);
+          smaller_search_mode_closest = (search_mode.smaller_neighbor_mode() == SearchMode_neighbor::CLOSEST);
+        }
+        else //constexpr ( std::is_same_v<SearchMode, SearchMode_intermediates> )
+        {
+          can_be_bigger = (search_mode.bigger_neighbor_mode() != SearchMode_intermediates::ASSERT);
+          bigger_returns_invalid = (search_mode.bigger_neighbor_mode() == SearchMode_intermediates::INVALID);
+          can_be_smaller = false;
+          smaller_returns_invalid = true;
+          smaller_search_mode_closest = false;
+        }
 
-          int level_diff = lmesh.getLevel(iOct) - lmesh.getLevel(iOct_n);
-          if( level_diff == 1 ) // Neighbor is larger 
-          {
-            DYABLO_ASSERT_KOKKOS_DEBUG(search_mode.bigger_neighbor_mode() != SearchMode_intermediates::ASSERT, "Could not find intermediate neighbor : not refined enough");
-            if( search_mode.bigger_neighbor_mode() == SearchMode_intermediates::INVALID 
-             || search_mode.bigger_neighbor_mode() == SearchMode_intermediates::ASSERT )
-            {
-              return CELLINDEX_INVALID;
-            }
-            else // Return bigger cell
-            {
-              // Compute suboctant where target cell is located in larger neighbor
-              auto coord_n = lmesh.get_logical_coords(iOct);
+        // TODO optimize level_diff
+        int level_diff = lmesh.getLevel(iOct) - lmesh.getLevel(iOct_n);
+        DYABLO_ASSERT_KOKKOS_DEBUG( level_diff >= -1 && level_diff <= 1, "Level-diff doesn't respect 2:1 balance" );
+        if( !can_be_bigger )
+        {
+          DYABLO_ASSERT_KOKKOS_DEBUG( level_diff <= 0, "SearchMode doesn't allow bigger neighbors but neighbor is bigger" );
+        }
+        if( !can_be_smaller )
+        {
+          DYABLO_ASSERT_KOKKOS_DEBUG( level_diff >= 0, "SearchMode doesn't allow smaller neighbors but neighbor is smaller" );
+        }
 
-              auto is_odd = [](int x) {
-                return (int)(x%2 != 0);
-              };
-
-              int suboctant_offset_x = is_odd( coord_n[IX] + oct_offset_x );
-              int suboctant_offset_y = is_odd( coord_n[IY] + oct_offset_y );
-              int suboctant_offset_z = is_odd( coord_n[IZ] + oct_offset_z );
-
-              // Offset to select suboctant and /2 for position in larger octant 
-              uint32_t i_larger = (i_same+suboctant_offset_x*bx)/2;
-              uint32_t j_larger = (j_same+suboctant_offset_y*by)/2;
-              uint32_t k_larger = (k_same+suboctant_offset_z*bz)/2;
-
-              DYABLO_ASSERT_KOKKOS_DEBUG(i_larger<bx, "internal error : i out of block bounds");
-              DYABLO_ASSERT_KOKKOS_DEBUG(j_larger<by, "internal error : j out of block bounds");
-              DYABLO_ASSERT_KOKKOS_DEBUG(k_larger<bz, "internal error : k out of block bounds");
-
-              CellIndex res{
-                iOct_n, 
-                i_larger, j_larger, k_larger,
-                bx, by, bz,
-                CellIndex::BIGGER
-              }; 
-
-              return res;
-            }
-          }
-          else
-          {
-            return CellIndex{
+        if( (!can_be_bigger && !can_be_smaller) || level_diff==0 )
+        {
+          return CellIndex{
               iOct_n,
               i_same, j_same, k_same,
               bx, by, bz,
               CellIndex::SAME_SIZE
             };
-          }
         }
-        else //constexpr if( std::is_same_v<SearchMode, SearchMode_neighbor>  )
-        {
-          DYABLO_ASSERT_KOKKOS_DEBUG( !lmesh.isBoundary(iOct, oct_offset_x, oct_offset_y, oct_offset_z), "Should not be boundary here" );
+        else if( can_be_smaller && level_diff==-1 )
+        { // Neighbor is smaller : compute CellIndex of "first neighbor" (neighbor cell closest to origin)
 
-          LightOctree::OctantIndex iOct_neighbor = lmesh.findNeighbor(iOct, oct_offset_x, oct_offset_y, oct_offset_z);
-
-          int level_diff = lmesh.getLevel(iOct) - lmesh.getLevel(iOct_neighbor);
-          
-          // Compute position of cell in neighbor when neighbor is same size;
-          uint32_t i_same = i - oct_offset_x * bx;
-          uint32_t j_same = j - oct_offset_y * by;
-          uint32_t k_same = k - oct_offset_z * bz;
-
-          if( level_diff == 0 )
-          { // Neighbor is same size
-            DYABLO_ASSERT_KOKKOS_DEBUG(i_same<bx, "internal error : i out of block bounds");
-            DYABLO_ASSERT_KOKKOS_DEBUG(j_same<by, "internal error : j out of block bounds");
-            DYABLO_ASSERT_KOKKOS_DEBUG(k_same<bz, "internal error : k out of block bounds");
-            return CellIndex{
-              iOct_neighbor,
-              i_same, j_same, k_same,
-              bx, by, bz,
-              CellIndex::SAME_SIZE
-            };
-          }
-          else if(level_diff == 1)
-          { // Neighbor is larger  
-            // Compute suboctant where target cell is located in larger neighbor
-            auto coord_n = lmesh.get_logical_coords(iOct);
-
-            auto is_odd = [](int x) {
-              return (int)(x%2 != 0);
-            };
-
-            int suboctant_offset_x = is_odd( coord_n[IX] + oct_offset_x );
-            int suboctant_offset_y = is_odd( coord_n[IY] + oct_offset_y );
-            int suboctant_offset_z = is_odd( coord_n[IZ] + oct_offset_z );
-
-            // Offset to select suboctant and /2 for position in larger octant 
-            uint32_t i_larger = (i_same+suboctant_offset_x*bx)/2;
-            uint32_t j_larger = (j_same+suboctant_offset_y*by)/2;
-            uint32_t k_larger = (k_same+suboctant_offset_z*bz)/2;
-
-            DYABLO_ASSERT_KOKKOS_DEBUG(i_larger<bx, "internal error : i out of block bounds");
-            DYABLO_ASSERT_KOKKOS_DEBUG(j_larger<by, "internal error : j out of block bounds");
-            DYABLO_ASSERT_KOKKOS_DEBUG(k_larger<bz, "internal error : k out of block bounds");
-
-            CellIndex res{
-              iOct_neighbor, 
-              i_larger, j_larger, k_larger,
-              bx, by, bz,
-              CellIndex::BIGGER
-            }; 
-
-            return res;    
-          }
-          else if(level_diff == -1)
-          { // Neighbor is smaller : compute CellIndex of "first neighbor" (neighbor cell closest to origin)
-
-            // Compute cell position in neighbor meta-bloc of size {2*bx, 2*by, 2*bz}
-            // Pick same-size cell origin for smaller_neighbor_mode() == ORIGIN
-            uint32_t i_smaller = i*2 - oct_offset_x * bx * 2; 
-            uint32_t j_smaller = j*2 - oct_offset_y * by * 2;
-            uint32_t k_smaller = k*2 - oct_offset_z * bz * 2;
-
-            if( search_mode.smaller_neighbor_mode() == SearchMode_neighbor::CLOSEST )
-            {
-              // Pick the smallest index {i_smaller, j_smaller, k_smaller} contiguous to current cell
-              i_smaller += (int)(i<0);
-              j_smaller += (int)(j<0);
-              k_smaller += (int)(k<0);
-            }
-
-            DYABLO_ASSERT_KOKKOS_DEBUG(i_smaller<2*bx, "internal error : i out of block bounds");
-            DYABLO_ASSERT_KOKKOS_DEBUG(j_smaller<2*by, "internal error : j out of block bounds");
-            DYABLO_ASSERT_KOKKOS_DEBUG(k_smaller<2*bz, "internal error : k out of block bounds");
-
-            // Compute position of suboctant containing "first neighbor" among the 8 suboctants
-            int suboctant_x = i_smaller >= bx;    
-            int suboctant_y = j_smaller >= by;    
-            int suboctant_z = k_smaller >= bz;
-
-            // Shift cell index to appropriate suboctant
-            i_smaller -= bx * suboctant_x;
-            j_smaller -= by * suboctant_y;
-            k_smaller -= bz * suboctant_z;
-
-            DYABLO_ASSERT_KOKKOS_DEBUG(i_smaller<bx, "internal error : i out of block bounds");
-            DYABLO_ASSERT_KOKKOS_DEBUG(j_smaller<by, "internal error : j out of block bounds");
-            DYABLO_ASSERT_KOKKOS_DEBUG(k_smaller<bz, "internal error : k out of block bounds");
-
-            LightOctree::OctantIndex suboctant;
-            
-            // This is needed in case cells are scattered accross multiple suboctants
-            // {
-            //   [[maybe_unused]] bool found = false;
-
-            //   LightOctree_tools::foreach_neighbor_octant( lmesh, iOct, iOct_neighbor, oct_offset,
-            //     [&]( const LightOctree::OctantIndex& iOct_neighbor_i )
-            //   {
-            //     auto neighbor_suboct_coord = lmesh.get_logical_coords(iOct_neighbor_i);
-            //     // Compute position of suboctant in bigger neighbor octant
-            //     int this_suboctant_x = neighbor_suboct_coord[IX]%2;
-            //     int this_suboctant_y = neighbor_suboct_coord[IY]%2;
-            //     int this_suboctant_z = neighbor_suboct_coord[IZ]%2;
-
-            //     // Match suboctant with suboctant containing first neighbor cell
-            //     if( suboctant_x == this_suboctant_x && suboctant_y == this_suboctant_y && suboctant_z == this_suboctant_z )
-            //     {
-            //       suboctant = iOct_neighbor_i;
-            //       found = true;
-            //     }
-            //   });
-
-            //   DYABLO_ASSERT_KOKKOS_DEBUG( found, "smaller neighbor : corresponding suboctant not found" );
-            // }
-            #warning TODO optimize for even blocks : all subcells will be in same octant
-            {
-              DYABLO_ASSERT_KOKKOS_DEBUG( bx%2 == 0, "gathered subcells optimization enabled : block size must be even" );
-              DYABLO_ASSERT_KOKKOS_DEBUG( by%2 == 0, "gathered subcells optimization enabled : block size must be even" );
-              DYABLO_ASSERT_KOKKOS_DEBUG( bz%2 == 0, "gathered subcells optimization enabled : block size must be even" );
-              suboctant = iOct_neighbor;
-            }
-            
-
-            return CellIndex{
-              suboctant, 
-              (uint32_t)i_smaller, (uint32_t)j_smaller, (uint32_t)k_smaller,
-              bx, by, bz,
-              CellIndex::SMALLER};
-          }
-          else
-          {
-            DYABLO_ASSERT_KOKKOS_DEBUG(false, "Level-diff doesn't respect 2:1 balance");
+          if(smaller_returns_invalid)
             return CELLINDEX_INVALID;
+
+          // Compute cell position in neighbor meta-bloc of size {2*bx, 2*by, 2*bz}
+          // Pick same-size cell origin for smaller_neighbor_mode() == ORIGIN
+          uint32_t i_smaller = 2 * i_same; 
+          uint32_t j_smaller = 2 * j_same;
+          uint32_t k_smaller = 2 * k_same;
+
+          if( smaller_search_mode_closest )
+          {
+            // Pick the smallest index {i_smaller, j_smaller, k_smaller} contiguous to current cell
+            i_smaller += (offset_x<0);
+            j_smaller += (offset_y<0);
+            k_smaller += (offset_z<0);
           }
+
+          DYABLO_ASSERT_KOKKOS_DEBUG(i_smaller<2*bx, "internal error : i out of block bounds");
+          DYABLO_ASSERT_KOKKOS_DEBUG(j_smaller<2*by, "internal error : j out of block bounds");
+          DYABLO_ASSERT_KOKKOS_DEBUG(k_smaller<2*bz, "internal error : k out of block bounds");
+
+          // Compute position of suboctant containing "first neighbor" among the 8 suboctants
+          uint32_t suboctant_x = i_smaller >= bx;    
+          uint32_t suboctant_y = j_smaller >= by;    
+          uint32_t suboctant_z = k_smaller >= bz;
+
+          // Shift cell index to appropriate suboctant
+          i_smaller -= bx * suboctant_x;
+          j_smaller -= by * suboctant_y;
+          k_smaller -= bz * suboctant_z;
+
+          DYABLO_ASSERT_KOKKOS_DEBUG(i_smaller<bx, "internal error : i out of block bounds");
+          DYABLO_ASSERT_KOKKOS_DEBUG(j_smaller<by, "internal error : j out of block bounds");
+          DYABLO_ASSERT_KOKKOS_DEBUG(k_smaller<bz, "internal error : k out of block bounds");
+
+          LightOctree::OctantIndex suboctant;
+            
+          // This is needed in case cells are scattered accross multiple suboctants
+          // {
+          //   [[maybe_unused]] bool found = false;
+
+          //   LightOctree_tools::foreach_neighbor_octant( lmesh, iOct, iOct_neighbor, oct_offset,
+          //     [&]( const LightOctree::OctantIndex& iOct_neighbor_i )
+          //   {
+          //     auto neighbor_suboct_coord = lmesh.get_logical_coords(iOct_neighbor_i);
+          //     // Compute position of suboctant in bigger neighbor octant
+          //     int this_suboctant_x = neighbor_suboct_coord[IX]%2;
+          //     int this_suboctant_y = neighbor_suboct_coord[IY]%2;
+          //     int this_suboctant_z = neighbor_suboct_coord[IZ]%2;
+
+          //     // Match suboctant with suboctant containing first neighbor cell
+          //     if( suboctant_x == this_suboctant_x && suboctant_y == this_suboctant_y && suboctant_z == this_suboctant_z )
+          //     {
+          //       suboctant = iOct_neighbor_i;
+          //       found = true;
+          //     }
+          //   });
+
+          //   DYABLO_ASSERT_KOKKOS_DEBUG( found, "smaller neighbor : corresponding suboctant not found" );
+          // }
+          #warning TODO optimize for even blocks : all subcells will be in same octant
+          {
+            DYABLO_ASSERT_KOKKOS_DEBUG( bx%2 == 0, "gathered subcells optimization enabled : block size must be even" );
+            DYABLO_ASSERT_KOKKOS_DEBUG( by%2 == 0, "gathered subcells optimization enabled : block size must be even" );
+            DYABLO_ASSERT_KOKKOS_DEBUG( bz%2 == 0, "gathered subcells optimization enabled : block size must be even" );
+            suboctant = iOct_n;
+          }     
+
+          return CellIndex{
+            suboctant, 
+            (uint32_t)i_smaller, (uint32_t)j_smaller, (uint32_t)k_smaller,
+            bx, by, bz,
+            CellIndex::SMALLER};
         }
+        else if( can_be_bigger && level_diff==1 )
+        { // Neighbor is larger  
+          
+          if(bigger_returns_invalid)
+            return CELLINDEX_INVALID;          
+          
+          // Compute suboctant where target cell is located in larger neighbor
+          auto coord_n = lmesh.get_logical_coords(iOct);
+
+          auto is_odd = [](int x) {
+            return (uint32_t)(x%2 != 0);
+          };
+
+          uint32_t suboctant_offset_x = is_odd( coord_n[IX] + oct_offset_x );
+          uint32_t suboctant_offset_y = is_odd( coord_n[IY] + oct_offset_y );
+          uint32_t suboctant_offset_z = is_odd( coord_n[IZ] + oct_offset_z );
+
+          // Offset to select suboctant and /2 for position in larger octant 
+          uint32_t i_larger = (i_same+suboctant_offset_x*bx)/2;
+          uint32_t j_larger = (j_same+suboctant_offset_y*by)/2;
+          uint32_t k_larger = (k_same+suboctant_offset_z*bz)/2;
+
+          DYABLO_ASSERT_KOKKOS_DEBUG(i_larger<bx, "internal error : i out of block bounds");
+          DYABLO_ASSERT_KOKKOS_DEBUG(j_larger<by, "internal error : j out of block bounds");
+          DYABLO_ASSERT_KOKKOS_DEBUG(k_larger<bz, "internal error : k out of block bounds");
+
+          CellIndex res{
+            iOct_n, 
+            i_larger, j_larger, k_larger,
+            bx, by, bz,
+            CellIndex::BIGGER
+          }; 
+
+          return res;    
+        }
+        
       }
       else
       {
         static_assert( !std::is_same_v<SearchMode, SearchMode>, "Unsupported search mode" );
       }
     }
-
+    
   }
 
   KOKKOS_INLINE_FUNCTION
