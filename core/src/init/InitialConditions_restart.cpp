@@ -333,6 +333,8 @@ public:
           });          
         }
       }      
+      
+      U.distributeAllParticles();
     }
   }  
 };
