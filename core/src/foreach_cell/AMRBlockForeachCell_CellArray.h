@@ -391,38 +391,21 @@ struct CellIndex
           DYABLO_ASSERT_KOKKOS_DEBUG(j_smaller<by, "internal error : j out of block bounds");
           DYABLO_ASSERT_KOKKOS_DEBUG(k_smaller<bz, "internal error : k out of block bounds");
 
-          LightOctree::OctantIndex suboctant;
-            
-          // This is needed in case cells are scattered accross multiple suboctants
-          // {
-          //   [[maybe_unused]] bool found = false;
+          uint32_t iOct_n_suboctant_x = (oct_offset_x < 0);
+          uint32_t iOct_n_suboctant_y = (oct_offset_y < 0);
+          uint32_t iOct_n_suboctant_z = (oct_offset_z < 0);
 
-          //   LightOctree_tools::foreach_neighbor_octant( lmesh, iOct, iOct_neighbor, oct_offset,
-          //     [&]( const LightOctree::OctantIndex& iOct_neighbor_i )
-          //   {
-          //     auto neighbor_suboct_coord = lmesh.get_logical_coords(iOct_neighbor_i);
-          //     // Compute position of suboctant in bigger neighbor octant
-          //     int this_suboctant_x = neighbor_suboct_coord[IX]%2;
-          //     int this_suboctant_y = neighbor_suboct_coord[IY]%2;
-          //     int this_suboctant_z = neighbor_suboct_coord[IZ]%2;
+          LightOctree_base::offset_t sibling_offset{
+            (int8_t)(suboctant_x - iOct_n_suboctant_x),
+            (int8_t)(suboctant_y - iOct_n_suboctant_y),
+            (int8_t)(suboctant_z - iOct_n_suboctant_z)
+          };
 
-          //     // Match suboctant with suboctant containing first neighbor cell
-          //     if( suboctant_x == this_suboctant_x && suboctant_y == this_suboctant_y && suboctant_z == this_suboctant_z )
-          //     {
-          //       suboctant = iOct_neighbor_i;
-          //       found = true;
-          //     }
-          //   });
-
-          //   DYABLO_ASSERT_KOKKOS_DEBUG( found, "smaller neighbor : corresponding suboctant not found" );
-          // }
-          #warning TODO optimize for even blocks : all subcells will be in same octant
-          {
-            DYABLO_ASSERT_KOKKOS_DEBUG( bx%2 == 0, "gathered subcells optimization enabled : block size must be even" );
-            DYABLO_ASSERT_KOKKOS_DEBUG( by%2 == 0, "gathered subcells optimization enabled : block size must be even" );
-            DYABLO_ASSERT_KOKKOS_DEBUG( bz%2 == 0, "gathered subcells optimization enabled : block size must be even" );
-            suboctant = iOct_n;
-          }     
+          // TODO : support odd blocks
+          DYABLO_ASSERT_KOKKOS_DEBUG( bx%2 == 0, "gathered subcells optimization enabled : block size must be even" );
+          DYABLO_ASSERT_KOKKOS_DEBUG( by%2 == 0, "gathered subcells optimization enabled : block size must be even" );
+          DYABLO_ASSERT_KOKKOS_DEBUG( bz%2 == 0, "gathered subcells optimization enabled : block size must be even" );
+          LightOctree::OctantIndex suboctant = lmesh.findNeighbor( iOct_n, sibling_offset );   
 
           return CellIndex{
             suboctant, 
@@ -472,7 +455,7 @@ struct CellIndex
         static_assert( !std::is_same_v<SearchMode, SearchMode>, "Unsupported search mode" );
       }
     }
-    
+
   }
 
   KOKKOS_INLINE_FUNCTION
