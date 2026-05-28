@@ -126,10 +126,11 @@ by=4
     U_.new_ParticleArray("p1", Np1);
     U_.new_ParticleAttribute("p1", "a1");
     U_.new_ParticleAttribute("p1", "a2");
+    U_.new_ParticleAttribute("p1", "idx");
 
     const auto& P1 = U_.getParticleArray("p1");
-    enum VarIndex_chekpoint_p1{IA1, IA2};
-    UserData::ParticleAccessor P1a = U_.getParticleAccessor( "p1", {{"a1",IA1}, {"a2",IA2}} );
+    enum VarIndex_chekpoint_p1{IA1, IA2, IIDX};
+    UserData::ParticleAccessor P1a = U_.getParticleAccessor( "p1", {{"a1",IA1}, {"a2",IA2}, {"idx", IIDX}} );
     foreach_particle.foreach_particle( "Fill p1", U_.getParticleArray("p1"),
         KOKKOS_LAMBDA(const ForeachParticle::ParticleIndex& iPart)
     {
@@ -142,10 +143,13 @@ by=4
       P1.pos( iPart, IZ ) = (ndim-2)*((iz+0.5)/Wp1);
       P1a.at( iPart, IA1 ) = ix;
       P1a.at( iPart, IA2 ) = iy;
+      P1a.at( iPart, IIDX) = iPart;
     });
 
+    U_.distributeAllParticles();
 
     int mpi_size = GlobalMpiSession::get_comm_world().MPI_Comm_size();
+
     Timers timers;
     configMap.getValue<std::string>("output", "outputDir", "./"),
     configMap.getValue<std::string>("output", "outputPrefix", std::string("test_")+std::to_string(mpi_size));
@@ -205,8 +209,8 @@ bool almost_equal(RawType v1, RawType v2)
 void test_restart()
 {
     std::cout << "Restart..." << std::endl;
-
-    int mpi_size = GlobalMpiSession::get_comm_world().MPI_Comm_size();
+    MpiComm communicator(GlobalMpiSession::get_comm_world());
+    int mpi_size = communicator.MPI_Comm_size();
     std::string ini_filename = std::string("restart_test_")+std::to_string(mpi_size)+"_0.ini";
     std::cout << "Load " << ini_filename << std::endl;
     ConfigMap configMap = ConfigMap::broadcast_parameters( ini_filename );
@@ -263,24 +267,29 @@ void test_restart()
     error_count=0;
 
     uint32_t Wp1 = 10;
-    uint32_t Np1 = Wp1*Wp1*Wp1;
 
     EXPECT_TRUE( U_.has_ParticleArray("p1") );
     EXPECT_TRUE( U_.has_ParticleAttribute("p1", "a1") );
     EXPECT_TRUE( U_.has_ParticleAttribute("p1", "a2") );
+    EXPECT_TRUE( U_.has_ParticleAttribute("p1", "idx") );
 
     const auto& P1 = U_.getParticleArray("p1");
-    EXPECT_EQ( P1.getNumParticles() , Np1 );
+    uint32_t Np1 = P1.getNumParticles();
+
+    uint32_t global_Np1;
+    communicator.MPI_Allreduce(&Np1, &global_Np1, 1, MpiComm::MPI_Op_t::SUM);
+    EXPECT_EQ(global_Np1, Wp1*Wp1*Wp1*mpi_size);
 
     ForeachParticle foreach_particle( amr_mesh, configMap  );
-    enum VarIndex_chekpoint_p1{IA1, IA2};
-    UserData::ParticleAccessor P1a = U_.getParticleAccessor( "p1", {{"a1",IA1}, {"a2",IA2}} );
+    enum VarIndex_chekpoint_p1{IA1, IA2, IIDX};
+    UserData::ParticleAccessor P1a = U_.getParticleAccessor( "p1", {{"a1",IA1}, {"a2",IA2}, {"idx", IIDX}} );
     foreach_particle.reduce_particle( "check p1", U_.getParticleArray("p1"),
         KOKKOS_LAMBDA(const ForeachParticle::ParticleIndex& iPart, int& error_count)
     {
-      uint32_t ix =  iPart%Wp1;
-      uint32_t iy = (iPart/Wp1)%Wp1;
-      uint32_t iz =  iPart/(Wp1*Wp1);
+      uint32_t global_iPart = P1a.at( iPart, IIDX );
+      uint32_t ix =  global_iPart%Wp1;
+      uint32_t iy = (global_iPart/Wp1)%Wp1;
+      uint32_t iz =  global_iPart/(Wp1*Wp1);
 
       auto expect_equal = [&](real_t expected, real_t actual)
       {
