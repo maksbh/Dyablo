@@ -19,6 +19,8 @@ ENV OMPI_MCA_btl="^vader"
 
 RUN apt update && apt install -y python3-setuptools python3-pybind11 python3-h5py
 
+RUN apt update && apt install -y libfftw3-dev libfftw3-double3 libfftw3-single3 libfftw3-long3
+
 RUN useradd -ms /bin/bash gitlab
 USER gitlab
 WORKDIR /home/gitlab
