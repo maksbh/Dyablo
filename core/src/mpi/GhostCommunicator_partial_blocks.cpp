@@ -808,6 +808,11 @@ void GhostCommunicator_partial_blocks::reduce_ghosts( ForeachCell::CellArray_glo
   reduce_ghosts_aux(*pdata,U);
 }
 
+GhostCommunicator_partial_blocks_OctSubset::GhostCommunicator_partial_blocks_OctSubset( const GhostCommunicator_partial_blocks_OctSubset& o )
+: pdata( std::make_unique<Pdata>(*o.pdata) )
+{}
+
+
 GhostCommunicator_partial_blocks_OctSubset::GhostCommunicator_partial_blocks_OctSubset( const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_recv )
 : pdata( std::make_unique<Pdata>( Pdata{ init_subset(comm_full, subset_iOcts_recv) } ) )
 {}

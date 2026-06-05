@@ -10,6 +10,8 @@ struct GhostCommunicator_partial_blocks_OctSubset_Pdata;
 
 struct GhostCommunicator_partial_blocks_OctSubset
 {
+  GhostCommunicator_partial_blocks_OctSubset(const GhostCommunicator_partial_blocks_OctSubset& o);
+
   GhostCommunicator_partial_blocks_OctSubset(const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_recv );
   GhostCommunicator_partial_blocks_OctSubset(const GhostCommunicator_partial_blocks& comm_full, Kokkos::View<uint32_t*> subset_iOcts_send, Kokkos::View<uint32_t*> subset_iOcts_recv );
   ~GhostCommunicator_partial_blocks_OctSubset();

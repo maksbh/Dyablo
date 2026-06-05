@@ -63,7 +63,7 @@ public:
         return partial_comm->getNumGhosts();
       }
     
-      std::unique_ptr<ViewCommunicator> partial_comm;
+      std::shared_ptr<ViewCommunicator> partial_comm;
       Kokkos::View<uint32_t*> subset_iOcts;
     };
 
