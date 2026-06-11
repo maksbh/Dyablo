@@ -504,16 +504,16 @@ void test_perf()
         int8_t nz = i/(3*3);
         int8_t ny = (i-nz*3*3)/3;
         int8_t nx = i-ny*3-nz*3*3;
-        LightOctree_t::offset_t neigh = {(int8_t)(nx-1),(int8_t)(ny-1),(int8_t)(nz-1)};
+        LightOctree_t::offset_t offset = {(int8_t)(nx-1),(int8_t)(ny-1),(int8_t)(nz-1)};
 
-        if(neigh[IX]==0 && neigh[IY]==0 && neigh[IZ]==0) return;
+        if(offset[IX]==0 && offset[IY]==0 && offset[IZ]==0) return;
 
         LightOctree_t::OctantIndex iOct_c = {iOct, false};
-        if( !lmesh.isBoundary( {iOct, false}, neigh ) )
+        if( !lmesh.isBoundary( iOct_c, offset ) )
         {
-          LightOctree_t::OctantIndex iOct_neighbor = lmesh.findNeighbor( iOct_c, neigh );
+          LightOctree_t::OctantIndex iOct_neighbor = lmesh.findNeighbor( iOct_c, offset );
           int k = 0;
-          int count = dyablo::LightOctree_tools::foreach_neighbor_octant( lmesh, iOct_c, iOct_neighbor, neigh,
+          int count = dyablo::LightOctree_tools::foreach_neighbor_octant( lmesh, iOct_c, iOct_neighbor, offset,
             [&]( const LightOctree_t::OctantIndex& iOct_neighbor_i )
           {
             neighbors_view(iOct, k+1) = iOct_neighbor_i.iOct;

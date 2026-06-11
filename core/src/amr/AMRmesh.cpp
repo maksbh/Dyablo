@@ -1150,7 +1150,7 @@ void AMRmesh::adapt()
       for( int8_t nx=-1; nx<=1; nx++ )
       if( nx!=0 || ny!=0 || nz!=0 )
       {
-        if( !lmesh.isBoundary({iOct,false}, {nx,ny,nz}) )
+        if( !lmesh.isBoundary(iOct_c, {nx,ny,nz}) )
         {
           OctantIndex iOct_neighbor = lmesh.findNeighbor(iOct_c, {nx,ny,nz});
           LightOctree_tools::foreach_neighbor_octant( lmesh, iOct_c, iOct_neighbor, {nx,ny,nz},
