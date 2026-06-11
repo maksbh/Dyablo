@@ -10,9 +10,9 @@ struct Subset_levels::Pdata
     const LightOctree& lmesh;
     Binned_iOcts_levels binned_iOcts_levels;
 
-    template< typename Subset_t >
+    template< typename GhostComm_t >
     using CacheMap_t = std::map< std::pair<bool, int>, 
-                                 std::unique_ptr<typename Subset_t::OctSubset> >;
+                                 std::unique_ptr<typename GhostComm_t::OctSubset> >;
     std::tuple< CacheMap_t<GhostCommunicator_full_blocks>,
                 CacheMap_t<GhostCommunicator_partial_blocks>
     > caches_tuple;
