@@ -160,8 +160,8 @@ void run_test()
         int8_t x = (i-3*y); 
         LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),0};
 
-        LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
-        actual_neighbors(y,x) = ns[0].iOct;
+        LightOctree::OctantIndex iOct_n = mesh.findNeighbor( {ioct,false}, offset );
+        actual_neighbors(y,x) = iOct_n.iOct;
       } );
       std::cout << "[DONE]" << std::endl;
       Kokkos::View<real_t[3][3]>::host_mirror_type actual_neighbors_host("2D::actual_neighbors_host");
@@ -325,8 +325,8 @@ void run_test()
         int8_t x = (i-3*y-3*3*z); 
         LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),(int8_t)(z-1)};
 
-        LightOctree::NeighborList ns = mesh.findNeighbors( {ioct,false}, offset );
-        actual_neighbors(z,y,x) = ns[0].iOct;
+        LightOctree::OctantIndex iOct_n = mesh.findNeighbor( {ioct,false}, offset );
+        actual_neighbors(z,y,x) = iOct_n.iOct;
       } );
       std::cout << "[DONE]" << std::endl;
       Kokkos::View<real_t[3][3][3]>::host_mirror_type actual_neighbors_host("2D::actual_neighbors_host");
@@ -504,15 +504,23 @@ void test_perf()
         int8_t nz = i/(3*3);
         int8_t ny = (i-nz*3*3)/3;
         int8_t nx = i-ny*3-nz*3*3;
-        LightOctree_t::offset_t neigh = {(int8_t)(nx-1),(int8_t)(ny-1),(int8_t)(nz-1)};
+        LightOctree_t::offset_t offset = {(int8_t)(nx-1),(int8_t)(ny-1),(int8_t)(nz-1)};
 
-        if(neigh[IX]==0 && neigh[IY]==0 && neigh[IZ]==0) return;
+        if(offset[IX]==0 && offset[IY]==0 && offset[IZ]==0) return;
 
-        LightOctree_t::NeighborList ns = lmesh.findNeighbors({iOct,false}, neigh);
-        neighbors_view(iOct, 0) = ns.size();
-        for(int k=0; k<ns.size(); k++)
+        LightOctree_t::OctantIndex iOct_c = {iOct, false};
+        if( !lmesh.isBoundary( iOct_c, offset ) )
         {
-          neighbors_view(iOct, k+1) = ns[k].iOct;
+          LightOctree_t::OctantIndex iOct_neighbor = lmesh.findNeighbor( iOct_c, offset );
+          int k = 0;
+          int count = dyablo::LightOctree_tools::foreach_neighbor_octant( lmesh, iOct_c, iOct_neighbor, offset,
+            [&]( const LightOctree_t::OctantIndex& iOct_neighbor_i )
+          {
+            neighbors_view(iOct, k+1) = iOct_neighbor_i.iOct;
+            k++;
+          });
+          //EXPECT_EQ( k, count );
+          neighbors_view(iOct, 0) = count;
         }
       }
     }); 

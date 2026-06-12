@@ -8,7 +8,7 @@ namespace dyablo {
 // using LightOctree = LightOctree_hashmap;
 // #endif
 
-class LightOctree_hashmap;
-using LightOctree = LightOctree_hashmap;
+class LightOctree_hashmap_precompute;
+using LightOctree = LightOctree_hashmap_precompute;
 
 } //namespace dyablo

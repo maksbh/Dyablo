@@ -168,30 +168,32 @@ void run_test(const Test_data& test_data)
 
   // Verify 2:1 balance
   {
-    dyablo::LightOctree_hashmap lmesh( &amr_mesh, amr_mesh.get_level_min(), amr_mesh.get_level_max() );
+    dyablo::LightOctree lmesh( &amr_mesh, amr_mesh.get_level_min(), amr_mesh.get_level_max() );
 
     int error_count = 0;
     Kokkos::parallel_reduce( "Check 2:1", nbOcts,
       KOKKOS_LAMBDA( uint32_t iOct, int& error_count_local )
       {
+        LightOctree::OctantIndex iOct_c = {iOct, false};
+        int current_level = lmesh.getLevel(iOct_c);
         int z_off_max = (dim==3)? 1 : 0;
         for( int8_t nz=-z_off_max; nz<=z_off_max; nz++ )
           for( int8_t ny=-1; ny<=1; ny++ )
               for( int8_t nx=-1; nx<=1; nx++ )
                 if( nx!=0 || ny!=0 || nz!=0 )
                 {
-                  int current_level = lmesh.getLevel({iOct, false});
-
-                  dyablo::LightOctree::NeighborList ns = lmesh.findNeighbors( {iOct, false}, {nx,ny,nz} );
-                  //bool boundary = lmesh.isBoundary( {iOct, false}, {nx,ny,nz} );
-                  //EXPECT_TRUE( ns.size()>0 || boundary );
-
-                  for( int i=0; i<ns.size(); i++ )
+                  LightOctree::offset_t offset = {nx,ny,nz};
+                  if( !lmesh.isBoundary( iOct_c, offset ) )
                   {
-                    int neighbor_level = lmesh.getLevel(ns[i]);
-                    //EXPECT_TRUE( std::abs(neighbor_level - current_level ) <= 1 );
-                    if( abs(neighbor_level - current_level ) > 1 )
-                      error_count_local++;
+                    LightOctree::OctantIndex iOct_neighbor = lmesh.findNeighbor( iOct_c, offset );
+                    LightOctree_tools::foreach_neighbor_octant( lmesh, iOct_c, iOct_neighbor, offset,
+                      [&]( const LightOctree::OctantIndex& iOct_neighbor_i )
+                    {
+                      int neighbor_level = lmesh.getLevel(iOct_neighbor_i);
+                      //EXPECT_TRUE( std::abs(neighbor_level - current_level ) <= 1 );
+                      if( abs(neighbor_level - current_level ) > 1 )
+                        error_count_local++;
+                    });
                   }
                 }
       }, error_count);
