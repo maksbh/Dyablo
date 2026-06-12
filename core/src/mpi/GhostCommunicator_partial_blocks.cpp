@@ -339,7 +339,7 @@ void exchange_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, 
   uint32_t total_send_size = send_iOct.size(), total_recv_size = recv_iOct.size(); // send/recv buffer size (number of cells)    
   uint32_t bx=U.getShape().bx, by=U.getShape().by, bz=U.getShape().bz ; // Block size
 
-  Kokkos::View< real_t*, Kokkos::LayoutLeft > send_buffer("exchange_ghosts::send_buffer", num_vars*total_send_size );
+  Kokkos::View< real_t* > send_buffer = pdata.mpi_comm.MPI_Alloc_view<Kokkos::View< real_t* >>( "exchange_ghosts::send_buffer", num_vars*total_send_size );
 
   Kokkos::parallel_for("exchange_ghosts::pack", total_send_size*num_vars,
     KOKKOS_LAMBDA( uint32_t ipack )
@@ -357,8 +357,7 @@ void exchange_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, 
     send_buffer( ipack ) = U.at_ivar( cell_index, ivar );
   });
 
-
-  Kokkos::View< real_t* > recv_buffer("exchange_ghosts::recv_buffer", num_vars*total_recv_size ); 
+  Kokkos::View< real_t* > recv_buffer = pdata.mpi_comm.MPI_Alloc_view<Kokkos::View< real_t* >>( "exchange_ghosts::recv_buffer", num_vars*total_recv_size );
 #ifdef MPI_IS_CUDA_AWARE 
   Kokkos::fence();
   pdata.mpi_comm.MPI_Alltoallv( send_buffer.data(), send_sizes.data(), recv_buffer.data(), recv_sizes.data() );
@@ -373,6 +372,8 @@ void exchange_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, 
     Kokkos::deep_copy(recv_buffer, recv_buffer_host);
   }  
 #endif
+
+  pdata.mpi_comm.MPI_Free_view( send_buffer );
 
   Kokkos::parallel_for("exchange_ghosts::unpack", total_recv_size*num_vars,
     KOKKOS_LAMBDA( uint32_t ipack )
@@ -389,6 +390,8 @@ void exchange_ghosts_aux( const GhostCommunicator_partial_blocks::Pdata& pdata, 
     CellIndex cell_index { {iOct, true, intermediates}, i, j, k, bx, by, bz };
     U.at_ivar( cell_index, ivar ) = recv_buffer( ipack );
   });
+
+  pdata.mpi_comm.MPI_Free_view( recv_buffer );
 }
 
 template< typename CellArray_t >
