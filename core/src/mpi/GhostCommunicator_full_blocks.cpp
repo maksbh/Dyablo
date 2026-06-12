@@ -94,7 +94,7 @@ void OctSubset_init_with_send( MpiComm mpi_comm,
   const Kokkos::View<uint32_t*>& recv_sizes_full,
   const Kokkos::View<uint32_t*>& send_iOcts_full,
   const Kokkos::View<uint32_t*>& send_sizes_full,
-  std::unique_ptr<ViewCommunicator>& partial_comm,
+  std::shared_ptr<ViewCommunicator>& partial_comm,
   Kokkos::View<uint32_t*>& subset_iOcts_send, /// positions of subset octants in send_iOcts_full
   Kokkos::View<uint32_t*>& subset_iOcts_recv)
 {
@@ -110,14 +110,14 @@ void OctSubset_init_with_send( MpiComm mpi_comm,
   auto send_iOcts_sizes = compute_subset_sizes(send_sizes_full, subset_iOcts_send);
   auto recv_iOcts_sizes = compute_subset_sizes(recv_sizes_full, subset_iOcts_recv);
 
-  partial_comm = std::make_unique<ViewCommunicator>( send_iOcts_sizes, send_iOcts, recv_iOcts_sizes);
+  partial_comm = std::make_shared<ViewCommunicator>( send_iOcts_sizes, send_iOcts, recv_iOcts_sizes);
 }
 
 void OctSubset_init( MpiComm mpi_comm, 
   const Kokkos::View<uint32_t*>& recv_sizes_full,
   const Kokkos::View<uint32_t*>& send_iOcts_full,
   const Kokkos::View<uint32_t*>& send_sizes_full,
-  std::unique_ptr<ViewCommunicator>& partial_comm,
+  std::shared_ptr<ViewCommunicator>& partial_comm,
   Kokkos::View<uint32_t*>& subset_iOcts)
 {
   int nbProc = mpi_comm.MPI_Comm_size();
@@ -198,7 +198,7 @@ void OctSubset_init( MpiComm mpi_comm,
     i_rank_begin += send_iOcts_sizes_host(rank);
     iGhost_rank_begin += send_sizes_full_host(rank);
   }
-  partial_comm = std::make_unique<ViewCommunicator>( send_iOcts_sizes, send_iOcts );
+  partial_comm = std::make_shared<ViewCommunicator>( send_iOcts_sizes, send_iOcts );
   DYABLO_ASSERT_HOST_RELEASE( partial_comm->getNumGhosts() == subset_iOcts.size(), "GhostCommunicator_full_blocks::OctSubset : ghost count mismatch" );
 }
 
