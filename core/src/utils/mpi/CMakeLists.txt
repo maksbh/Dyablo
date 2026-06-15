@@ -3,6 +3,7 @@ add_library(mpiUtils "")
 target_sources (mpiUtils
   PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/GlobalMpiSession.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/MpiBufferPool.cpp
   PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/GlobalMpiSession.h
   ${CMAKE_CURRENT_SOURCE_DIR}/MpiComm.h

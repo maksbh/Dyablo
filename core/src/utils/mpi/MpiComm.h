@@ -6,8 +6,6 @@
 #include <mpi.h>
 #endif
 
-#include "MpiBufferPool.h"
-
 namespace dyablo{
 
 /// \brief Object representation of an MPI communicator.
@@ -55,18 +53,6 @@ public:
   { return mpi_comm_size; }
 
   inline void MPI_Barrier();
-
-  template< typename View_t, typename... IntType  >
-  View_t MPI_Alloc_view( const std::string &name, const IntType&... extents ) const
-  {
-    return MpiBufferPool::get_MpiBufferPool().alloc<View_t>( name, extents... );
-  }
-
-  template< typename View_t >
-  void MPI_Free_view( View_t& view ) const
-  {
-    MpiBufferPool::get_MpiBufferPool().free( view );
-  }
 
   template<typename T>
   void MPI_Allreduce( const T* sendbuf, T* recvbuf, int count, MPI_Op_t op ) const;
