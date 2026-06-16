@@ -3,6 +3,7 @@
 #include <iostream>
 #include "utils/misc/Dyablo_assert.h"
 #include "utils/mpi/GlobalMpiSession.h"
+#include "utils/mpi/MpiBufferPool.h"
 
 #include "kokkos_shared.h"
 

@@ -1,5 +1,6 @@
 #include "GhostCommunicator_partial_blocks.h"
 #include "DyabloSession.hpp"
+#include "utils/mpi/MpiBufferPool.h"
 
 namespace dyablo {
 

@@ -4,8 +4,6 @@
 #include <array>
 #include <vector>
 
-#include "MpiBufferPool.h"
-
 namespace dyablo
 {
 

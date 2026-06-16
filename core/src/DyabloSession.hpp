@@ -8,6 +8,7 @@
 namespace dyablo {
 
 class GlobalMpiSession;
+class MpiBufferPool;
 
 /**
  * DyabloSession serves as a scope guard for MPI and Kokkos initialization/finalization
