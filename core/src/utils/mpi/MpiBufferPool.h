@@ -46,6 +46,7 @@ public:
     {
       Kokkos::kokkos_free<memory_space>( a.ptr );
     }
+    free_allocs.clear();
   }
 
   void* alloc( size_t req_size )
