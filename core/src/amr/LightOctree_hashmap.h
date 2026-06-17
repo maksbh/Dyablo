@@ -85,39 +85,48 @@ public:
     }
 
     //! @copydoc LightOctree_base::findNeighbor()
+    template<bool accepts_ghosts = true>
     KOKKOS_INLINE_FUNCTION
     OctantIndex findNeighbor(const OctantIndex& iOct, const offset_t& offset) const
     {
-        return findNeighbor_aux<false>(iOct, offset[IX], offset[IY], offset[IZ]);
+        return findNeighbor_aux<false, accepts_ghosts>(iOct, offset[IX], offset[IY], offset[IZ]);
     }
 
     //! @copydoc LightOctree_base::findNeighbor_intermediate()
+    template<bool accepts_ghosts = true>
     KOKKOS_INLINE_FUNCTION 
     OctantIndex findNeighbor_intermediate( const OctantIndex& iOct, const offset_t& offset )  const
     {
-        return findNeighbor_aux<true>(iOct, offset[IX], offset[IY], offset[IZ]);
+        return findNeighbor_aux<true, accepts_ghosts>(iOct, offset[IX], offset[IY], offset[IZ]);
     }
 
     //! @copydoc LightOctree_base::findNeighbor()
+    template<bool accepts_ghosts = true>
     KOKKOS_INLINE_FUNCTION
     OctantIndex findNeighbor(const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z) const
     {
-        return findNeighbor_aux<false>(iOct, offset_x, offset_y, offset_z);
+        return findNeighbor_aux<false, accepts_ghosts>(iOct, offset_x, offset_y, offset_z);
     }
 
     //! @copydoc LightOctree_base::findNeighbor_intermediate()
+    template<bool accepts_ghosts = true>
     KOKKOS_INLINE_FUNCTION 
     OctantIndex findNeighbor_intermediate( const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z)  const
     {
-        return findNeighbor_aux<true>(iOct, offset_x, offset_y, offset_z);
+        return findNeighbor_aux<true, accepts_ghosts>(iOct, offset_x, offset_y, offset_z);
     }
 
-    template< bool search_intermediate >
+    template< bool search_intermediate, bool accepts_ghosts >
     KOKKOS_INLINE_FUNCTION
     OctantIndex findNeighbor_aux(const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z) const
     {
         if( offset_x == 0 && offset_y == 0 && offset_z == 0 )
             return iOct;
+
+        if constexpr ( !accepts_ghosts )
+        {
+           DYABLO_ASSERT_KOKKOS_DEBUG(!iOct.isGhost, "LightOctree_hashmap::findNeighbor_aux : iOct is a ghost but ghosts are disabled");
+        }
 
         DYABLO_ASSERT_KOKKOS_DEBUG( !this->isBoundary(iOct, offset_x, offset_y, offset_z), "findNeighbor doesn't support boundaries." );
 
