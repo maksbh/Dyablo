@@ -186,7 +186,7 @@ public:
         OctantIndex iOct_n = storage.iOctLocal_to_OctantIndex(iOct_local_neighbor);
 
 
-        auto test_same_as_LightOctree_hashmap = [&]()
+        [[maybe_unused]] auto test_same_as_LightOctree_hashmap = [&]()
         {
             OctantIndex iOct_expected = LightOctree_hashmap::findNeighbor_aux<has_intermediates, accepts_ghosts>( iOct, offset_x, offset_y, offset_z );
             return iOct_expected.iOct == iOct_n.iOct && iOct_expected.isGhost == iOct_n.isGhost && iOct_expected.isIntermediate == iOct_n.isIntermediate;

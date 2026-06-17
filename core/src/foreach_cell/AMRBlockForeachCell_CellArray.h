@@ -448,7 +448,11 @@ struct CellIndex
 
           return res;    
         }
-        
+        else
+        {
+          DYABLO_ASSERT_KOKKOS_DEBUG(false, "unexpected level_diff");
+          return CELLINDEX_INVALID;
+        }        
       }
       else
       {
