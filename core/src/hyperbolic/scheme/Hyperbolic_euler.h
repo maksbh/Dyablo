@@ -152,6 +152,7 @@ public:
           const PrimState qR = policy.getPrimState(Qpatch, iCell_Qpatch + off_p); 
         
           //!\ Neighbor cells in Qpatch are averaged cells -> size iCell_L != size iCell_Qpatch_L
+          #warning TODO : getNeighbor_level_diff without index computation
           CellIndex iCell_L = iCell_Uin.getNeighbor(off_m, search_neighbor);
           CellIndex iCell_R = iCell_Uin.getNeighbor(off_p, search_neighbor);   
 
@@ -167,12 +168,14 @@ public:
           return slope;
         }; // get_slope
 
+        CellIndex iCell_Qpatch = Qpatch.getShape().convert_index(iCell_Uout, search_local);
+        PrimState qC0 = policy.getPrimState( Qpatch, iCell_Qpatch );
+        auto size_C0 = cellmetadata.getCellSize(iCell_Uout);
 
         auto process_dir = [&](const CellIndex &iCell_Uin, const CellIndex &iCell_Qpatch, ComponentIndex3D dir) {
-          // Getting centered value and slope
-          PrimState qC0 = policy.getPrimState( Qpatch, iCell_Qpatch );
+          // Getting centered value and slope 
           PrimState slope_C = get_slope(iCell_Uin, iCell_Qpatch, dir);
-          real_t size_C = cellmetadata.getCellSize(iCell_Uin)[dir];
+          real_t size_C = size_C0[dir];
 
           real_t dim_fac = (ndim == 2 ? 0.5 : 0.25);
   
@@ -183,6 +186,7 @@ public:
 
             offset_t off_m{}; 
             off_m[dir] = -1;
+            #warning TODO getneighbor with bigger cell only (?_intermediates?)
             const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor(off_m, search_neighbor);
             if( iCell_Uin_m.is_boundary() )
             {
@@ -196,7 +200,6 @@ public:
                 CellIndex iCell_Qpatch_m = iCell_Qpatch + off_m;
                 PrimState qL0 = policy.getPrimState( Qpatch, iCell_Qpatch_m );
                 PrimState slope_L = get_slope(iCell_Uin_m, iCell_Qpatch_m, dir);
-                real_t size_L = cellmetadata.getCellSize(iCell_Uin_m)[dir];
 
                 // Reconstructing
                 PrimState qL = qL0 + 0.5 * slope_L;
@@ -207,6 +210,7 @@ public:
                 // Adding flux to the neighbor if it is bigger
                 if (Ldiff == 1) 
                 {
+                  real_t size_L = 2 * size_C;
                   ConsState du_n = fluxL * - dim_fac * dt / size_L;
                   policy.atomic_addConsState(Uout, iCell_Uin_m, du_n);
                 }
@@ -221,6 +225,7 @@ public:
 
             offset_t off_p{}; 
             off_p[dir] = 1;
+            #warning TODO getneighbor with bigger cell only (?_intermediates?)
             const CellIndex iCell_Uin_p = iCell_Uin.getNeighbor(off_p, search_neighbor);
             if( iCell_Uin_p.is_boundary() )
             {
@@ -234,7 +239,6 @@ public:
                 CellIndex iCell_Qpatch_p = iCell_Qpatch + off_p;
                 PrimState qR0 = policy.getPrimState( Qpatch, iCell_Qpatch_p );
                 PrimState slope_R = get_slope(iCell_Uin_p, iCell_Qpatch_p, dir);
-                real_t size_R = cellmetadata.getCellSize(iCell_Uin_p)[dir];
 
                 // Reconstructing
                 PrimState qR = qR0 - 0.5 * slope_R;
@@ -245,6 +249,7 @@ public:
                 // Adding flux to the neighbor if it is bigger
                 if (Rdiff == 1)
                 {
+                  real_t size_R = 2 * size_C;
                   ConsState du_n = fluxR * dim_fac * dt / size_R;
                   policy.atomic_addConsState(Uout, iCell_Uin_p, du_n);
                 }          
@@ -256,8 +261,6 @@ public:
           return du;
         };
 
-
-        CellIndex iCell_Qpatch = Qpatch.getShape().convert_index(iCell_Uout, search_local);
 
         ConsState du{};
         du += process_dir(iCell_Uout, iCell_Qpatch, IX);
