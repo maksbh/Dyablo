@@ -232,11 +232,19 @@ struct CellIndex
   KOKKOS_INLINE_FUNCTION
   CellIndex getNeighbor( const offset_t& offset, const SearchMode& search_mode ) const
   {
+    return getNeighbor(offset[IX], offset[IY], offset[IZ], search_mode);
+  }
+
+
+  template<typename SearchMode>
+  KOKKOS_INLINE_FUNCTION
+  CellIndex getNeighbor( int16_t offset_x, int16_t offset_y, int16_t offset_z, const SearchMode& search_mode ) const
+  {
     DYABLO_ASSERT_KOKKOS_DEBUG(this->is_valid(), "Index needs to be valid to get neighbor");
 
-    int32_t i = this->i + offset[IX];
-    int32_t j = this->j + offset[IY];
-    int32_t k = this->k + offset[IZ];
+    int32_t i = this->i + offset_x;
+    int32_t j = this->j + offset_y;
+    int32_t k = this->k + offset_z;
 
     if( i<0 || i>=(int32_t)bx || j<0 || j>=(int32_t)by || k<0 || k>=(int32_t)bz )
     {
@@ -258,14 +266,12 @@ struct CellIndex
         // Neighbor search
         const LightOctree& lmesh = search_mode.getLightOctree();
 
-        LightOctree::offset_t oct_offset{
-          (int8_t)(i/bx),
-          (int8_t)(j/by),
-          (int8_t)(k/bz)
-        };
+        int16_t oct_offset_x = i/bx;
+        int16_t oct_offset_y = j/by;
+        int16_t oct_offset_z = k/bz;
 
         const LightOctree::OctantIndex& iOct = this->iOct;
-        if( lmesh.isBoundary( iOct, oct_offset ) )
+        if( lmesh.isBoundary( iOct, oct_offset_x, oct_offset_y, oct_offset_z ) )
         {
           return CellIndex{iOct,i+bx,j+by,k+bz,bx,by,bz, CellIndex::BOUNDARY};;
         }
@@ -273,11 +279,11 @@ struct CellIndex
         if constexpr ( std::is_same_v<SearchMode, SearchMode_intermediates>  )
         {
           #warning TODO include level_diff in OctantIndex
-          LightOctree::OctantIndex iOct_n = lmesh.findNeighbor_intermediate(iOct, oct_offset);
+          LightOctree::OctantIndex iOct_n = lmesh.findNeighbor_intermediate(iOct, oct_offset_x, oct_offset_y, oct_offset_z);
           // Compute position of cell in neighbor when neighbor is same size;
-          uint32_t i_same = i - oct_offset[IX] * bx;
-          uint32_t j_same = j - oct_offset[IY] * by;
-          uint32_t k_same = k - oct_offset[IZ] * bz;
+          uint32_t i_same = i - oct_offset_x * bx;
+          uint32_t j_same = j - oct_offset_y * by;
+          uint32_t k_same = k - oct_offset_z * bz;
           DYABLO_ASSERT_KOKKOS_DEBUG(i_same<bx, "internal error : i out of block bounds");
           DYABLO_ASSERT_KOKKOS_DEBUG(j_same<by, "internal error : j out of block bounds");
           DYABLO_ASSERT_KOKKOS_DEBUG(k_same<bz, "internal error : k out of block bounds");
@@ -300,9 +306,9 @@ struct CellIndex
                 return (int)(x%2 != 0);
               };
 
-              int suboctant_offset_x = is_odd( coord_n[IX] + oct_offset[IX] );
-              int suboctant_offset_y = is_odd( coord_n[IY] + oct_offset[IY] );
-              int suboctant_offset_z = is_odd( coord_n[IZ] + oct_offset[IZ] );
+              int suboctant_offset_x = is_odd( coord_n[IX] + oct_offset_x );
+              int suboctant_offset_y = is_odd( coord_n[IY] + oct_offset_y );
+              int suboctant_offset_z = is_odd( coord_n[IZ] + oct_offset_z );
 
               // Offset to select suboctant and /2 for position in larger octant 
               uint32_t i_larger = (i_same+suboctant_offset_x*bx)/2;
@@ -335,16 +341,16 @@ struct CellIndex
         }
         else //constexpr if( std::is_same_v<SearchMode, SearchMode_neighbor>  )
         {
-          DYABLO_ASSERT_KOKKOS_DEBUG( !lmesh.isBoundary(iOct, oct_offset), "Should not be boundary here" );
+          DYABLO_ASSERT_KOKKOS_DEBUG( !lmesh.isBoundary(iOct, oct_offset_x, oct_offset_y, oct_offset_z), "Should not be boundary here" );
 
-          LightOctree::OctantIndex iOct_neighbor = lmesh.findNeighbor(iOct, oct_offset);
+          LightOctree::OctantIndex iOct_neighbor = lmesh.findNeighbor(iOct, oct_offset_x, oct_offset_y, oct_offset_z);
 
           int level_diff = lmesh.getLevel(iOct) - lmesh.getLevel(iOct_neighbor);
           
           // Compute position of cell in neighbor when neighbor is same size;
-          uint32_t i_same = i - oct_offset[IX] * bx;
-          uint32_t j_same = j - oct_offset[IY] * by;
-          uint32_t k_same = k - oct_offset[IZ] * bz;
+          uint32_t i_same = i - oct_offset_x * bx;
+          uint32_t j_same = j - oct_offset_y * by;
+          uint32_t k_same = k - oct_offset_z * bz;
 
           if( level_diff == 0 )
           { // Neighbor is same size
@@ -367,9 +373,9 @@ struct CellIndex
               return (int)(x%2 != 0);
             };
 
-            int suboctant_offset_x = is_odd( coord_n[IX] + oct_offset[IX] );
-            int suboctant_offset_y = is_odd( coord_n[IY] + oct_offset[IY] );
-            int suboctant_offset_z = is_odd( coord_n[IZ] + oct_offset[IZ] );
+            int suboctant_offset_x = is_odd( coord_n[IX] + oct_offset_x );
+            int suboctant_offset_y = is_odd( coord_n[IY] + oct_offset_y );
+            int suboctant_offset_z = is_odd( coord_n[IZ] + oct_offset_z );
 
             // Offset to select suboctant and /2 for position in larger octant 
             uint32_t i_larger = (i_same+suboctant_offset_x*bx)/2;
@@ -394,9 +400,9 @@ struct CellIndex
 
             // Compute cell position in neighbor meta-bloc of size {2*bx, 2*by, 2*bz}
             // Pick same-size cell origin for smaller_neighbor_mode() == ORIGIN
-            uint32_t i_smaller = i*2 - oct_offset[IX] * bx * 2; 
-            uint32_t j_smaller = j*2 - oct_offset[IY] * by * 2;
-            uint32_t k_smaller = k*2 - oct_offset[IZ] * bz * 2;
+            uint32_t i_smaller = i*2 - oct_offset_x * bx * 2; 
+            uint32_t j_smaller = j*2 - oct_offset_y * by * 2;
+            uint32_t k_smaller = k*2 - oct_offset_z * bz * 2;
 
             if( search_mode.smaller_neighbor_mode() == SearchMode_neighbor::CLOSEST )
             {
