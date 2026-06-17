@@ -259,9 +259,9 @@ struct CellIndex
         const LightOctree& lmesh = search_mode.getLightOctree();
 
         LightOctree::offset_t oct_offset{
-          (int8_t)std::floor( (float)i/(float)bx ),
-          (int8_t)std::floor( (float)j/(float)by ),
-          (int8_t)std::floor( (float)k/(float)bz )
+          (int8_t)(i/bx),
+          (int8_t)(j/by),
+          (int8_t)(k/bz)
         };
 
         const LightOctree::OctantIndex& iOct = this->iOct;
@@ -272,6 +272,7 @@ struct CellIndex
 
         if constexpr ( std::is_same_v<SearchMode, SearchMode_intermediates>  )
         {
+          #warning TODO include level_diff in OctantIndex
           LightOctree::OctantIndex iOct_n = lmesh.findNeighbor_intermediate(iOct, oct_offset);
           // Compute position of cell in neighbor when neighbor is same size;
           uint32_t i_same = i - oct_offset[IX] * bx;
@@ -293,20 +294,15 @@ struct CellIndex
             else // Return bigger cell
             {
               // Compute suboctant where target cell is located in larger neighbor
-              LightOctree::pos_t current_center = lmesh.getCenter(iOct);
-              auto current_size = lmesh.getSize(iOct);
-
-              int current_logical_x = std::floor( current_center[IX]/current_size[IX] );
-              int current_logical_y = std::floor( current_center[IY]/current_size[IY] );
-              int current_logical_z = std::floor( current_center[IZ]/current_size[IZ] );
+              auto coord_n = lmesh.get_logical_coords(iOct);
 
               auto is_odd = [](int x) {
                 return (int)(x%2 != 0);
               };
 
-              int suboctant_offset_x = is_odd( current_logical_x + oct_offset[IX] );
-              int suboctant_offset_y = is_odd( current_logical_y + oct_offset[IY] );
-              int suboctant_offset_z = is_odd( current_logical_z + oct_offset[IZ] );
+              int suboctant_offset_x = is_odd( coord_n[IX] + oct_offset[IX] );
+              int suboctant_offset_y = is_odd( coord_n[IY] + oct_offset[IY] );
+              int suboctant_offset_z = is_odd( coord_n[IZ] + oct_offset[IZ] );
 
               // Offset to select suboctant and /2 for position in larger octant 
               uint32_t i_larger = (i_same+suboctant_offset_x*bx)/2;
@@ -364,22 +360,16 @@ struct CellIndex
           }
           else if(level_diff == 1)
           { // Neighbor is larger  
-            
             // Compute suboctant where target cell is located in larger neighbor
-            LightOctree::pos_t current_center = lmesh.getCenter(iOct);
-            auto current_size = lmesh.getSize(iOct);
-
-            int current_logical_x = std::floor( current_center[IX]/current_size[IX] );
-            int current_logical_y = std::floor( current_center[IY]/current_size[IY] );
-            int current_logical_z = std::floor( current_center[IZ]/current_size[IZ] );
+            auto coord_n = lmesh.get_logical_coords(iOct);
 
             auto is_odd = [](int x) {
               return (int)(x%2 != 0);
             };
 
-            int suboctant_offset_x = is_odd( current_logical_x + oct_offset[IX] );
-            int suboctant_offset_y = is_odd( current_logical_y + oct_offset[IY] );
-            int suboctant_offset_z = is_odd( current_logical_z + oct_offset[IZ] );
+            int suboctant_offset_x = is_odd( coord_n[IX] + oct_offset[IX] );
+            int suboctant_offset_y = is_odd( coord_n[IY] + oct_offset[IY] );
+            int suboctant_offset_z = is_odd( coord_n[IZ] + oct_offset[IZ] );
 
             // Offset to select suboctant and /2 for position in larger octant 
             uint32_t i_larger = (i_same+suboctant_offset_x*bx)/2;
@@ -434,36 +424,39 @@ struct CellIndex
             DYABLO_ASSERT_KOKKOS_DEBUG(j_smaller<by, "internal error : j out of block bounds");
             DYABLO_ASSERT_KOKKOS_DEBUG(k_smaller<bz, "internal error : k out of block bounds");
 
-            // Find suboctant containing first neighbor
-            LightOctree::pos_t current_oct_center = lmesh.getCenter(iOct);
-            auto current_oct_size = lmesh.getSize(iOct);
-            LightOctree::pos_t neighbor_superoct_center{
-              current_oct_center[IX] + oct_offset[IX] * current_oct_size[IX], 
-              current_oct_center[IY] + oct_offset[IY] * current_oct_size[IY], 
-              current_oct_center[IZ] + oct_offset[IZ] * current_oct_size[IZ] 
-            };
-
-            [[maybe_unused]] bool found = false;
             LightOctree::OctantIndex suboctant;
+            
+            // This is needed in case cells are scattered accross multiple suboctants
+            // {
+            //   [[maybe_unused]] bool found = false;
 
-            LightOctree_tools::foreach_neighbor_octant( lmesh, iOct, iOct_neighbor, oct_offset,
-              [&]( const LightOctree::OctantIndex& iOct_neighbor_i )
+            //   LightOctree_tools::foreach_neighbor_octant( lmesh, iOct, iOct_neighbor, oct_offset,
+            //     [&]( const LightOctree::OctantIndex& iOct_neighbor_i )
+            //   {
+            //     auto neighbor_suboct_coord = lmesh.get_logical_coords(iOct_neighbor_i);
+            //     // Compute position of suboctant in bigger neighbor octant
+            //     int this_suboctant_x = neighbor_suboct_coord[IX]%2;
+            //     int this_suboctant_y = neighbor_suboct_coord[IY]%2;
+            //     int this_suboctant_z = neighbor_suboct_coord[IZ]%2;
+
+            //     // Match suboctant with suboctant containing first neighbor cell
+            //     if( suboctant_x == this_suboctant_x && suboctant_y == this_suboctant_y && suboctant_z == this_suboctant_z )
+            //     {
+            //       suboctant = iOct_neighbor_i;
+            //       found = true;
+            //     }
+            //   });
+
+            //   DYABLO_ASSERT_KOKKOS_DEBUG( found, "smaller neighbor : corresponding suboctant not found" );
+            // }
+            #warning TODO optimize for even blocks : all subcells will be in same octant
             {
-              LightOctree::pos_t neighbor_suboct_center = lmesh.getCenter(iOct_neighbor_i);
-              // Compute position of suboctant in bigger neighbor octant
-              int this_suboctant_x = neighbor_suboct_center[IX] > neighbor_superoct_center[IX];
-              int this_suboctant_y = neighbor_suboct_center[IY] > neighbor_superoct_center[IY];
-              int this_suboctant_z = neighbor_suboct_center[IZ] > neighbor_superoct_center[IZ];
-
-              // Match suboctant with suboctant containing first neighbor cell
-              if( suboctant_x == this_suboctant_x && suboctant_y == this_suboctant_y && suboctant_z == this_suboctant_z )
-              {
-                suboctant = iOct_neighbor_i;
-                found = true;
-              }
-            });
-
-            DYABLO_ASSERT_KOKKOS_DEBUG( found, "smaller neighbor : corresponding suboctant not found" );
+              DYABLO_ASSERT_KOKKOS_DEBUG( bx%2 == 0, "gathered subcells optimization enabled : block size must be even" );
+              DYABLO_ASSERT_KOKKOS_DEBUG( by%2 == 0, "gathered subcells optimization enabled : block size must be even" );
+              DYABLO_ASSERT_KOKKOS_DEBUG( bz%2 == 0, "gathered subcells optimization enabled : block size must be even" );
+              suboctant = iOct_neighbor;
+            }
+            
 
             return CellIndex{
               suboctant, 
