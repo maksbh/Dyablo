@@ -256,6 +256,12 @@ public:
     /// @copydoc LightOctree_base::isBoundary()
     KOKKOS_INLINE_FUNCTION
     bool isBoundary(const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z) const {       
+        if(     (offset_x == 0 || this->is_periodic[IX]) 
+            &&  (offset_y == 0 || this->is_periodic[IY]) 
+            &&  (offset_z == 0 || this->is_periodic[IZ]) )
+        {
+            return false;
+        }
         auto logical_coord = this->get_logical_coords( iOct );
         int level = this->getLevel( iOct );
         uint32_t cell_count_x = this->storage.cell_count( IX, level );
