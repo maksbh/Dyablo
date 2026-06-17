@@ -276,9 +276,9 @@ public:
         uint32_t cell_count_x = this->storage.cell_count( IX, level );
         uint32_t cell_count_y = this->storage.cell_count( IY, level );
         uint32_t cell_count_z = this->storage.cell_count( IZ, level );
-        return ( offset_x != 0 && !this->is_periodic[IX] && ( (logical_coord[IX] + offset_x) < 0 || (logical_coord[IX] + offset_x ) >= cell_count_x ) )
-            || ( offset_y != 0 && !this->is_periodic[IY] && ( (logical_coord[IY] + offset_y) < 0 || (logical_coord[IY] + offset_y ) >= cell_count_y ) )
-            || ( offset_z != 0 && !this->is_periodic[IZ] && ( (logical_coord[IZ] + offset_z) < 0 || (logical_coord[IZ] + offset_z ) >= cell_count_z ) );
+        return ( offset_x != 0 && !this->is_periodic[IX] && ( /*(logical_coord[IX] + offset_x) < 0 ||*/ ( logical_coord[IX] + offset_x ) >= cell_count_x ) )
+            || ( offset_y != 0 && !this->is_periodic[IY] && ( /*(logical_coord[IY] + offset_y) < 0 ||*/ ( logical_coord[IY] + offset_y ) >= cell_count_y ) )
+            || ( offset_z != 0 && !this->is_periodic[IZ] && ( /*(logical_coord[IZ] + offset_z) < 0 ||*/ ( logical_coord[IZ] + offset_z ) >= cell_count_z ) );
     }
 
 

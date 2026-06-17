@@ -454,10 +454,10 @@ void init_intermediates(LightOctree_storage<>& storage_device)
   using OctantIndex = LightOctree::OctantIndex;
 
   int dim = storage_device.getNdim();
-  int level_min = storage_device.level_min;
+  level_t level_min = storage_device.level_min;
   uint32_t nbLocalLeaves = storage_device.getNumOctants();
 
-  int first_intermediate_level = level_min;
+  level_t first_intermediate_level = level_min;
 
   // Count intermediates
   uint32_t nbIntermediates_local = 0;
@@ -469,7 +469,7 @@ void init_intermediates(LightOctree_storage<>& storage_device)
         .isGhost = false, 
         .isIntermediate = false
       };
-      uint32_t level = storage_device.getLevel(iOct_local);
+      level_t level = storage_device.getLevel(iOct_local);
       auto logical_coords = storage_device.get_logical_coords(iOct_local);
       // Create parent cell if current cell is the "origin subcell" below first_intermediate_level
       // This ensures intermediate is created once only by the process owning the origin subcell
@@ -499,7 +499,7 @@ void init_intermediates(LightOctree_storage<>& storage_device)
         .isGhost = false, 
         .isIntermediate = false
       };
-      uint32_t level = storage_device.getLevel(iOct_local);
+      level_t level = storage_device.getLevel(iOct_local);
       auto logical_coords = storage_device.get_logical_coords(iOct_local);
       while ( logical_coords[IX] % 2u == 0u && logical_coords[IY] % 2u == 0u 
             && logical_coords[IZ] % 2u == 0u && level > first_intermediate_level) 
