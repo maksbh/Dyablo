@@ -109,6 +109,15 @@ private:
   BiggerNeighborMode _bigger_neighbor_mode;
 };
 
+enum CellIndex_Status_enum {
+  LOCAL_TO_BLOCK,
+  SAME_SIZE,
+  SMALLER,
+  BIGGER,
+  BOUNDARY,
+  INVALID
+};
+
 struct CellIndex
 {
   LightOctree::OctantIndex iOct;
@@ -126,30 +135,48 @@ struct CellIndex
   /**
    * Difference of level between current cell and original cell used in convert_index() or getNeighbor()
    * note : is 0 for indexes that are local to the block
-   **/
+   **/ 
+  KOKKOS_INLINE_FUNCTION
+  static int level_diff( Status status )
+  {
+    return (status==BIGGER)-(status==SMALLER);
+  }
+
   KOKKOS_INLINE_FUNCTION
   int level_diff() const
   {
-    return (status==BIGGER)-(status==SMALLER);
+    return level_diff(this->status);
   }
 
   /**
    * Search during convert_index() or getNeighbor() resulted in a CellIndex outside 
    * of local block and neighbor search was disabled
-   **/
+   **/ 
   KOKKOS_INLINE_FUNCTION
-  bool is_valid() const
+  static bool is_valid( Status status )
   {
     return (status!=INVALID) && (status!=BOUNDARY);
   }
 
+  KOKKOS_INLINE_FUNCTION
+  bool is_valid() const
+  {
+    return is_valid(this->status);
+  }
+
   /**
    * Returns true when index operation returns a cell outside of domain boundaries.
-   **/
+   **/ 
+  KOKKOS_INLINE_FUNCTION
+  static bool is_boundary( Status status )
+  {
+    return status==BOUNDARY;
+  }
+
   KOKKOS_INLINE_FUNCTION
   bool is_boundary() const
   {
-    return status==BOUNDARY;
+    return is_boundary(this->status);
   }
 
   /**
@@ -158,9 +185,15 @@ struct CellIndex
    * arrays with ghosts enabled
    **/
   KOKKOS_INLINE_FUNCTION
-  bool is_local() const
+  static bool is_local(Status status)
   {
     return status==LOCAL_TO_BLOCK;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  bool is_local() const
+  {
+    return is_local(this->status);
   }
 
   /**
@@ -208,6 +241,24 @@ struct CellIndex
     offset = {i_offset, j_offset, k_offset};
   }
 
+  template<typename SearchMode>
+  KOKKOS_INLINE_FUNCTION
+  CellIndex::Status getNeighborStatus( const offset_t& offset, const SearchMode& search_mode ) const
+  {
+    return getNeighborStatus(offset[IX], offset[IY], offset[IZ], search_mode);
+  }
+
+  /**
+   * Compute neighbor status
+   * 
+   * Same as getNeighbor().status
+   */
+  template<typename SearchMode>
+  KOKKOS_INLINE_FUNCTION
+  CellIndex::Status getNeighborStatus( int16_t offset_x, int16_t offset_y, int16_t offset_z, const SearchMode& search_mode ) const
+  {
+    return getNeighbor<SearchMode>(offset_x, offset_y, offset_z, search_mode).status;
+  }
 
   /**
    * Compute neighbor cell index
