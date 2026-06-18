@@ -248,6 +248,21 @@ struct CellIndex
     return getNeighborStatus(offset[IX], offset[IY], offset[IZ], search_mode);
   }
 
+  template<typename SearchMode>
+  KOKKOS_INLINE_FUNCTION
+  CellIndex::Status getNeighborStatus( int16_t offset_x, int16_t offset_y, int16_t offset_z, const SearchMode& search_mode ) const
+  {
+    auto res = getNeighborStatus_aux(offset_x, offset_y, offset_z, search_mode);
+    
+    DYABLO_ASSERT_KOKKOS_DEBUG( 
+      [&](){
+        auto expected = getNeighbor(offset_x, offset_y, offset_z, search_mode).status;
+        return expected == res;
+      }() , "CellIndex::getNeighborStatus() does not match CellIndex::getNeighbor().status" );
+    
+    return res;
+  } 
+
   /**
    * Compute neighbor status
    * 
@@ -255,9 +270,129 @@ struct CellIndex
    */
   template<typename SearchMode>
   KOKKOS_INLINE_FUNCTION
-  CellIndex::Status getNeighborStatus( int16_t offset_x, int16_t offset_y, int16_t offset_z, const SearchMode& search_mode ) const
+  CellIndex::Status getNeighborStatus_aux( int16_t offset_x, int16_t offset_y, int16_t offset_z, const SearchMode& search_mode ) const
   {
-    return getNeighbor<SearchMode>(offset_x, offset_y, offset_z, search_mode).status;
+    DYABLO_ASSERT_KOKKOS_DEBUG(this->is_valid(), "Index needs to be valid to get neighbor");
+
+    bool assume_local_oct = false;
+    if constexpr( std::is_same_v<SearchMode, SearchMode_local> )
+      assume_local_oct = search_mode.error_mode() == SearchMode_local::ASSERT;
+
+    int32_t i = this->i + offset_x;
+    int32_t j = this->j + offset_y;
+    int32_t k = this->k + offset_z;
+
+    if ( assume_local_oct )
+    {
+      DYABLO_ASSERT_KOKKOS_DEBUG(i>=0, "i out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(i<(int32_t)bx, "i out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(j>=0, "j out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(j<(int32_t)by, "j out of block bounds");
+      DYABLO_ASSERT_KOKKOS_DEBUG(k>=0, "k out of block bounds"); DYABLO_ASSERT_KOKKOS_DEBUG(k<(int32_t)bz, "k out of block bounds");
+    }
+
+    bool i_inside = assume_local_oct || (offset_x==0) || (/*i>=0 &&*/ (uint32_t)i<bx);
+    bool j_inside = assume_local_oct || (offset_y==0) || (/*j>=0 &&*/ (uint32_t)j<by);
+    bool k_inside = assume_local_oct || (offset_z==0) || (/*k>=0 &&*/ (uint32_t)k<bz);
+
+    if( i_inside && j_inside && k_inside )
+    {
+      // Index is inside block
+      // non-local cells keep their non-local status, but not their level difference
+      CellIndex::Status cell_status = this->is_local() ?
+                                        CellIndex::LOCAL_TO_BLOCK
+                                      : CellIndex::SAME_SIZE;
+      return cell_status;
+    }
+    else
+    {
+      // Index is outside of block : find neighbor?
+      if constexpr (std::is_same_v<SearchMode, SearchMode_local>)
+      { 
+        return CellIndex::INVALID;
+      }
+      else if constexpr (  std::is_same_v<SearchMode, SearchMode_neighbor> 
+                        || std::is_same_v<SearchMode, SearchMode_intermediates> )
+      { 
+        // Neighbor search
+        const LightOctree& lmesh = search_mode.getLightOctree();
+
+        int32_t oct_offset_x = (offset_x==0) ? 0 : ((i>=(int32_t)bx) - (i<0));
+        int32_t oct_offset_y = (offset_y==0) ? 0 : ((j>=(int32_t)by) - (j<0));
+        int32_t oct_offset_z = (offset_z==0) ? 0 : ((k>=(int32_t)bz) - (k<0));
+
+        const LightOctree::OctantIndex& iOct = this->iOct;
+        if( lmesh.isBoundary( iOct, oct_offset_x, oct_offset_y, oct_offset_z ) )
+        {
+          return CellIndex::BOUNDARY;
+        }
+
+        LightOctree::OctantIndex iOct_n;        
+        if constexpr ( std::is_same_v<SearchMode, SearchMode_intermediates> )
+          iOct_n = lmesh.findNeighbor_intermediate(iOct, oct_offset_x, oct_offset_y, oct_offset_z);
+        else //constexpr if( std::is_same_v<SearchMode, SearchMode_neighbor>  )
+          iOct_n = lmesh.findNeighbor(iOct, oct_offset_x, oct_offset_y, oct_offset_z);
+        // TODO : optimize level_diff with dedicated LightOctree method
+        int level_diff = lmesh.getLevel(iOct) - lmesh.getLevel(iOct_n);
+
+        // can_be_bigger/smaller are here for optimization purpose to quickly exit 
+        // branches depending on SearchMode. Ideally this should all be known at compile time        
+        bool can_be_bigger;        
+        bool bigger_returns_invalid;
+        bool can_be_smaller;
+        bool smaller_returns_invalid;        
+        if constexpr ( std::is_same_v<SearchMode, SearchMode_neighbor> )
+        {
+          can_be_bigger = true;
+          bigger_returns_invalid = false;
+          can_be_smaller = (search_mode.smaller_neighbor_mode() != SearchMode_neighbor::ASSERT);
+          smaller_returns_invalid = (search_mode.smaller_neighbor_mode() == SearchMode_neighbor::INVALID);
+        }
+        else //constexpr ( std::is_same_v<SearchMode, SearchMode_intermediates> )
+        {
+          can_be_bigger = (search_mode.bigger_neighbor_mode() != SearchMode_intermediates::ASSERT);
+          bigger_returns_invalid = (search_mode.bigger_neighbor_mode() == SearchMode_intermediates::INVALID);
+          can_be_smaller = false;
+          smaller_returns_invalid = true;
+        }
+
+        DYABLO_ASSERT_KOKKOS_DEBUG( level_diff >= -1 && level_diff <= 1, "Level-diff doesn't respect 2:1 balance" );
+        if( !can_be_bigger )
+        {
+          DYABLO_ASSERT_KOKKOS_DEBUG( level_diff <= 0, "SearchMode doesn't allow bigger neighbors but neighbor is bigger" );
+        }
+        if( !can_be_smaller )
+        {
+          DYABLO_ASSERT_KOKKOS_DEBUG( level_diff >= 0, "SearchMode doesn't allow smaller neighbors but neighbor is smaller" );
+        }
+
+        if( (!can_be_bigger && !can_be_smaller) || level_diff==0 )
+        {
+          return CellIndex::SAME_SIZE;
+        }
+        else if( can_be_smaller && level_diff==-1 )
+        { 
+          if(smaller_returns_invalid)
+            return CellIndex::INVALID;
+          else
+            return CellIndex::SMALLER;
+        }
+        else if( can_be_bigger && level_diff==1 )
+        {
+          if(bigger_returns_invalid)
+            return CellIndex::INVALID;
+          else
+            return CellIndex::BIGGER;
+        }
+        else
+        {
+          DYABLO_ASSERT_KOKKOS_DEBUG(false, "unexpected level_diff");
+          return CellIndex::INVALID;
+        }
+      }
+      else
+      {
+        static_assert( !std::is_same_v<SearchMode, SearchMode>, "Unsupported search mode" );
+      }
+    }
   }
 
   /**
