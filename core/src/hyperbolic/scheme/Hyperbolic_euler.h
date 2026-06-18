@@ -151,16 +151,15 @@ public:
           const PrimState qR = policy.getPrimState(Qpatch, iCell_Qpatch.getNeighbor(  (dir==IX),  (dir==IY),  (dir==IZ), search_local ));
         
           //!\ Neighbor cells in Qpatch are averaged cells -> size iCell_L != size iCell_Qpatch_L
-          #warning TODO : getNeighbor_level_diff without index computation
-          CellIndex iCell_L = iCell_Uin.getNeighbor(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor);
-          CellIndex iCell_R = iCell_Uin.getNeighbor( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor);   
+          auto iCell_L_status = iCell_Uin.getNeighborStatus(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor);
+          auto iCell_R_status = iCell_Uin.getNeighborStatus( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor);   
 
           // Getting the length right and left
           // Smaller -> use averaged same-size cell -> 1*dx
           // Bigger -> same-size cell in Qpatch has vame value as actual bigger cell -> dx/2 + dx             
           constexpr real_t sizes[] = {1.0, 1.0, 1.5}; 
-          const real_t dL = sizes[iCell_L.level_diff()+1];
-          const real_t dR = sizes[iCell_R.level_diff()+1];  
+          const real_t dL = sizes[CellIndex::level_diff(iCell_L_status)+1];
+          const real_t dR = sizes[CellIndex::level_diff(iCell_R_status)+1];  
 
           // Computing minmod slope for the direction
           PrimState slope = policy.compute_slope( qL, qC, qR, dL, dR);
@@ -184,18 +183,22 @@ public:
             PrimState qC = qC0 - 0.5 * slope_C;
 
             #warning TODO getneighbor with bigger cell only (?_intermediates?)
-            const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor);
-            if( iCell_Uin_m.is_boundary() )
+            auto iCell_Uin_m_status = iCell_Uin.getNeighborStatus(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor);
+            if( CellIndex::is_boundary(iCell_Uin_m_status) )
             {
+              #warning TODO : get neighbor when we know it's boundary, or change getBoundaryFlux interface to have iCell_Uin, offset
+              const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor);
               fluxL = policy.getBoundaryFlux(Uin, iCell_Uin_m, qC, cellmetadata);
             }
             else
             {  
-              int Ldiff = iCell_Uin_m.level_diff();
+              int Ldiff = CellIndex::level_diff(iCell_Uin_m_status);
               if (Ldiff >= 0) 
               {
                 CellIndex iCell_Qpatch_m = iCell_Qpatch.getNeighbor( -(dir==IX), -(dir==IY), -(dir==IZ), search_local ); 
                 PrimState qL0 = policy.getPrimState( Qpatch, iCell_Qpatch_m );
+                #warning TODO : get_slope only needs iCell_Uin_m for level_diff_R/L
+                const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor);
                 PrimState slope_L = get_slope(iCell_Uin_m, iCell_Qpatch_m, dir);
 
                 // Reconstructing
@@ -209,6 +212,7 @@ public:
                 {
                   real_t size_L = 2 * size_C;
                   ConsState du_n = fluxL * - dim_fac * dt / size_L;
+                  #warning TODO : Compute iCell_Uin_m when we know neighbor is bigger
                   policy.atomic_addConsState(Uout, iCell_Uin_m, du_n);
                 }
               } // If smaller we skip
@@ -220,19 +224,20 @@ public:
           {      
             PrimState qC = qC0 + 0.5 * slope_C;
 
-            #warning TODO getneighbor with bigger cell only (?_intermediates?)
-            const CellIndex iCell_Uin_p = iCell_Uin.getNeighbor( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor);
-            if( iCell_Uin_p.is_boundary() )
+            auto iCell_Uin_p_status = iCell_Uin.getNeighborStatus( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor);
+            if( CellIndex::is_boundary(iCell_Uin_p_status) )
             {
+              const CellIndex iCell_Uin_p = iCell_Uin.getNeighbor( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor);
               fluxR = policy.getBoundaryFlux(Uin, iCell_Uin_p, qC, cellmetadata);
             }
             else
             {
-              int Rdiff = iCell_Uin_p.level_diff();
+              int Rdiff = CellIndex::level_diff(iCell_Uin_p_status);
               if (Rdiff >= 0) 
               {
                 CellIndex iCell_Qpatch_p = iCell_Qpatch.getNeighbor(  (dir==IX),  (dir==IY),  (dir==IZ), search_local ); 
                 PrimState qR0 = policy.getPrimState( Qpatch, iCell_Qpatch_p );
+                CellIndex iCell_Uin_p = iCell_Uin.getNeighbor( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor);
                 PrimState slope_R = get_slope(iCell_Uin_p, iCell_Qpatch_p, dir);
 
                 // Reconstructing
