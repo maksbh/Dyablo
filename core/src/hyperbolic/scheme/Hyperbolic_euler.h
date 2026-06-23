@@ -153,9 +153,8 @@ public:
           // Getting the length right and left
           // Smaller -> use averaged same-size cell -> 1*dx
           // Bigger -> same-size cell in Qpatch has vame value as actual bigger cell -> dx/2 + dx             
-          constexpr real_t sizes[] = {1.0, 1.0, 1.5}; 
-          const real_t dL = sizes[level_diff_L+1];
-          const real_t dR = sizes[level_diff_R+1];  
+          const real_t dL = level_diff_L > 0 ? 1.5 : 1;
+          const real_t dR = level_diff_R > 0 ? 1.5 : 1;
 
           // Computing minmod slope for the direction
           PrimState slope = policy.compute_slope( qL, qC, qR, dL, dR);
