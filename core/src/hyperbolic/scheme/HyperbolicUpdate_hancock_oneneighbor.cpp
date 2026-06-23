@@ -320,10 +320,10 @@ public:
     Timers& timers;
 };
 
-class HyperbolicPolicy_Hydro_Hancock_impl : public HyperbolicPolicy_Hydro_impl
+class HyperbolicPolicy_Hydro_Hancock_impl : public HyperbolicPolicy_Hydro_impl_default
 {
 public : 
-  using HyperbolicPolicy_Hydro_impl::HyperbolicPolicy_Hydro_impl;
+  using HyperbolicPolicy_Hydro_impl_default::HyperbolicPolicy_Hydro_impl_default;
 
   KOKKOS_INLINE_FUNCTION
   PrimState compute_half_step(PrimState q,
