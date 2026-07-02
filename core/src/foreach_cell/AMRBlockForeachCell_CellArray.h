@@ -399,34 +399,56 @@ struct CellIndex
     return getNeighbor(offset[IX], offset[IY], offset[IZ], search_mode, status);
   }
 
-
-  template<typename SearchMode>
+  template<CellIndex::Status... enabled_status, typename SearchMode>
   KOKKOS_INLINE_FUNCTION
   CellIndex getNeighbor( int16_t offset_x, int16_t offset_y, int16_t offset_z, const SearchMode& search_mode, CellIndex::Status status = CellIndex::Status::UNSET ) const
   {
+    auto status_is_enabled = []( CellIndex::Status s )
+    {
+      bool res = 
+           ( sizeof...(enabled_status) == 0 ) // All status enabled when no enabled_status is given
+        || ( (s == enabled_status) || ... );  // If a list is given, s must be in the list
+
+      return res;
+    };
+
+    // Check if s == status, returns false if status is not enabled
+    auto status_is = [&]( CellIndex::Status s )
+    {
+      return status_is_enabled(s) && (s == status);
+    };
+    
     if( status == UNSET )
     {
-      status = getNeighborStatus( offset_x, offset_y, offset_z, search_mode );
+      if constexpr( sizeof...(enabled_status) == 1 )
+        status = ((enabled_status, ...));
+      else
+        status = getNeighborStatus( offset_x, offset_y, offset_z, search_mode );
     }
 
-    DYABLO_ASSERT_KOKKOS_DEBUG( status == getNeighborStatus( offset_x, offset_y, offset_z, search_mode ),
+    DYABLO_ASSERT_KOKKOS_DEBUG( status_is_enabled( status ), "getNeighbor : actual status not enabled" );
+
+    DYABLO_ASSERT_KOKKOS_DEBUG( [&]()
+      {
+        auto expected_status = getNeighborStatus( offset_x, offset_y, offset_z, search_mode );
+        return status == expected_status;
+      }(),
       "getNeighbor : status should be same as getNeighborStatus()" );
 
-    if( status == INVALID )
+    if( status_is(INVALID) )
     {
       return CELLINDEX_INVALID;
     }
     else 
     {
-      
-      if( status == BOUNDARY )
+      if( status_is(BOUNDARY) )
       {
         uint32_t i = this->i + offset_x;
         uint32_t j = this->j + offset_y;
         uint32_t k = this->k + offset_z;
         return CellIndex{iOct,i+bx,j+by,k+bz,bx,by,bz, CellIndex::BOUNDARY};
       }
-      else if( status == LOCAL_TO_BLOCK || status == LOCAL_TO_REMOTE )
+      else if( status_is(LOCAL_TO_BLOCK) || status_is(LOCAL_TO_REMOTE) )
       {
         uint32_t i = this->i + offset_x;
         uint32_t j = this->j + offset_y;
@@ -466,7 +488,7 @@ struct CellIndex
           else //constexpr if( std::is_same_v<SearchMode, SearchMode_neighbor>  )
             iOct_n = lmesh.findNeighbor(iOct, oct_offset_x, oct_offset_y, oct_offset_z);
 
-          if( status == SAME_SIZE )
+          if( status_is(SAME_SIZE) )
           {
             return CellIndex{
               iOct_n,
@@ -475,7 +497,7 @@ struct CellIndex
               CellIndex::SAME_SIZE
             };
           }
-          else if( status == SMALLER )
+          else if( status_is(SMALLER) )
           {
             // Compute cell position in neighbor meta-bloc of size {2*bx, 2*by, 2*bz}
             // Pick same-size cell origin for smaller_neighbor_mode() == ORIGIN
@@ -533,7 +555,7 @@ struct CellIndex
               bx, by, bz,
               CellIndex::SMALLER};
           }
-          else if( status == BIGGER )
+          else if( status_is(BIGGER) )
           {
             // Compute suboctant where target cell is located in larger neighbor
             auto coord_n = lmesh.get_logical_coords(iOct);

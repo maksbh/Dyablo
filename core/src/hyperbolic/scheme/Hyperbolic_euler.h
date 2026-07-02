@@ -184,15 +184,14 @@ public:
 
             if( CellIndex::is_boundary(iCell_Uin_m_status) )
             {
-              #warning TODO : get neighbor when we know it's boundary, or change getBoundaryFlux interface to have iCell_Uin, offset
-              const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor, CellIndex::BOUNDARY );
+              const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor<CellIndex::BOUNDARY>(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor, CellIndex::BOUNDARY );
               fluxL = policy.getBoundaryFlux(Uin, iCell_Uin_m, qC, cellmetadata);
             }
             else
             {  
               if (Ldiff >= 0) 
               {
-                CellIndex iCell_Qpatch_m = iCell_Qpatch.getNeighbor( -(dir==IX), -(dir==IY), -(dir==IZ), search_local, CellIndex::LOCAL_TO_BLOCK ); 
+                CellIndex iCell_Qpatch_m = iCell_Qpatch.getNeighbor<CellIndex::LOCAL_TO_BLOCK>( -(dir==IX), -(dir==IY), -(dir==IZ), search_local, CellIndex::LOCAL_TO_BLOCK ); 
                 PrimState qL0 = policy.getPrimState( Qpatch, iCell_Qpatch_m );
 
                 //R neighbor is center cell, smaller if iCell_Uin_m was bigger
@@ -221,7 +220,7 @@ public:
                 {
                   real_t size_L = 2 * size_C;
                   ConsState du_n = fluxL * - dim_fac * dt / size_L;
-                  const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor, CellIndex::BIGGER);
+                  const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor<CellIndex::BIGGER>(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor, CellIndex::BIGGER);
                   policy.atomic_addConsState(Uout, iCell_Uin_m, du_n);
                 }
               } // If smaller we skip
@@ -235,14 +234,14 @@ public:
 
             if( CellIndex::is_boundary(iCell_Uin_p_status) )
             {
-              const CellIndex iCell_Uin_p = iCell_Uin.getNeighbor( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor, CellIndex::BOUNDARY);
+              const CellIndex iCell_Uin_p = iCell_Uin.getNeighbor<CellIndex::BOUNDARY>( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor, CellIndex::BOUNDARY);
               fluxR = policy.getBoundaryFlux(Uin, iCell_Uin_p, qC, cellmetadata);
             }
             else
             {
               if (Rdiff >= 0) 
               {
-                CellIndex iCell_Qpatch_p = iCell_Qpatch.getNeighbor(  (dir==IX),  (dir==IY),  (dir==IZ), search_local, CellIndex::LOCAL_TO_BLOCK ); 
+                CellIndex iCell_Qpatch_p = iCell_Qpatch.getNeighbor<CellIndex::LOCAL_TO_BLOCK>(  (dir==IX),  (dir==IY),  (dir==IZ), search_local, CellIndex::LOCAL_TO_BLOCK ); 
                 PrimState qR0 = policy.getPrimState( Qpatch, iCell_Qpatch_p );
                 
                 //L neighbor is center cell, smaller if iCell_Uin_p was bigger
@@ -271,9 +270,9 @@ public:
                 {
                   real_t size_R = 2 * size_C;
                   ConsState du_n = fluxR * dim_fac * dt / size_R;
-                  CellIndex iCell_Uin_p = iCell_Uin.getNeighbor( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor, CellIndex::BIGGER);
+                  CellIndex iCell_Uin_p = iCell_Uin.getNeighbor<CellIndex::BIGGER>( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor, CellIndex::BIGGER);
                   policy.atomic_addConsState(Uout, iCell_Uin_p, du_n);
-                }          
+                }
               }
             }
           } 
