@@ -219,7 +219,7 @@ public:
                 if (Ldiff == 1) 
                 {
                   real_t size_L = 2 * size_C;
-                  ConsState du_n = fluxL * - dim_fac * dt / size_L;
+                  ConsState du_n = fluxL * (- dim_fac * dt / size_L);
                   const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor<CellIndex::BIGGER>(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor, CellIndex::BIGGER);
                   policy.atomic_addConsState(Uout, iCell_Uin_m, du_n);
                 }
@@ -269,7 +269,7 @@ public:
                 if (Rdiff == 1)
                 {
                   real_t size_R = 2 * size_C;
-                  ConsState du_n = fluxR * dim_fac * dt / size_R;
+                  ConsState du_n = fluxR * (dim_fac * dt / size_R);
                   CellIndex iCell_Uin_p = iCell_Uin.getNeighbor<CellIndex::BIGGER>( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor, CellIndex::BIGGER);
                   policy.atomic_addConsState(Uout, iCell_Uin_p, du_n);
                 }
@@ -277,7 +277,7 @@ public:
             }
           } 
 
-          ConsState du = (fluxL-fluxR) * dt / size_C;
+          ConsState du = (fluxL-fluxR) * (dt / size_C);
           return du;
         };
 
