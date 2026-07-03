@@ -401,10 +401,6 @@ struct CellIndex
             (int8_t)(suboctant_z - iOct_n_suboctant_z)
           };
 
-          // TODO : support odd blocks
-          DYABLO_ASSERT_KOKKOS_DEBUG( bx%2 == 0, "gathered subcells optimization enabled : block size must be even" );
-          DYABLO_ASSERT_KOKKOS_DEBUG( by%2 == 0, "gathered subcells optimization enabled : block size must be even" );
-          DYABLO_ASSERT_KOKKOS_DEBUG( bz%2 == 0, "gathered subcells optimization enabled : block size must be even" );
           LightOctree::OctantIndex suboctant = lmesh.findNeighbor( iOct_n, sibling_offset );   
 
           return CellIndex{
