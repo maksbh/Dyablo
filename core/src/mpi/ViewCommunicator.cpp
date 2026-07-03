@@ -94,7 +94,7 @@ void ViewCommunicator::private_init_map_with_recv_sizes( const Kokkos::View< uin
   Kokkos::deep_copy( this->recv_sizes_host, this->recv_sizes );
 
   this->nbghosts_recv = 0;
-  for( int i=0; i<recv_sizes_host.size(); i++ )
+  for( size_t i=0; i<recv_sizes_host.size(); i++ )
     this->nbghosts_recv += recv_sizes_host(i);
 }
 

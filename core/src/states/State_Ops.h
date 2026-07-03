@@ -24,6 +24,9 @@ struct State_traits
     static constexpr bool is_state = false;
 };
 
+template<int I>
+inline constexpr bool dependent_false_v = false;
+
 /// Type-trait for States
 #define DECLARE_STATE_TYPE_AUX( constness, State, N ) \
 template<> \
@@ -35,7 +38,7 @@ struct State_traits<constness State> \
     KOKKOS_INLINE_FUNCTION \
     static constness real_t& get(constness State& s) \
     { \
-        static_assert(I!=I, "Missing variable in state `" #State "`, add it with DECLARE_STATE_GET()"); \
+        static_assert(dependent_false_v<I>, "Missing variable in state `" #State "`, add it with DECLARE_STATE_GET()"); \
         static real_t res = 0; \
         return res; \
     } \

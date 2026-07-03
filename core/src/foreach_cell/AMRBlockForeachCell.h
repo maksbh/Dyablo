@@ -30,8 +30,21 @@ public:
 
   inline
   AMRBlockForeachCell_CellMetaData(const AMRBlockForeachCell_CData& cdata, AMRmesh& pmesh)
-  : cdata( cdata ), lmesh(pmesh.getLightOctree())
-  {}
+  : cdata( cdata ), lmesh(pmesh.getLightOctree()),
+    level_max(pmesh.get_level_max())
+  {
+    {
+      auto oct_size = pmesh.getStorage().getSize(level_max);
+      real_t dx_scale = (cdata.xmax-cdata.xmin)/cdata.bx;
+      real_t dy_scale = (cdata.ymax-cdata.ymin)/cdata.by;
+      real_t dz_scale = (cdata.zmax-cdata.zmin)/cdata.bz;
+      this->size_min = {
+        oct_size[IX] * dx_scale,
+        oct_size[IY] * dy_scale,
+        oct_size[IZ] * dz_scale
+      };
+    }
+  }
 
   KOKKOS_INLINE_FUNCTION
   const LightOctree& getLightOctree() const
@@ -41,23 +54,20 @@ public:
 
   /// Get the physical size of the cell
   KOKKOS_INLINE_FUNCTION
+  pos_t getCellSize( LightOctree::level_t level ) const
+  {
+    return pos_t {
+      size_min[IX] * (1 << (level_max-level)),
+      size_min[IY] * (1 << (level_max-level)),
+      size_min[IZ] * (1 << (level_max-level)),
+    };
+  }
+
+  KOKKOS_INLINE_FUNCTION
   pos_t getCellSize( const CellIndex& iCell ) const
   {
     DYABLO_ASSERT_KOKKOS_DEBUG( iCell.is_valid(), "iCell should be valid to get size" );
-
-    const AMRBlockForeachCell_CData& cdata = this->cdata;
-    const LightOctree& lmesh = this->lmesh;
-    auto oct_size = lmesh.getSize(iCell.iOct);
-
-    real_t dx_scale = (cdata.xmax-cdata.xmin)/cdata.bx;
-    real_t dy_scale = (cdata.ymax-cdata.ymin)/cdata.by;
-    real_t dz_scale = (cdata.zmax-cdata.zmin)/cdata.bz;
-
-    return pos_t{
-      oct_size[IX] * dx_scale,
-      oct_size[IY] * dy_scale,
-      oct_size[IZ] * dz_scale
-    };
+    return getCellSize( lmesh.getLevel(iCell.iOct) );
   }
   
   /// Get the physical position of the center of the cell
@@ -138,6 +148,8 @@ public:
 private:
   const AMRBlockForeachCell_CData cdata;
   LightOctree lmesh;
+  uint32_t level_max;
+  Kokkos::Array<real_t, 3UL> size_min;
 };
 
 /**

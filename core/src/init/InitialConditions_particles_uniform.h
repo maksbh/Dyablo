@@ -38,8 +38,8 @@ public:
         std::vector<UserData::ParticleAccessor::AttributeInfo> attr_info;
 
         // Sort array/attributes per array in attribute_map
-        std::map< std::string, std::map<std::string, int> > attribute_map; // attribute_map[array_name] contains unique attribute infos 
-        for( int ivar=0; ivar < attributes.size(); ivar++ )
+        std::map< std::string, std::map<std::string, uint32_t> > attribute_map; // attribute_map[array_name] contains unique attribute infos 
+        for( uint32_t ivar=0; ivar < attributes.size(); ivar++ )
         {
             const std::string& full_attr = attributes[ivar];
             // Parse array and attribute name from "<array>/<attribute>" string
@@ -69,10 +69,10 @@ public:
         for( const auto& pair : attribute_map )
         {   
             const std::string& array_name = pair.first;
-            const std::map<std::string, int>& attributes = pair.second;
+            const std::map<std::string, uint32_t>& attributes = pair.second;
 
             // Allocate Attributes, Construct AttributeInfos and array_values
-            int nb_attr = attributes.size();
+            uint32_t nb_attr = attributes.size();
             // AttributeInfo to create Accessor
             std::vector<UserData::ParticleAccessor::AttributeInfo> attr_info; 
             // Attributes Values for this Array
@@ -82,7 +82,7 @@ public:
             for( const auto& pair : attributes )
             {
                 const std::string& attr_name = pair.first;
-                int ini_ivar = pair.second;
+                uint32_t ini_ivar = pair.second;
 
                 if( !U.has_ParticleAttribute(array_name, attr_name) )
                     U.new_ParticleAttribute(array_name, attr_name);
@@ -100,7 +100,7 @@ public:
             foreach_particle.foreach_particle("InitialConditions_particles_uniform::init", U.getParticleArray(array_name),
                 KOKKOS_LAMBDA (ParticleData::ParticleIndex iPart) 
             { 
-                for( int i=0; i<nb_attr; i++ )
+                for( uint32_t i=0; i<nb_attr; i++ )
                 {
                     P.at( iPart, i ) = array_values( i );
                 }

@@ -52,6 +52,7 @@ public:
     /// Get physical position of octant corner (smallest position inside octant)
     pos_t getCorner(const OctantIndex& iOct)  const;
     /// Get physical size of octant in all dimensions (Octant is a cube)
+    pos_t getSize(uint32_t level)  const;
     pos_t getSize(const OctantIndex& iOct)  const;
     /// Get amr level of octant
     uint8_t getLevel(const OctantIndex& iOct)  const;

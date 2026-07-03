@@ -51,7 +51,7 @@ Kokkos::View<uint32_t*> compute_subset_sizes(
   const Kokkos::View<uint32_t*>& sizes_full,
   const Kokkos::View<uint32_t*>& subset_iOcts)
 {
-  int mpi_size = sizes_full.size();
+  uint32_t mpi_size = sizes_full.size();
 
   uint32_t niOct_full;
   Kokkos::View<uint32_t*> rank_begin_full("rank_begin_full", mpi_size);
@@ -71,7 +71,7 @@ Kokkos::View<uint32_t*> compute_subset_sizes(
     // Find start of rank in subset
     uint32_t next = i < niOct_subset-1 ? subset_iOcts(i+1) : niOct_full;
     DYABLO_ASSERT_KOKKOS_DEBUG( subset_iOcts(i) < next, "OctSubset_init_with_send : subset_iOcts is not increasing" );
-    for( int rank=0; rank<mpi_size; rank++ )
+    for( uint32_t rank=0; rank<mpi_size; rank++ )
     {
       if(subset_iOcts(i) < rank_begin_full(rank) && rank_begin_full(rank) <= next )
         rank_begin_subset(rank) = i+1;
