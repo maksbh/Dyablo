@@ -136,11 +136,12 @@ public:
         logical_coord_t octant_count_x = storage.cell_count(IX, level );
         logical_coord_t octant_count_y = storage.cell_count(IY, level );
         logical_coord_t octant_count_z = storage.cell_count(IZ, level );
-        key_t logical_coords;
-        logical_coords.level = getLevel(iOct);
-        logical_coords.i = (lc[IX] + octant_count_x + offset_x) % octant_count_x; // Periodic coord only works if offset > -octant_count
-        logical_coords.j = (lc[IY] + octant_count_y + offset_y) % octant_count_y;
-        logical_coords.k = (lc[IZ] + octant_count_z + offset_z) % octant_count_z;   
+        key_t logical_coords{
+            .level = getLevel(iOct),
+            .i = (lc[IX] + octant_count_x + offset_x) % octant_count_x, // Periodic coord only works if offset > -octant_count
+            .j = (lc[IY] + octant_count_y + offset_y) % octant_count_y,
+            .k = (lc[IZ] + octant_count_z + offset_z) % octant_count_z,
+        };
 
         if constexpr ( search_intermediate )
         {
@@ -178,11 +179,12 @@ public:
             }
             else
             {
-                key_t logical_coords_bigger;
-                logical_coords_bigger.level = logical_coords.level-1;
-                logical_coords_bigger.i = logical_coords.i >> 1;
-                logical_coords_bigger.j = logical_coords.j >> 1;
-                logical_coords_bigger.k = logical_coords.k >> 1;
+                key_t logical_coords_bigger{
+                    .level = logical_coords.level-1,
+                    .i = logical_coords.i >> 1,
+                    .j = logical_coords.j >> 1,
+                    .k = logical_coords.k >> 1,
+                };
 
                 // Search octant at coarser level
                 auto it = oct_map.find(logical_coords_bigger);
@@ -197,11 +199,12 @@ public:
                     DYABLO_ASSERT_KOKKOS_DEBUG(level+1 <= max_level, "Could not find neighbor : already at level_max");
                     
                     // Compute logical coord of first neighbor
-                    key_t logical_coords_smaller_origin;
-                    logical_coords_smaller_origin.level = logical_coords.level+1;
-                    logical_coords_smaller_origin.i = (logical_coords.i << 1) + (offset_x==-1);
-                    logical_coords_smaller_origin.j = (logical_coords.j << 1) + (offset_y==-1);
-                    logical_coords_smaller_origin.k = (logical_coords.k << 1) + (offset_z==-1);
+                    key_t logical_coords_smaller_origin{
+                        .level = logical_coords.level+1,
+                        .i = (logical_coords.i << 1) + (offset_x==-1),
+                        .j = (logical_coords.j << 1) + (offset_y==-1),
+                        .k = (logical_coords.k << 1) + (offset_z==-1),
+                    };
                     
                     auto it = oct_map.find(logical_coords_smaller_origin);
                     DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor : not found");
@@ -299,11 +302,12 @@ public:
         
         auto lc = storage.get_logical_coords(iOct);
         
-        key_t logical_coords;
-        logical_coords.level = this->getLevel(iOct)+1;
-        logical_coords.i = 2u*lc[IX] + offset[IX];
-        logical_coords.j = 2u*lc[IY] + offset[IY];
-        logical_coords.k = 2u*lc[IZ] + offset[IZ];
+        key_t logical_coords{
+            .level = (logical_coord_t)(this->getLevel(iOct)+1),
+            .i = 2u*lc[IX] + offset[IX],
+            .j = 2u*lc[IY] + offset[IY],
+            .k = 2u*lc[IZ] + offset[IZ],
+        };
 
         return this->getiOctFromCoordinates(logical_coords.i, logical_coords.j, logical_coords.k, logical_coords.level);
     }
@@ -314,11 +318,12 @@ public:
         DYABLO_ASSERT_KOKKOS_DEBUG( this->getLevel( iOct ) > this->min_level, "Can't get parent at coarse level" );
 
         const auto lc = storage.get_logical_coords(iOct);
-        key_t logical_coords;
-        logical_coords.level = this->getLevel(iOct) - 1u;
-        logical_coords.i = (lc[IX] >> 1u);
-        logical_coords.j = (lc[IY] >> 1u);
-        logical_coords.k = (lc[IZ] >> 1u);
+        key_t logical_coords{
+            .level = this->getLevel(iOct) - 1u,
+            .i = (lc[IX] >> 1u),
+            .j = (lc[IY] >> 1u),
+            .k = (lc[IZ] >> 1u),
+        };
         
         return this->getiOctFromCoordinates(logical_coords.i, logical_coords.j, logical_coords.k, logical_coords.level);
     }
