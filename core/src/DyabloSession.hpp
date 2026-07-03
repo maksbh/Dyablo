@@ -8,6 +8,7 @@
 namespace dyablo {
 
 class GlobalMpiSession;
+class MpiBufferPool;
 
 /**
  * DyabloSession serves as a scope guard for MPI and Kokkos initialization/finalization
@@ -18,6 +19,7 @@ private:
   static DyabloSession*& unique_session();
 
   std::unique_ptr<dyablo::GlobalMpiSession> mpiSession;
+  std::unique_ptr<dyablo::MpiBufferPool> mpi_pool;
   std::vector< std::function<void()> > finalize_callbacks;
 public:
   DyabloSession(int& argc, char *argv[]);
@@ -28,6 +30,8 @@ public:
    * Asserts when there is no active session (not opened or already finalized)
    **/
   static DyabloSession& get_DyabloSession();
+
+  static dyablo::MpiBufferPool& get_MpiBufferPool();
   
   // Add callbacks to be called before finalization
   void call_before_finalize( std::function<void()> finalize_callback );

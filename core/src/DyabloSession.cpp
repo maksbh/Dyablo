@@ -3,6 +3,7 @@
 #include <iostream>
 #include "utils/misc/Dyablo_assert.h"
 #include "utils/mpi/GlobalMpiSession.h"
+#include "utils/mpi/MpiBufferPool.h"
 
 #include "kokkos_shared.h"
 
@@ -91,6 +92,8 @@ DyabloSession::DyabloSession(int& argc, char *argv[])
   }
 #endif // KOKKOS_ENABLE_CUDA
 
+  this->mpi_pool = std::make_unique<MpiBufferPool>();
+
   unique_session() = this;
 }
 
@@ -100,6 +103,7 @@ DyabloSession::~DyabloSession()
   {
     f();
   }
+  this->mpi_pool.reset();
   Kokkos::finalize(); 
   unique_session() = nullptr;
 }
@@ -109,6 +113,11 @@ DyabloSession& DyabloSession::get_DyabloSession()
   DYABLO_ASSERT_HOST_RELEASE( unique_session(), "No dyablo session running!" );
 
   return *(unique_session());
+}
+
+MpiBufferPool& DyabloSession::get_MpiBufferPool()
+{
+  return *(get_DyabloSession().mpi_pool);
 }
   
 void DyabloSession::call_before_finalize( std::function<void()> finalize_callback )

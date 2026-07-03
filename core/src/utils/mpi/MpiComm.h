@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #ifdef DYABLO_USE_MPI
 #include <mpi.h>
 #endif
