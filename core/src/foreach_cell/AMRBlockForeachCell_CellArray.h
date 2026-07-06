@@ -124,6 +124,7 @@ public:
   };
 private:
   LightOctree::OctantIndex _iOct;
+  uint32_t _iCell;
   uint32_t _i,_j,_k;
   uint32_t _bx,_by,_bz;
   Status _status = LOCAL_TO_BLOCK;
@@ -139,13 +140,27 @@ public:
   KOKKOS_INLINE_FUNCTION
   CellIndex( LightOctree::OctantIndex iOct, uint32_t i, uint32_t j, uint32_t k, uint32_t bx, uint32_t by, uint32_t bz, Status status = LOCAL_TO_BLOCK )
   : _iOct(iOct),
+    _iCell( i + bx * ( j + k*by ) ),
     _i(i),_j(j),_k(k),
     _bx(bx),_by(by),_bz(bz),
     _status(status)  
   {}
 
   KOKKOS_INLINE_FUNCTION
+  CellIndex( LightOctree::OctantIndex iOct, uint32_t iCell, uint32_t i, uint32_t j, uint32_t k, uint32_t bx, uint32_t by, uint32_t bz, Status status = LOCAL_TO_BLOCK )
+  : _iOct(iOct),
+    _iCell(iCell),
+    _i(i),_j(j),_k(k),
+    _bx(bx),_by(by),_bz(bz),
+    _status(status)  
+  {
+    DYABLO_ASSERT_KOKKOS_DEBUG( iCell == i + bx * ( j + k*by ), "CellIndex : iCell does noty match i,j,k" );
+  }
+
+  KOKKOS_INLINE_FUNCTION
   LightOctree::OctantIndex iOct() const { return this->_iOct; }
+  KOKKOS_INLINE_FUNCTION
+  uint32_t iCell() const { return this->_iCell; }
   KOKKOS_INLINE_FUNCTION
   uint32_t i() const { return this->_i; }
   KOKKOS_INLINE_FUNCTION
@@ -500,10 +515,11 @@ public:
       }
       else if( status_is(LOCAL_TO_BLOCK) || status_is(LOCAL_TO_REMOTE) )
       {
+        uint32_t iCell = this->iCell() + offset_x + bx*offset_y + bx*by*offset_z;
         uint32_t i = this->i() + offset_x;
         uint32_t j = this->j() + offset_y;
         uint32_t k = this->k() + offset_z;
-        return CellIndex{iOct,i,j,k,bx,by,bz, status};
+        return CellIndex{iOct,iCell,i,j,k,bx,by,bz, status};
       }
       else
       {
@@ -522,12 +538,15 @@ public:
 
           int32_t oct_offset_x = (offset_x==0) ? 0 : ((i>=(int32_t)bx) - (i<0));
           int32_t oct_offset_y = (offset_y==0) ? 0 : ((j>=(int32_t)by) - (j<0));
-          int32_t oct_offset_z = (offset_z==0) ? 0 : ((k>=(int32_t)bz) - (k<0));
+          int32_t oct_offset_z = (offset_z==0) ? 0 : ((k>=(int32_t)bz) - (k<0));  
 
-          // Compute position of cell in neighbor when neighbor is same size;
-          uint32_t i_same = (offset_x==0) ? this->i() : i - oct_offset_x * bx;
-          uint32_t j_same = (offset_y==0) ? this->j() : j - oct_offset_y * by;
-          uint32_t k_same = (offset_z==0) ? this->k() : k - oct_offset_z * bz;
+          int32_t cell_offset_x = offset_x - oct_offset_x * bx;
+          int32_t cell_offset_y = offset_y - oct_offset_y * by;
+          int32_t cell_offset_z = offset_z - oct_offset_z * bz;
+
+          uint32_t i_same = this->i() + cell_offset_x;
+          uint32_t j_same = this->j() + cell_offset_y;
+          uint32_t k_same = this->k() + cell_offset_z;
           DYABLO_ASSERT_KOKKOS_DEBUG(i_same<bx, "internal error : i out of block bounds");
           DYABLO_ASSERT_KOKKOS_DEBUG(j_same<by, "internal error : j out of block bounds");
           DYABLO_ASSERT_KOKKOS_DEBUG(k_same<bz, "internal error : k out of block bounds");
@@ -540,8 +559,10 @@ public:
 
           if( status_is(SAME_SIZE) )
           {
+            uint32_t iCell_same = this->iCell() + cell_offset_x + bx*cell_offset_y + bx*by*cell_offset_z;
             return CellIndex{
               iOct_n,
+              iCell_same,
               i_same, j_same, k_same,
               bx, by, bz,
               CellIndex::SAME_SIZE
@@ -880,7 +901,7 @@ public:
     DYABLO_ASSERT_KOKKOS_DEBUG(shape.by == iCell.by(), "by mismatch icell vs array");
     DYABLO_ASSERT_KOKKOS_DEBUG(shape.bz == iCell.bz(), "bz mismatch icell vs array");
 
-    uint32_t i = iCell.i() + iCell.j()*iCell.bx() + iCell.k()*iCell.bx()*iCell.by();
+    uint32_t i = iCell.iCell();
     if constexpr( has_ghosts )
     {
       if( iCell.iOct().isGhost )

@@ -363,7 +363,7 @@ R"xml(
     // Write hdf5 file 
     auto linearize_iCell = KOKKOS_LAMBDA(const ForeachCell::CellIndex& iCell)
     {
-      return iCell.i() + iCell.bx() * (iCell.j() + iCell.by() * ( iCell.k() + iCell.bz() * (uint64_t)iCell.iOct().iOct )); 
+      return iCell.iCell() + iCell.bx()*iCell.by()*iCell.bz()*(uint64_t)iCell.iOct().iOct; 
     };
 
     HDF5ViewWriter hdf5_writer( output_dir + "/" + base_filename + ".h5" );
