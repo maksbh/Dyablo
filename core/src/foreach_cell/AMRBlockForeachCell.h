@@ -349,8 +349,10 @@ public:
     uint32_t iOct_count() const { return nbOcts() + nbGhosts() + nbIntermediateOcts() + nbIntermediateGhosts(); }
 
     KOKKOS_INLINE_FUNCTION
-    CellIndex getCellIndex(uint32_t iOct_in, uint32_t i, uint32_t j, uint32_t k) const
+    CellIndex getCellIndex(uint32_t iOct_in, uint32_t iCell, uint32_t i, uint32_t j, uint32_t k) const
     {
+      DYABLO_ASSERT_KOKKOS_DEBUG( iCell == i + j*bx() + k*bx()*by(), "getCellIndex : iCell <-> i,j,k mismatch" );
+
       using OctantIndex = LightOctree::OctantIndex;
       DYABLO_ASSERT_KOKKOS_DEBUG( iOct_in < iOct_count(), "iOct_in out of range" );
 
@@ -364,7 +366,7 @@ public:
               .isGhost=false,
               .isIntermediate=false,
             }, 
-            i, j, k, bx(), by(), bz()};
+            iCell, i, j, k, bx(), by(), bz()};
         }
       }
       if constexpr (_leaves_ghost)
@@ -378,7 +380,7 @@ public:
               .isGhost=true,
               .isIntermediate=false,
             }, 
-            i, j, k, bx(), by(), bz()};
+            iCell, i, j, k, bx(), by(), bz()};
         }
       }
       if constexpr (_intermediates_local)
@@ -392,7 +394,7 @@ public:
               .isGhost=false,
               .isIntermediate=true,
             }, 
-            i, j, k, bx(), by(), bz()};
+            iCell, i, j, k, bx(), by(), bz()};
         }
       }
       if constexpr (_intermediates_ghost)
@@ -406,7 +408,7 @@ public:
               .isGhost=true,
               .isIntermediate=true,
             }, 
-            i, j, k, bx(), by(), bz()};
+            iCell, i, j, k, bx(), by(), bz()};
         }
       }
 
@@ -440,7 +442,7 @@ public:
       uint32_t j = (index - k*bx*by)/bx;
       uint32_t i = index - j*bx - k*bx*by;
 
-      CellIndex iCell = iter_space.getCellIndex(iOct, i, j, k);
+      CellIndex iCell = iter_space.getCellIndex(iOct, index, i, j, k);
 
       f( iCell );
     });
@@ -475,7 +477,7 @@ public:
       uint32_t j = (index - k*bx*by)/bx;
       uint32_t i = index - j*bx - k*bx*by;
 
-      CellIndex iCell = iter_space.getCellIndex(iOct, i, j, k);
+      CellIndex iCell = iter_space.getCellIndex(iOct, index, i, j, k);
       f( iCell, update... );
     }, reducer...);
   }
