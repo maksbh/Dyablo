@@ -202,18 +202,18 @@ TEST_F(TestBoundaryConditions, getBoundaryPosAndOffset) {
   EXPECT_EQ(off4[IZ],  2);
 
   // Testing indices
-  EXPECT_EQ(bc1.i, 0);
-  EXPECT_EQ(bc1.j, 0);
-  EXPECT_EQ(bc1.k, 0);
-  EXPECT_EQ(bc2.i, 0);
-  EXPECT_EQ(bc2.j, 0);
-  EXPECT_EQ(bc2.k, 0);
-  EXPECT_EQ(bc3.i, 3);
-  EXPECT_EQ(bc3.j, 4);
-  EXPECT_EQ(bc3.k, 5);
-  EXPECT_EQ(bc4.i, 3);
-  EXPECT_EQ(bc4.j, 4);
-  EXPECT_EQ(bc4.k, 5);
+  EXPECT_EQ(bc1.i(), 0);
+  EXPECT_EQ(bc1.j(), 0);
+  EXPECT_EQ(bc1.k(), 0);
+  EXPECT_EQ(bc2.i(), 0);
+  EXPECT_EQ(bc2.j(), 0);
+  EXPECT_EQ(bc2.k(), 0);
+  EXPECT_EQ(bc3.i(), 3);
+  EXPECT_EQ(bc3.j(), 4);
+  EXPECT_EQ(bc3.k(), 5);
+  EXPECT_EQ(bc4.i(), 3);
+  EXPECT_EQ(bc4.j(), 4);
+  EXPECT_EQ(bc4.k(), 5);
 }
 
 /**

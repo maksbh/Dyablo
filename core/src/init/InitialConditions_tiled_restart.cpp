@@ -356,9 +356,8 @@ public:
         foreach_cell.foreach_cell( "restart_copy_field", U.getShape(),
           KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )
         {
-          auto iCell_mod = iCell;
-          iCell_mod.iOct.iOct = iCell_mod.iOct.iOct % nOcts_written;
-          uint32_t index = iCell_mod.iOct.iOct * bz*by*bx + iCell_mod.k*bx*by + iCell_mod.j*bx + iCell_mod.i;
+          uint32_t iOct_mod = iCell.iOct().iOct%nOcts_written;
+          uint32_t index = iOct_mod * bz*by*bx + iCell.k()*bx*by + iCell.j()*bx + iCell.i();
           Ufield.at( iCell, Ifield ) = field_view(index);
         });
       }      

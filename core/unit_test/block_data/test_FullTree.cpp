@@ -399,7 +399,7 @@ void test_FullTree_average_stencil()
       {
         using pos_t = Kokkos::Array<real_t,3>;
 
-        DYABLO_ASSERT_KOKKOS_RELEASE( !iCell.iOct.isIntermediate, "Intermediates should always have same size neighbor" );
+        DYABLO_ASSERT_KOKKOS_RELEASE( !iCell.iOct().isIntermediate, "Intermediates should always have same size neighbor" );
 
         auto pos_c = cells.getCellCenter(iCell);
         auto size_c = cells.getCellSize(iCell);

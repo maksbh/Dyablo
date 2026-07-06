@@ -67,7 +67,7 @@ public:
   pos_t getCellSize( const CellIndex& iCell ) const
   {
     DYABLO_ASSERT_KOKKOS_DEBUG( iCell.is_valid(), "iCell should be valid to get size" );
-    return getCellSize( lmesh.getLevel(iCell.iOct) );
+    return getCellSize( lmesh.getLevel(iCell.iOct()) );
   }
   
   /// Get the physical position of the center of the cell
@@ -79,7 +79,7 @@ public:
     const AMRBlockForeachCell_CData& cdata = this->cdata;
     int ndim = cdata.ndim;
     const LightOctree& lmesh = this->lmesh;
-    LightOctree::pos_t oct_center = lmesh.getCenter(iCell.iOct);
+    LightOctree::pos_t oct_center = lmesh.getCenter(iCell.iOct());
     pos_t cell_size = this->getCellSize(iCell);
 
     real_t Lx = (cdata.xmax-cdata.xmin);
@@ -87,9 +87,9 @@ public:
     real_t Lz = (cdata.zmax-cdata.zmin);
 
     pos_t res{
-      cdata.xmin + oct_center[IX] * Lx + ( iCell.i - iCell.bx*0.5 + 0.5 ) * cell_size[IX],
-      cdata.ymin + oct_center[IY] * Ly + ( iCell.j - iCell.by*0.5 + 0.5 ) * cell_size[IY],
-      cdata.zmin + oct_center[IZ] * Lz + ( iCell.k - iCell.bz*0.5 + 0.5 ) * cell_size[IZ]
+      cdata.xmin + oct_center[IX] * Lx + ( iCell.i() - iCell.bx()*0.5 + 0.5 ) * cell_size[IX],
+      cdata.ymin + oct_center[IY] * Ly + ( iCell.j() - iCell.by()*0.5 + 0.5 ) * cell_size[IY],
+      cdata.zmin + oct_center[IZ] * Lz + ( iCell.k() - iCell.bz()*0.5 + 0.5 ) * cell_size[IZ]
     };
 
     if(ndim == 2) res[IZ] = 0;

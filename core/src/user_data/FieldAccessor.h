@@ -164,14 +164,17 @@ public:
         if constexpr ( has_intermediates )
         {
             
-            if( iCell.iOct.isIntermediate )
+            if( iCell.iOct().isIntermediate )
             {
+                // Remove isIntermediate flag from iCell
+                auto iOct_intermediate = iCell.iOct();
+                iOct_intermediate.isIntermediate=false;
                 ForeachCell::CellIndex iCell_intermediate = iCell;
-                iCell_intermediate.iOct.isIntermediate=false;
+                iCell_intermediate.set_iOct(iOct_intermediate);
                 return fields_intermediates.at_ivar( iCell_intermediate, get_index_from_varindex_intermediates(varindex) );
             }
         }
-        DYABLO_ASSERT_KOKKOS_DEBUG( !iCell.iOct.isIntermediate, "Accessing intermediates in array without intermediates" );
+        DYABLO_ASSERT_KOKKOS_DEBUG( !iCell.iOct().isIntermediate, "Accessing intermediates in array without intermediates" );
         return fields.at_ivar( iCell, get_index_from_varindex(varindex) );
     }
 
@@ -180,10 +183,10 @@ public:
     {
         if constexpr ( has_intermediates )
         {
-            if( iCell.iOct.isIntermediate )
+            if( iCell.iOct().isIntermediate )
                 return fields_intermediates.at_ivar( iCell, get_index_from_ivar_device_intermediates(ivar) );
         }
-        DYABLO_ASSERT_KOKKOS_DEBUG( !iCell.iOct.isIntermediate, "Accessing intermediates in array without intermediates" );
+        DYABLO_ASSERT_KOKKOS_DEBUG( !iCell.iOct().isIntermediate, "Accessing intermediates in array without intermediates" );
         return fields.at_ivar( iCell, get_index_from_ivar_device(ivar) );
     }
 

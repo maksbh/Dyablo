@@ -127,7 +127,7 @@ void test_GhostCommunicator_partial_block()
       test_equal( pos[IY], Ua.at(iCell, Py) );
       test_equal( pos[IZ], Ua.at(iCell, Pz) );
 
-      test_equal(  iCell.iOct.isGhost?0:99, Udummy.at(iCell, Dummy) );
+      test_equal(  iCell.iOct().isGhost?0:99, Udummy.at(iCell, Dummy) );
     }; 
 
     auto test_offset = [&]( CellIndex::offset_t offset, int ghost_width )
@@ -474,8 +474,8 @@ void test_GhostCommunicator_subset()
       test_equal( pos[IY], Ua.at(iCell, Py) );
       test_equal( pos[IZ], Ua.at(iCell, Pz) );
 
-      if(iCell.iOct.isGhost)
-        test_equal( iCell.iOct.isGhost?lmesh.getLevel(iCell.iOct):6.0, Ulevel.at(iCell, Level) );
+      if(iCell.iOct().isGhost)
+        test_equal( iCell.iOct().isGhost?lmesh.getLevel(iCell.iOct()):6.0, Ulevel.at(iCell, Level) );
     }; 
 
     auto test_offset = [&]( CellIndex::offset_t offset, int ghost_width )

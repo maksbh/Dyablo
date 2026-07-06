@@ -137,7 +137,7 @@ public:
               for(int32_t dx=0; dx<2; dx++)
               {
                 CellIndex iCell_Uin_n = iCell_Uin.getNeighbor({dx,dy,dz}, search_neighbor_in);
-                ghost_coarsen_count += iCell_Uin_n.iOct.isGhost ? 1 : 0;
+                ghost_coarsen_count += iCell_Uin_n.iOct().isGhost ? 1 : 0;
                 for(int ivar=0; ivar<nbfields; ivar++)
                   Uout.at_ivar( iCell_Uout, ivar ) += Uin.at_ivar( iCell_Uin_n, ivar ) / nsubcells;
               }

@@ -28,7 +28,7 @@ int foreach_smaller_neighbor( int ndim, const CellIndex& iCell, const CellIndex:
 {
   DYABLO_ASSERT_KOKKOS_DEBUG( iCell.level_diff() == -1, "iCell must be smaller neighbor for foreach_smaller_neighbor" );
   [[maybe_unused]]constexpr bool enable_different_block = std::is_same_v<SearchMode_t, ForeachCell::SearchMode_neighbor> ;
-  DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && (ndim==2 || iCell.bz%2 == 0) ),
+  DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx()%2 == 0 && iCell.by()%2 == 0 && (ndim==2 || iCell.bz()%2 == 0) ),
     "enable_different_block must be activated for cell-based or odd block size" );
 
   int di_count = (offset[IX]==0)?2:1;
@@ -67,7 +67,7 @@ int foreach_sibling( int ndim, const CellIndex& iCell, const SearchMode_t& searc
 {
   // enable_different_block must be activated for cell-based or odd block size
   [[maybe_unused]] constexpr bool enable_different_block = std::is_same_v<SearchMode_t, ForeachCell::SearchMode_neighbor> ;
-  DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && (ndim==2 || iCell.bz%2 == 0) ),
+  DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx()%2 == 0 && iCell.by()%2 == 0 && (ndim==2 || iCell.bz()%2 == 0) ),
     "enable_different_block must be activated for cell-based or odd block size" );
   int dk_count = ndim==3?2:1;
   for( int32_t dk=0; dk<dk_count; dk++ )
