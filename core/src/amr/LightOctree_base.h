@@ -25,19 +25,20 @@ public:
     /// Physical cell position
     using pos_t = Kokkos::Array<real_t,3>;
     /// Relative position of a neighbor octant relative to local octant
-    using offset_t = Kokkos::Array<int8_t,3>;
+    using offset_t = Kokkos::Array<int32_t,3>;
+    using level_t = uint32_t;
     /// Container for 0-4 neighbor(s)
     struct NeighborList
     {
-        uint8_t m_size;
+        uint32_t m_size;
         Kokkos::Array<OctantIndex,4> m_neighbors;
         /// Number of neighbors in container (0-4)
-        KOKKOS_INLINE_FUNCTION uint8_t size() const
+        KOKKOS_INLINE_FUNCTION uint32_t size() const
         {
             return m_size;
         }
         /// Get i-th neighbor index in container
-        KOKKOS_INLINE_FUNCTION const OctantIndex& operator[](uint8_t i) const
+        KOKKOS_INLINE_FUNCTION const OctantIndex& operator[](uint32_t i) const
         {
             return m_neighbors[i];
         }
@@ -55,7 +56,7 @@ public:
     pos_t getSize(uint32_t level)  const;
     pos_t getSize(const OctantIndex& iOct)  const;
     /// Get amr level of octant
-    uint8_t getLevel(const OctantIndex& iOct)  const;
+    level_t getLevel(const OctantIndex& iOct)  const;
     /**
      * Get neighbors of `iOct` at relative position `offset`
      * 

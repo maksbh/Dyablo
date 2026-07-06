@@ -442,9 +442,9 @@ void test_FullTree_average_stencil()
     int nneighbor;
     if( diagonal )
     {
-      for( int8_t dx=-1; dx<=1; dx++ )
-      for( int8_t dy=-1; dy<=1; dy++ )
-      for( int8_t dz=-1; dz<=1; dz++ )
+      for( int32_t dx=-1; dx<=1; dx++ )
+      for( int32_t dy=-1; dy<=1; dy++ )
+      for( int32_t dz=-1; dz<=1; dz++ )
       {
         add_neighbor(CellIndex::offset_t{dx, dy, dz});
       }

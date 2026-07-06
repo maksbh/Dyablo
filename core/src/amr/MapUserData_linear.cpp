@@ -132,9 +132,9 @@ public:
             Uout.at_ivar( iCell_Uout, ivar ) = 0;
 
           int nsubcells = (ndim-1) * 2 * 2;
-          for(int8_t dz=0; dz<(ndim-1); dz++)
-            for(int8_t dy=0; dy<2; dy++)
-              for(int8_t dx=0; dx<2; dx++)
+          for(int32_t dz=0; dz<(ndim-1); dz++)
+            for(int32_t dy=0; dy<2; dy++)
+              for(int32_t dx=0; dx<2; dx++)
               {
                 CellIndex iCell_Uin_n = iCell_Uin.getNeighbor({dx,dy,dz}, search_neighbor_in);
                 ghost_coarsen_count += iCell_Uin_n.iOct.isGhost ? 1 : 0;

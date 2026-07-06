@@ -142,7 +142,7 @@ void test_GhostCommunicator_partial_block()
           // Check other neighbors (in same block)
           for( int i=1; i<ghost_width; i++ )
           {
-            CellIndex::offset_t offset_nn{(int8_t)(offset[IX]*i),(int8_t)(offset[IY]*i),(int8_t)(offset[IZ]*i)};
+            CellIndex::offset_t offset_nn{offset[IX]*i, offset[IY]*i, offset[IZ]*i};
             CellIndex iCell_nn = iCell_n + offset_nn;
 
             check_value(iCell_nn);
@@ -158,7 +158,7 @@ void test_GhostCommunicator_partial_block()
             // Check other neighbors (in same block)
             for( int i=1; i<ghost_width; i++ )
             {
-              CellIndex::offset_t offset_nn{(int8_t)(offset[IX]*i),(int8_t)(offset[IY]*i),(int8_t)(offset[IZ]*i)};
+              CellIndex::offset_t offset_nn{offset[IX]*i, offset[IY]*i, offset[IZ]*i};
               CellIndex iCell_nn = iCell_ns + offset_nn;
 
               check_value(iCell_nn);
@@ -490,7 +490,7 @@ void test_GhostCommunicator_subset()
           // Check other neighbors (in same block)
           for( int i=1; i<ghost_width; i++ )
           {
-            CellIndex::offset_t offset_nn{(int8_t)(offset[IX]*i),(int8_t)(offset[IY]*i),(int8_t)(offset[IZ]*i)};
+            CellIndex::offset_t offset_nn{offset[IX]*i, offset[IY]*i, offset[IZ]*i};
             CellIndex iCell_nn = iCell_n + offset_nn;
 
             check_value(iCell_nn);
@@ -506,7 +506,7 @@ void test_GhostCommunicator_subset()
             // Check other neighbors (in same block)
             for( int i=1; i<ghost_width; i++ )
             {
-              CellIndex::offset_t offset_nn{(int8_t)(offset[IX]*i),(int8_t)(offset[IY]*i),(int8_t)(offset[IZ]*i)};
+              CellIndex::offset_t offset_nn{offset[IX]*i, offset[IY]*i, offset[IZ]*i};
               CellIndex iCell_nn = iCell_ns + offset_nn;
 
               check_value(iCell_nn);

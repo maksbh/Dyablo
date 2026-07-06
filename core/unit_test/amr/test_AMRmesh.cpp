@@ -177,9 +177,9 @@ void run_test(const Test_data& test_data)
         LightOctree::OctantIndex iOct_c = {iOct, false};
         int current_level = lmesh.getLevel(iOct_c);
         int z_off_max = (dim==3)? 1 : 0;
-        for( int8_t nz=-z_off_max; nz<=z_off_max; nz++ )
-          for( int8_t ny=-1; ny<=1; ny++ )
-              for( int8_t nx=-1; nx<=1; nx++ )
+        for( int32_t nz=-z_off_max; nz<=z_off_max; nz++ )
+          for( int32_t ny=-1; ny<=1; ny++ )
+              for( int32_t nx=-1; nx<=1; nx++ )
                 if( nx!=0 || ny!=0 || nz!=0 )
                 {
                   LightOctree::offset_t offset = {nx,ny,nz};

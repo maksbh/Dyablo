@@ -156,9 +156,9 @@ void run_test()
       {
         if(i==4) return; // {0,0,0}
         
-        int8_t y = (i/3);
-        int8_t x = (i-3*y); 
-        LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),0};
+        int32_t y = (i/3);
+        int32_t x = (i-3*y); 
+        LightOctree::offset_t offset{x-1, y-1, 0};
 
         LightOctree::OctantIndex iOct_n = mesh.findNeighbor( {ioct,false}, offset );
         actual_neighbors(y,x) = iOct_n.iOct;
@@ -168,9 +168,9 @@ void run_test()
       Kokkos::deep_copy(actual_neighbors_host, actual_neighbors);
 
       std::cout << "expected" << std::endl;
-      for(int8_t y=2; y>=0; y--)
+      for(int32_t y=2; y>=0; y--)
       {
-        for(int8_t x=0; x<3; x++)
+        for(int32_t x=0; x<3; x++)
         {
           if( x==1 && y==1 ) 
           {
@@ -183,9 +183,9 @@ void run_test()
         std::cout << std::endl;
       }
       std::cout << "actual" << std::endl;
-      for(int8_t y=2; y>=0; y--)
+      for(int32_t y=2; y>=0; y--)
       {
-        for(int8_t x=0; x<3; x++)
+        for(int32_t x=0; x<3; x++)
         {
           if( x==1 && y==1 ) 
           {
@@ -198,9 +198,9 @@ void run_test()
         }
         std::cout << std::endl;
       }      
-      for(int8_t y=2; y>=0; y--)
+      for(int32_t y=2; y>=0; y--)
       {
-        for(int8_t x=0; x<3; x++)
+        for(int32_t x=0; x<3; x++)
         {
           if( x==1 && y==1 ) 
           {
@@ -320,10 +320,10 @@ void run_test()
         if(i==13) return; // {0,0,0}
         
         // i = x + 3*y + 3*3*z
-        int8_t z = (i/(3*3));
-        int8_t y = (i-z*3*3)/3;
-        int8_t x = (i-3*y-3*3*z); 
-        LightOctree::offset_t offset{(int8_t)(x-1),(int8_t)(y-1),(int8_t)(z-1)};
+        int32_t z = (i/(3*3));
+        int32_t y = (i-z*3*3)/3;
+        int32_t x = (i-3*y-3*3*z); 
+        LightOctree::offset_t offset{x-1, y-1, z-1};
 
         LightOctree::OctantIndex iOct_n = mesh.findNeighbor( {ioct,false}, offset );
         actual_neighbors(z,y,x) = iOct_n.iOct;
@@ -333,11 +333,11 @@ void run_test()
       Kokkos::deep_copy(actual_neighbors_host, actual_neighbors);
 
       std::cout << "expected" << std::endl;
-      for(int8_t y=2; y>=0; y--)
+      for(int32_t y=2; y>=0; y--)
       {
-        for(int8_t z=2; z>=0; z--)
+        for(int32_t z=2; z>=0; z--)
         {
-          for(int8_t x=0; x<3; x++)
+          for(int32_t x=0; x<3; x++)
           {
             if( x==1 && y==1 && z==1 ) 
             {
@@ -352,11 +352,11 @@ void run_test()
         std::cout << std::endl;
       }
       std::cout << "actual" << std::endl;
-      for(int8_t y=2; y>=0; y--)
+      for(int32_t y=2; y>=0; y--)
       {
-        for(int8_t z=2; z>=0; z--)
+        for(int32_t z=2; z>=0; z--)
         {
-          for(int8_t x=0; x<3; x++)
+          for(int32_t x=0; x<3; x++)
           {
             if( x==1 && y==1 && z==1 ) 
             {
@@ -372,11 +372,11 @@ void run_test()
         std::cout << std::endl;
       } 
       // Test equal     
-      for(int8_t y=2; y>=0; y--)
+      for(int32_t y=2; y>=0; y--)
       {
-        for(int8_t z=2; z>=0; z--)
+        for(int32_t z=2; z>=0; z--)
         {
-          for(int8_t x=0; x<3; x++)
+          for(int32_t x=0; x<3; x++)
           {
             if( x==1 && y==1 && z==1 ) 
             {
@@ -450,8 +450,7 @@ void test_perf()
   std::cout << "==================================\n";
 
   std::cout << "Setup AMR mesh ..." << std::endl;
-  //uint8_t CODIM_FACE = 1;
-  //uint8_t CODIM_EDGE = 2;
+
   dyablo::AMRmesh amr_mesh(ndim, {true,true,true}, level_min, level_max);
   {
     // Refine over a circle until level_max
@@ -501,10 +500,10 @@ void test_perf()
                           KOKKOS_LAMBDA( uint32_t iOct ){
       for(int i=0; i<3*3*3; i++)
       {
-        int8_t nz = i/(3*3);
-        int8_t ny = (i-nz*3*3)/3;
-        int8_t nx = i-ny*3-nz*3*3;
-        LightOctree_t::offset_t offset = {(int8_t)(nx-1),(int8_t)(ny-1),(int8_t)(nz-1)};
+        int32_t nz = i/(3*3);
+        int32_t ny = (i-nz*3*3)/3;
+        int32_t nx = i-ny*3-nz*3*3;
+        LightOctree_t::offset_t offset = {nx-1, ny-1, nz-1};
 
         if(offset[IX]==0 && offset[IY]==0 && offset[IZ]==0) return;
 

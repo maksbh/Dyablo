@@ -91,9 +91,9 @@ public:
     {
       // Compute suboctant offset 
       // Use >(bx-1)/2 to take into account odd bx
-      int8_t i_oct_offset = (iCell_new.i > (iCell_new.bx-1)/2);
-      int8_t j_oct_offset = (iCell_new.j > (iCell_new.by-1)/2);
-      int8_t k_oct_offset = (iCell_new.k > (iCell_new.bz-1)/2);
+      int32_t i_oct_offset = (iCell_new.i > (iCell_new.bx-1)/2);
+      int32_t j_oct_offset = (iCell_new.j > (iCell_new.by-1)/2);
+      int32_t k_oct_offset = (iCell_new.k > (iCell_new.bz-1)/2);
       // Get Suboctant index 
       DYABLO_ASSERT_KOKKOS_DEBUG( !lmesh_old.isBoundary(iOct_old, {i_oct_offset, j_oct_offset, k_oct_offset}), "Siblings should be inside the domain" );
       OctantIndex iOct_old_smaller = lmesh_old.findNeighbor( iOct_old, {i_oct_offset, j_oct_offset, k_oct_offset} );

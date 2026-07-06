@@ -128,7 +128,7 @@ std::shared_ptr<AMRmesh> mesh_amrgrid_semiperiodic_sphere()
       amr_mesh->adapt();
     }
 
-    uint8_t levels = 6;
+    int levels = 6;
     amr_mesh->loadBalance(levels);
   }
 

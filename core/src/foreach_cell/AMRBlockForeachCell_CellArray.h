@@ -199,7 +199,7 @@ struct CellIndex
     return iOct.iOct;
   }
 
-  using offset_t = Kokkos::Array< int16_t, 3 >;
+  using offset_t = Kokkos::Array< int32_t, 3 >;
 
 /**
    * Get a position inside the domain and an offset to get to the current boundary cell
@@ -219,11 +219,11 @@ struct CellIndex
     int32_t k = (int32_t)this->k - (int32_t)this->bz;
 
     uint32_t i_inside = FMIN( FMAX( i, (int32_t)0 ), (int32_t)(bx-1) );
-    int16_t i_offset = i - i_inside;
+    int32_t i_offset = i - i_inside;
     uint32_t j_inside = FMIN( FMAX( j, (int32_t)0 ), (int32_t)(by-1) );
-    int16_t j_offset = j - j_inside;
+    int32_t j_offset = j - j_inside;
     uint32_t k_inside = FMIN( FMAX( k, (int32_t)0 ), (int32_t)(bz-1) );
-    int16_t k_offset = k - k_inside;
+    int32_t k_offset = k - k_inside;
 
     iCell_inside = {
       this->iOct,
@@ -248,7 +248,7 @@ struct CellIndex
    */
   template<typename SearchMode>
   KOKKOS_INLINE_FUNCTION
-  CellIndex::Status getNeighborStatus( int16_t offset_x, int16_t offset_y, int16_t offset_z, const SearchMode& search_mode ) const
+  CellIndex::Status getNeighborStatus( int32_t offset_x, int32_t offset_y, int32_t offset_z, const SearchMode& search_mode ) const
   {
     DYABLO_ASSERT_KOKKOS_DEBUG(this->is_valid(), "Index needs to be valid to get neighbor");
 
@@ -401,7 +401,7 @@ struct CellIndex
 
   template<CellIndex::Status... enabled_status, typename SearchMode>
   KOKKOS_INLINE_FUNCTION
-  CellIndex getNeighbor( int16_t offset_x, int16_t offset_y, int16_t offset_z, const SearchMode& search_mode, CellIndex::Status status = CellIndex::Status::UNSET ) const
+  CellIndex getNeighbor( int32_t offset_x, int32_t offset_y, int32_t offset_z, const SearchMode& search_mode, CellIndex::Status status = CellIndex::Status::UNSET ) const
   {
     auto status_is_enabled = []( CellIndex::Status s )
     {
@@ -542,9 +542,9 @@ struct CellIndex
             uint32_t iOct_n_suboctant_z = (oct_offset_z < 0);
 
             LightOctree_base::offset_t sibling_offset{
-              (int8_t)(suboctant_x - iOct_n_suboctant_x),
-              (int8_t)(suboctant_y - iOct_n_suboctant_y),
-              (int8_t)(suboctant_z - iOct_n_suboctant_z)
+              (int32_t)(suboctant_x - iOct_n_suboctant_x),
+              (int32_t)(suboctant_y - iOct_n_suboctant_y),
+              (int32_t)(suboctant_z - iOct_n_suboctant_z)
             };
 
             LightOctree::OctantIndex suboctant = lmesh.findNeighbor( iOct_n, sibling_offset );   
@@ -618,9 +618,9 @@ struct CellIndex
   {
     DYABLO_ASSERT_KOKKOS_DEBUG( this->is_valid(), "Index needs to be valid to get children");
 
-    int8_t quadrant_x = (2*i) / bx; // = floor( i / (bx/2.0) )
-    int8_t quadrant_y = (2*j) / by;
-    int8_t quadrant_z = (2*k) / bz;
+    int32_t quadrant_x = (2*i) / bx; // = floor( i / (bx/2.0) )
+    int32_t quadrant_y = (2*j) / by;
+    int32_t quadrant_z = (2*k) / bz;
 
     LightOctree::OctantIndex iOct_c = lmesh.findChild(this->iOct, {quadrant_x, quadrant_y, quadrant_z});
 
@@ -641,9 +641,9 @@ struct CellIndex
     logical_coords[IY] = (lc[IY] >> 1);
     logical_coords[IZ] = (lc[IZ] >> 1);
 
-    const int8_t quadrant_x = lc[IX] % 2;
-    const int8_t quadrant_y = lc[IY] % 2;
-    const int8_t quadrant_z = lc[IZ] % 2;
+    const int32_t quadrant_x = lc[IX] % 2;
+    const int32_t quadrant_y = lc[IY] % 2;
+    const int32_t quadrant_z = lc[IZ] % 2;
 
     const LightOctree::OctantIndex iOct_p = lmesh.findParent(this->iOct);
 
@@ -706,9 +706,9 @@ struct CellArray_shape
       uint32_t j_in = (uint32_t)j;
       uint32_t k_in = (uint32_t)k;
       // Offset from _in position
-      int8_t di = 0;
-      int8_t dj = 0;
-      int8_t dk = 0;
+      int32_t di = 0;
+      int32_t dj = 0;
+      int32_t dk = 0;
       if(i<0)    { di=i   ; i_in=0;    }
       if(i>=bx)  { di=i-bx+1; i_in=bx-1; }
       if(j<0)    { dj=j   ; j_in=0;    }

@@ -113,7 +113,7 @@ level_max=5
 
   std::cout << "Perform load balancing..." << std::endl;
   {
-    uint8_t levels = 4;
+    int levels = 4;
 
     amr_mesh->loadBalance_userdata(levels, U);
   }

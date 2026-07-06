@@ -5,7 +5,7 @@
 
 namespace dyablo {
 
-Kokkos::View<uint32_t*> get_bin( const Binned_iOcts& iOcts, int bin )
+Kokkos::View<uint32_t*> get_bin( const Binned_iOcts& iOcts, uint32_t bin )
 {
     DYABLO_ASSERT_HOST_DEBUG( bin+1 < iOcts.begin_v.size(), "Subset_levels::get_bin : bin out of bounds" );
 

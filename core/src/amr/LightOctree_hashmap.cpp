@@ -71,7 +71,7 @@ void private_init(const LightOctree_storage<>& storage, LightOctree_hashmap::oct
 } // namespace
 
 LightOctree_hashmap::LightOctree_hashmap( Storage_t&& storage, 
-                      uint8_t level_min, uint8_t level_max,
+                      level_t level_min, level_t level_max,
                       Kokkos::Array<bool,3> periodic )
 : storage( std::move(storage) ),
   min_level(level_min), max_level(level_max),
@@ -80,7 +80,7 @@ LightOctree_hashmap::LightOctree_hashmap( Storage_t&& storage,
     private_init(this->storage, this->oct_map);
 }
 
-LightOctree_hashmap::LightOctree_hashmap( const AMRmesh* pmesh, uint8_t level_min, uint8_t level_max )
+LightOctree_hashmap::LightOctree_hashmap( const AMRmesh* pmesh, level_t level_min, level_t level_max )
 : storage( pmesh->getStorage().template deep_copy<Storage_t::MemorySpace>() ),
   min_level(level_min), max_level(level_max),
   is_periodic( {pmesh->getPeriodic(IX), pmesh->getPeriodic(IY), pmesh->getPeriodic(IZ)} ),

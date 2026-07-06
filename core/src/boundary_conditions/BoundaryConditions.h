@@ -63,9 +63,9 @@ public:
     auto sign = [](int x){return (x>0)-(x<0);};
 
     CellIndex::offset_t symmetric_offset {
-      (int16_t)(-offset[IX] + sign(offset[IX])), 
-      (int16_t)(-offset[IY] + sign(offset[IY])), 
-      (int16_t)(-offset[IZ] + sign(offset[IZ]))
+      (-offset[IX] + sign(offset[IX])), 
+      (-offset[IY] + sign(offset[IY])), 
+      (-offset[IZ] + sign(offset[IZ]))
     }; 
 
     iCell_ref = iCell_ref + symmetric_offset;

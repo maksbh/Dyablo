@@ -74,9 +74,9 @@ public:
           int di_count = (offset[IX]==0)?2:1;
           int dj_count = (offset[IY]==0)?2:1;
           int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
-          for( int8_t dk=0; dk<dk_count; dk++ )
-          for( int8_t dj=0; dj<dj_count; dj++ )
-          for( int8_t di=0; di<di_count; di++ )
+          for( int32_t dk=0; dk<dk_count; dk++ )
+          for( int32_t dj=0; dj<dj_count; dj++ )
+          for( int32_t di=0; di<di_count; di++ )
           {
               CellIndex iCell_n_smaller = iCell_n.getNeighbor({di,dj,dk}, search_neighbor); // This assumes that siblings are in same block
               real_t diff = indicator_scalar_gradient( Uin.at(iCell, ID), Uin.at(iCell_n_smaller, ID)); 

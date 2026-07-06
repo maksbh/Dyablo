@@ -18,6 +18,8 @@ class AMRmesh{
 public:
   // Pimpl idiom
   struct PData;
+
+  using level_t = uint32_t;
 private:   
   std::unique_ptr<PData> pdata;
 
@@ -30,25 +32,25 @@ public:
    * @param level_max maximum refinement level
    * (TODO : clarify level_min/level_max) 
    **/
-  AMRmesh( int dim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
-  AMRmesh( int dim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const std::array<uint32_t,3>& coarse_grid_size, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
+  AMRmesh( int dim, const std::array<bool,3>& periodic, level_t level_min, level_t level_max, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
+  AMRmesh( int dim, const std::array<bool,3>& periodic, level_t level_min, level_t level_max, const std::array<uint32_t,3>& coarse_grid_size, const MpiComm& mpi_comm = GlobalMpiSession::get_comm_world());
   ~AMRmesh();
 
   struct Parameters
   {
     int dim;
     std::array<bool,3> periodic;
-    uint8_t level_min, level_max;
+    level_t level_min, level_max;
     std::array<uint32_t,3> coarse_grid_size;
   };
   static Parameters parse_parameters(ConfigMap& configmap);
 
   //----- Mesh parameters -----
   /// Get number of dimensions
-  uint8_t getDim() const;
+  uint32_t getDim() const;
 
   /// Get periodicity of direction i
-  bool getPeriodic(uint8_t i) const;
+  bool getPeriodic(uint32_t i) const;
 
   Kokkos::Array<uint32_t,3> get_coarse_grid_size();
 
@@ -115,7 +117,7 @@ public:
    * @param compact_levels are the number of levels to keep compact at the bottom of the tree
    *        all suboctants of octants at level (level_max - compact_level) are kept in the same process
    **/
-  GhostMap_t loadBalance(uint8_t compact_levels=0); 
+  GhostMap_t loadBalance(uint32_t compact_levels=0); 
 
   /**
    * @copydoc AMRmesh_impl::loadBalance(uint8)

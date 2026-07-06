@@ -209,8 +209,8 @@ public:
     AMRmesh& pmesh     = foreach_cell.get_amr_mesh();
 
     uint32_t ndim = pmesh.getDim();
-    int level_min = data.level_min;
-    int level_max = data.level_max;
+    uint32_t level_min = data.level_min;
+    uint32_t level_max = data.level_max;
 
     uint32_t nrep_x = this->nrep_x;
     uint32_t nrep_y = this->nrep_y;
@@ -232,7 +232,7 @@ public:
         int ldiff_y = static_cast<int>(std::log2(nrep_y * one_plus_eps));
         int ldiff_z = static_cast<int>(std::log2(nrep_z * one_plus_eps));
 
-        int level_diff = std::max({ldiff_x, ldiff_y, ldiff_z});
+        int32_t level_diff = std::max({ldiff_x, ldiff_y, ldiff_z});
         int old_lmin = level_min - level_diff;
 
         std::cout << "Restart: old level min detected is : " << old_lmin << std::endl;
@@ -281,7 +281,7 @@ public:
         std::cout << "Restart mesh : " << input_lmesh.getNumOctants() << " octs." << std::endl;
 
         // Refine until level_max using analytical markers
-        for (uint8_t level=level_min; level<level_max; ++level)
+        for (uint32_t level=level_min; level<level_max; ++level)
         {
             const LightOctree& lmesh = pmesh.getLightOctree();
             uint32_t nbOcts = lmesh.getNumOctants();
@@ -306,7 +306,7 @@ public:
                   pos[IZ] = FMOD(pos[IZ]*nrep_z, 1.0);
 
                 LightOctree::OctantIndex iOct_input = input_lmesh.getiOctFromPos( pos );
-                int level_input = input_lmesh.getLevel(iOct_input);
+                uint32_t level_input = input_lmesh.getLevel(iOct_input);
 
                 markers(iOct_new) = ( level_input + level_diff > level );
             });

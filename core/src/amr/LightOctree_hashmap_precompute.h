@@ -6,7 +6,7 @@ namespace dyablo {
 
 namespace{
 KOKKOS_INLINE_FUNCTION 
-static uint32_t offset_to_index(int16_t offset_x, int16_t offset_y, int16_t offset_z, uint32_t ndims) 
+static uint32_t offset_to_index(int32_t offset_x, int32_t offset_y, int32_t offset_z, uint32_t ndims) 
 {
     return offset_x+1 + 3*(offset_y+1) + (ndims==3)*3*3*(offset_z+1);
 }
@@ -19,11 +19,11 @@ static uint32_t offset_to_index(const LightOctree_base::offset_t& offset, uint32
 KOKKOS_INLINE_FUNCTION 
 static LightOctree_base::offset_t index_to_offset(uint32_t index, uint32_t ndims)
 {
-    int8_t iz = index / (3*3);
-    int8_t iy = (index - 3*3*iz)/3;
-    int8_t ix = index % 3;
+    int32_t iz = index / (3*3);
+    int32_t iy = (index - 3*3*iz)/3;
+    int32_t ix = index % 3;
 
-    return LightOctree_base::offset_t{ (int8_t)(ix-1), (int8_t)(iy-1), (int8_t)((ndims==2)?0:iz-1)};
+    return LightOctree_base::offset_t{ ix-1, iy-1, (ndims==2)?0:iz-1};
 }
 
 } // namespace
@@ -134,7 +134,7 @@ public:
     LightOctree_hashmap_precompute(const LightOctree_hashmap_precompute& lmesh) = default;
 
     template < typename AMRmesh_t >
-    LightOctree_hashmap_precompute( const AMRmesh_t* pmesh, uint8_t level_min, uint8_t level_max )
+    LightOctree_hashmap_precompute( const AMRmesh_t* pmesh, level_t level_min, level_t level_max )
     : LightOctree_hashmap(pmesh, level_min, level_max)
     {
         LightOctree_hashmap_precompute_init(
@@ -149,7 +149,7 @@ public:
 
     template< bool has_intermediates, bool accepts_ghosts >
     KOKKOS_INLINE_FUNCTION
-    OctantIndex findNeighbor_aux(const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z, const Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbor_iOcts) const
+    OctantIndex findNeighbor_aux(const OctantIndex& iOct, int32_t offset_x, int32_t offset_y, int32_t offset_z, const Kokkos::View< uint32_t**, Kokkos::LayoutLeft >& neighbor_iOcts) const
     {
         if( offset_x == 0 && offset_y == 0 && offset_z == 0 )
             return iOct;
@@ -216,7 +216,7 @@ public:
      //! @copydoc LightOctree_base::findNeighbor()
     template< bool accepts_ghosts = true >
     KOKKOS_INLINE_FUNCTION
-    OctantIndex findNeighbor(const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z) const
+    OctantIndex findNeighbor(const OctantIndex& iOct, int32_t offset_x, int32_t offset_y, int32_t offset_z) const
     {
         return findNeighbor_aux<false, accepts_ghosts>(iOct, offset_x, offset_y, offset_z, neighbor_iOct_leaves);
     }
@@ -224,7 +224,7 @@ public:
     //! @copydoc LightOctree_base::findNeighbor_intermediate()
     template< bool accepts_ghosts = true >
     KOKKOS_INLINE_FUNCTION 
-    OctantIndex findNeighbor_intermediate( const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z)  const
+    OctantIndex findNeighbor_intermediate( const OctantIndex& iOct, int32_t offset_x, int32_t offset_y, int32_t offset_z)  const
     {
         return findNeighbor_aux<true, accepts_ghosts>(iOct, offset_x, offset_y, offset_z, neighbor_iOct_intermediates);
     }
