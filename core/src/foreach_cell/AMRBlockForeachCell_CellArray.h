@@ -109,6 +109,10 @@ private:
   BiggerNeighborMode _bigger_neighbor_mode;
 };
 
+// Define this to have a separate member in CellIndex
+// for linearized iCell index 
+//#define DYABLO_SEPARATE_ICELL_IJK
+
 class CellIndex
 {
 public:
@@ -124,7 +128,9 @@ public:
   };
 private:
   LightOctree::OctantIndex _iOct;
+  #ifdef DYABLO_SEPARATE_ICELL_IJK
   uint32_t _iCell;
+  #endif
   uint32_t _i,_j,_k;
   uint32_t _bx,_by,_bz;
   Status _status = LOCAL_TO_BLOCK;
@@ -140,7 +146,9 @@ public:
   KOKKOS_INLINE_FUNCTION
   CellIndex( LightOctree::OctantIndex iOct, uint32_t i, uint32_t j, uint32_t k, uint32_t bx, uint32_t by, uint32_t bz, Status status = LOCAL_TO_BLOCK )
   : _iOct(iOct),
+  #ifdef DYABLO_SEPARATE_ICELL_IJK
     _iCell( i + bx * ( j + k*by ) ),
+  #endif
     _i(i),_j(j),_k(k),
     _bx(bx),_by(by),_bz(bz),
     _status(status)  
@@ -149,18 +157,27 @@ public:
   KOKKOS_INLINE_FUNCTION
   CellIndex( LightOctree::OctantIndex iOct, uint32_t iCell, uint32_t i, uint32_t j, uint32_t k, uint32_t bx, uint32_t by, uint32_t bz, Status status = LOCAL_TO_BLOCK )
   : _iOct(iOct),
+  #ifdef DYABLO_SEPARATE_ICELL_IJK
     _iCell(iCell),
+  #endif
     _i(i),_j(j),_k(k),
     _bx(bx),_by(by),_bz(bz),
     _status(status)  
   {
-    DYABLO_ASSERT_KOKKOS_DEBUG( iCell == i + bx * ( j + k*by ), "CellIndex : iCell does noty match i,j,k" );
+    DYABLO_ASSERT_KOKKOS_DEBUG( iCell == i + bx * ( j + k*by ), "CellIndex : iCell does not match i,j,k" );
   }
 
   KOKKOS_INLINE_FUNCTION
   LightOctree::OctantIndex iOct() const { return this->_iOct; }
   KOKKOS_INLINE_FUNCTION
-  uint32_t iCell() const { return this->_iCell; }
+  uint32_t iCell() const 
+  { 
+    #ifdef DYABLO_SEPARATE_ICELL_IJK
+    return this->_iCell; 
+    #else
+    return i() + bx()*j() + bx()*by()*k();
+    #endif
+  }
   KOKKOS_INLINE_FUNCTION
   uint32_t i() const { return this->_i; }
   KOKKOS_INLINE_FUNCTION
