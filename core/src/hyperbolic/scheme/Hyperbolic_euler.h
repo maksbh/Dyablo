@@ -119,11 +119,11 @@ public:
         ConsState u = {};
         if (CellIndex::is_boundary(iCell_Uin_status))
         {
-          CellIndex iCell_Uin = shape.convert_index( iCell_Qpatch, search_neighbor_origin, CellIndex::BOUNDARY );
+          CellIndex iCell_Uin = shape.convert_index<CellIndex::BOUNDARY>( iCell_Qpatch, search_neighbor_origin, CellIndex::BOUNDARY );
           u = policy.getBoundaryValue(Uin, iCell_Uin, cellmetadata);
         }
         else if (level_diff < 0) { 
-          CellIndex iCell_Uin = shape.convert_index( iCell_Qpatch, search_neighbor_origin, CellIndex::SMALLER );
+          CellIndex iCell_Uin = shape.convert_index<CellIndex::SMALLER>( iCell_Qpatch, search_neighbor_origin, CellIndex::SMALLER );
           int subcell_count = 
           foreach_sibling(ndim, iCell_Uin, ForeachCell::SearchMode_local(ForeachCell::SearchMode_local::ASSERT),
             [&](const CellIndex& iCell_neigh) {
@@ -134,7 +134,7 @@ public:
         }
         else
         {
-          CellIndex iCell_Uin = shape.convert_index( iCell_Qpatch, search_neighbor_origin, iCell_Uin_status );
+          CellIndex iCell_Uin = shape.convert_index<CellIndex::LOCAL_TO_BLOCK, CellIndex::SAME_SIZE, CellIndex::BIGGER>( iCell_Qpatch, search_neighbor_origin, iCell_Uin_status );
           u = policy.getConsState(Uin, iCell_Uin);
         }
         
