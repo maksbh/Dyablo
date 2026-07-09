@@ -38,7 +38,7 @@ int foreach_smaller_neighbor( int ndim, const CellIndex& iCell, const CellIndex:
   for( int32_t dj=0; dj<dj_count; dj++ )
   for( int32_t di=0; di<di_count; di++ )
   {
-      CellIndex iCell_ghost = iCell.getNeighbor( {di,dj,dk}, search_mode );
+      CellIndex iCell_ghost = iCell.getNeighbor( di, dj, dk, search_mode );
       apply_neighbor(iCell_ghost);
   }
   return di_count*dj_count*dk_count;
@@ -74,7 +74,7 @@ int foreach_sibling( int ndim, const CellIndex& iCell, const SearchMode_t& searc
   for( int32_t dj=0; dj<2; dj++ )
   for( int32_t di=0; di<2; di++ )
   {
-      CellIndex iCell_ghost = iCell.getNeighbor( {di,dj,dk}, search_mode );
+      CellIndex iCell_ghost = iCell.getNeighbor( di, dj, dk, search_mode );
       apply_sibling(iCell_ghost);
   }
   return 2*2*dk_count;
