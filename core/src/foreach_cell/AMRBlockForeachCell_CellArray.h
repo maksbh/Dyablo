@@ -774,21 +774,14 @@ struct CellArray_shape
   uint32_t nbFields=0;
   uint32_t nbOcts=0, nbGhosts=0, nbIntermediateOcts=0, nbIntermediateGhosts=0;
 
-  /**
-   * Convert cell index used for another array into an index compatible with current shape. 
-   * What happens when *in* is outside of current block depends on search_mode
-   * - SearchMode_local : does not look for neighbor octs
-   * - SearchMode_neighbor : search cell in neighbor octants
-   * (Read SearchMode_* doc for more detail on how to configure them)
-   **/
   template<typename SearchMode>
   KOKKOS_INLINE_FUNCTION
-  CellIndex convert_index(const CellIndex& in, const SearchMode& search_mode) const
+  CellIndex::Status convert_index_status(const CellIndex& in, const SearchMode& search_mode) const
   {
     DYABLO_ASSERT_KOKKOS_DEBUG( in.is_valid(), "Index needs to be valid for conversion");
 
     if( in.bx() == this->bx && in.by() == this->by && in.bz() == this->bz )
-      return in;
+      return in.status();
 
     int32_t gx = ((int32_t)this->bx-(int32_t)in.bx())/2;
     int32_t gy = ((int32_t)this->by-(int32_t)in.by())/2;
@@ -821,16 +814,72 @@ struct CellArray_shape
       CellIndex::Status cell_status =  in.is_local()?
                                         CellIndex::LOCAL_TO_BLOCK
                                       : CellIndex::LOCAL_TO_REMOTE;
-      return CellIndex{in.iOct(), (uint32_t)i, (uint32_t)j, (uint32_t)k, (uint32_t)bx, (uint32_t)by, (uint32_t)bz, cell_status};
+      return cell_status;
     }  
     else
     { 
       if constexpr( std::is_same_v<SearchMode, SearchMode_local> )
-        return CELLINDEX_INVALID;
+        return CellIndex::Status::INVALID;
         
       // Neighbor search
       CellIndex iCell_in{in.iOct(), 0, 0, 0, (uint32_t)bx, (uint32_t)by, (uint32_t)bz};
-      CellIndex iCell_out = iCell_in.getNeighbor( i, j, k, search_mode );
+      CellIndex::Status status = iCell_in.getNeighborStatus( i, j, k, search_mode );
+      return status;
+    }
+  }
+
+  /**
+   * Convert cell index used for another array into an index compatible with current shape. 
+   * What happens when *in* is outside of current block depends on search_mode
+   * - SearchMode_local : does not look for neighbor octs
+   * - SearchMode_neighbor : search cell in neighbor octants
+   * (Read SearchMode_* doc for more detail on how to configure them)
+   **/
+  template<typename SearchMode>
+  KOKKOS_INLINE_FUNCTION
+  CellIndex convert_index(const CellIndex& in, const SearchMode& search_mode, CellIndex::Status status = CellIndex::Status::UNSET) const
+  {
+    DYABLO_ASSERT_KOKKOS_DEBUG( in.is_valid(), "Index needs to be valid for conversion");
+    
+    if( in.bx() == this->bx && in.by() == this->by && in.bz() == this->bz )
+    {
+      DYABLO_ASSERT_KOKKOS_DEBUG( status == CellIndex::Status::UNSET || status == CellIndex::Status::LOCAL_TO_BLOCK || status == CellIndex::Status::LOCAL_TO_REMOTE,
+                     "convert_index : status mismatch");
+      return in;
+    }
+
+    if( status == CellIndex::Status::UNSET )
+      status = convert_index_status( in, search_mode );
+
+    DYABLO_ASSERT_KOKKOS_DEBUG( status == convert_index_status( in, search_mode ), "convert_index : status mismatch" );
+
+    int32_t gx = ((int32_t)this->bx-(int32_t)in.bx())/2;
+    int32_t gy = ((int32_t)this->by-(int32_t)in.by())/2;
+    int32_t gz = ((int32_t)this->bz-(int32_t)in.bz())/2;
+    int32_t i = in.i() + gx;
+    int32_t j = in.j() + gy;
+    int32_t k = in.k() + gz;
+    int32_t bx = this->bx;
+    int32_t by = this->by;
+    int32_t bz = this->bz;
+
+    auto status_is = [&]( CellIndex::Status s )
+    {
+      return (s == status);
+    };
+
+    if( status_is(CellIndex::Status::INVALID) )
+      return CELLINDEX_INVALID;
+    if( status_is(CellIndex::Status::LOCAL_TO_BLOCK) || status_is(CellIndex::Status::LOCAL_TO_REMOTE) )
+    {
+      // Index is inside block
+      return CellIndex{in.iOct(), (uint32_t)i, (uint32_t)j, (uint32_t)k, (uint32_t)bx, (uint32_t)by, (uint32_t)bz, status};
+    }  
+    else
+    { 
+      // Neighbor search
+      CellIndex iCell_in{in.iOct(), 0, 0, 0, (uint32_t)bx, (uint32_t)by, (uint32_t)bz};
+      CellIndex iCell_out = iCell_in.getNeighbor( i, j, k, search_mode, status );
       return iCell_out;
     }
   }
