@@ -835,7 +835,7 @@ struct CellArray_shape
    * - SearchMode_neighbor : search cell in neighbor octants
    * (Read SearchMode_* doc for more detail on how to configure them)
    **/
-  template<typename SearchMode>
+  template<CellIndex::Status... enabled_status, typename SearchMode>
   KOKKOS_INLINE_FUNCTION
   CellIndex convert_index(const CellIndex& in, const SearchMode& search_mode, CellIndex::Status status = CellIndex::Status::UNSET) const
   {
@@ -848,8 +848,30 @@ struct CellArray_shape
       return in;
     }
 
+    auto status_is_enabled = []( CellIndex::Status s )
+    {
+      bool res = 
+           ( sizeof...(enabled_status) == 0 ) // All status enabled when no enabled_status is given
+        || ( (s == enabled_status) || ... );  // If a list is given, s must be in the list
+
+      return res;
+    };
+
+    // Check if s == status, returns false if status is not enabled
+    auto status_is = [&]( CellIndex::Status s )
+    {
+      return status_is_enabled(s) && (s == status);
+    };
+    
     if( status == CellIndex::Status::UNSET )
-      status = convert_index_status( in, search_mode );
+    {
+      if constexpr( sizeof...(enabled_status) == 1 )
+        status = ((enabled_status, ...));
+      else
+        status = convert_index_status( in, search_mode );
+    }
+
+    DYABLO_ASSERT_KOKKOS_DEBUG( status_is_enabled( status ), "convert_index : actual status not enabled" );
 
     DYABLO_ASSERT_KOKKOS_DEBUG( status == convert_index_status( in, search_mode ), "convert_index : status mismatch" );
 
@@ -863,11 +885,6 @@ struct CellArray_shape
     int32_t by = this->by;
     int32_t bz = this->bz;
 
-    auto status_is = [&]( CellIndex::Status s )
-    {
-      return (s == status);
-    };
-
     if( status_is(CellIndex::Status::INVALID) )
       return CELLINDEX_INVALID;
     if( status_is(CellIndex::Status::LOCAL_TO_BLOCK) || status_is(CellIndex::Status::LOCAL_TO_REMOTE) )
@@ -879,7 +896,7 @@ struct CellArray_shape
     { 
       // Neighbor search
       CellIndex iCell_in{in.iOct(), 0, 0, 0, (uint32_t)bx, (uint32_t)by, (uint32_t)bz};
-      CellIndex iCell_out = iCell_in.getNeighbor( i, j, k, search_mode, status );
+      CellIndex iCell_out = iCell_in.getNeighbor<enabled_status...>( i, j, k, search_mode, status );
       return iCell_out;
     }
   }
