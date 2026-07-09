@@ -111,7 +111,7 @@ private:
 
 // Define this to have a separate member in CellIndex
 // for linearized iCell index 
-//#define DYABLO_SEPARATE_ICELL_IJK
+#define DYABLO_SEPARATE_ICELL_IJK
 
 class CellIndex
 {
