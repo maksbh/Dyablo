@@ -827,25 +827,10 @@ struct CellArray_shape
     { 
       if constexpr( std::is_same_v<SearchMode, SearchMode_local> )
         return CELLINDEX_INVALID;
+        
       // Neighbor search
-      // Closest position inside block
-      uint32_t i_in = (uint32_t)i;
-      uint32_t j_in = (uint32_t)j;
-      uint32_t k_in = (uint32_t)k;
-      // Offset from _in position
-      int32_t di = 0;
-      int32_t dj = 0;
-      int32_t dk = 0;
-      if(i<0)    { di=i   ; i_in=0;    }
-      if(i>=bx)  { di=i-bx+1; i_in=bx-1; }
-      if(j<0)    { dj=j   ; j_in=0;    }
-      if(j>=by)  { dj=j-by+1; j_in=by-1; }
-      if(k<0)    { dk=k   ; k_in=0;    }
-      if(k>=bz)  { dk=k-bz+1; k_in=bz-1; }
-
-      CellIndex iCell_in{in.iOct(), i_in, j_in, k_in, (uint32_t)bx, (uint32_t)by, (uint32_t)bz};
-      CellIndex::offset_t offset = {di,dj,dk};
-      CellIndex iCell_out = iCell_in.getNeighbor( offset, search_mode );
+      CellIndex iCell_in{in.iOct(), 0, 0, 0, (uint32_t)bx, (uint32_t)by, (uint32_t)bz};
+      CellIndex iCell_out = iCell_in.getNeighbor( i, j, k, search_mode );
       return iCell_out;
     }
   }
