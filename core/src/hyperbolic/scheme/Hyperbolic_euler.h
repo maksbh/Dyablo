@@ -113,12 +113,17 @@ public:
         CELL_LAMBDA( const CellIndex& iCell_Qpatch )
       {
         ForeachCell::SearchMode_neighbor search_neighbor_origin( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
-        CellIndex iCell_Uin = Uin.getShape().convert_index(iCell_Qpatch, search_neighbor_origin);
-        int level_diff = iCell_Uin.level_diff();
+        auto shape = Uin.getShape();
+        CellIndex::Status iCell_Uin_status = shape.convert_index_status(iCell_Qpatch, search_neighbor_origin);
+        int level_diff = CellIndex::level_diff(iCell_Uin_status);
         ConsState u = {};
-        if (iCell_Uin.is_boundary())
+        if (CellIndex::is_boundary(iCell_Uin_status))
+        {
+          CellIndex iCell_Uin = shape.convert_index( iCell_Qpatch, search_neighbor_origin, CellIndex::BOUNDARY );
           u = policy.getBoundaryValue(Uin, iCell_Uin, cellmetadata);
-        else if (level_diff < 0) {
+        }
+        else if (level_diff < 0) { 
+          CellIndex iCell_Uin = shape.convert_index( iCell_Qpatch, search_neighbor_origin, CellIndex::SMALLER );
           int subcell_count = 
           foreach_sibling(ndim, iCell_Uin, search_neighbor_origin,
             [&](const CellIndex& iCell_neigh) {
@@ -128,7 +133,10 @@ public:
           u /= subcell_count;
         }
         else
+        {
+          CellIndex iCell_Uin = shape.convert_index( iCell_Qpatch, search_neighbor_origin, iCell_Uin_status );
           u = policy.getConsState(Uin, iCell_Uin);
+        }
         
         const PrimState q = policy.consToPrim( u );
         policy.setPrimState( Qpatch, iCell_Qpatch, q );
@@ -161,7 +169,7 @@ public:
           return slope;
         }; // get_slope
 
-        CellIndex iCell_Qpatch = Qpatch.getShape().convert_index(iCell_Uout, search_local);
+        CellIndex iCell_Qpatch = Qpatch.getShape().convert_index(iCell_Uout, search_local, CellIndex::Status::LOCAL_TO_BLOCK);
         PrimState qC0 = policy.getPrimState( Qpatch, iCell_Qpatch );
         auto size_C0 = cellmetadata.getCellSize(iCell_Uout);
 
