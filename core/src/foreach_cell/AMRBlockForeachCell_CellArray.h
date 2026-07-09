@@ -800,8 +800,33 @@ struct CellArray_shape
     int32_t by = this->by;
     int32_t bz = this->bz;
 
-    if( i<0 || i>=bx || j<0 || j>=by || k<0 || k>=bz )
+    bool index_inside =  /*i>0 && */(uint32_t)i<bx 
+                      && /*j>0 && */(uint32_t)j<by 
+                      && /*k>0 && */(uint32_t)k<bz;
+    // Detect if search_mode is only local
+    bool seach_mode_inside = false;
+    if constexpr( std::is_same_v<SearchMode, SearchMode_local> )
+    {
+      if( search_mode.error_mode() == SearchMode_local::ASSERT )
+      {
+        seach_mode_inside = true;
+        DYABLO_ASSERT_KOKKOS_DEBUG(index_inside, "convert_index : SearchMode is local with assert but index is out of block");
+      }
+    }
+
+    if( seach_mode_inside || index_inside )
+    {
+      // Index is inside block
+      // non-local cells keep their non-local status, but not their level difference
+      CellIndex::Status cell_status =  in.is_local()?
+                                        CellIndex::LOCAL_TO_BLOCK
+                                      : CellIndex::LOCAL_TO_REMOTE;
+      return CellIndex{in.iOct(), (uint32_t)i, (uint32_t)j, (uint32_t)k, (uint32_t)bx, (uint32_t)by, (uint32_t)bz, cell_status};
+    }  
+    else
     { 
+      if constexpr( std::is_same_v<SearchMode, SearchMode_local> )
+        return CELLINDEX_INVALID;
       // Neighbor search
       // Closest position inside block
       uint32_t i_in = (uint32_t)i;
@@ -822,15 +847,6 @@ struct CellArray_shape
       CellIndex::offset_t offset = {di,dj,dk};
       CellIndex iCell_out = iCell_in.getNeighbor( offset, search_mode );
       return iCell_out;
-    }
-    else
-    {
-      // Index is inside block
-      // non-local cells keep their non-local status, but not their level difference
-      CellIndex::Status cell_status =  in.is_local()?
-                                        CellIndex::LOCAL_TO_BLOCK
-                                      : CellIndex::LOCAL_TO_REMOTE;
-      return CellIndex{in.iOct(), (uint32_t)i, (uint32_t)j, (uint32_t)k, (uint32_t)bx, (uint32_t)by, (uint32_t)bz, cell_status};
     }
   }
 };
