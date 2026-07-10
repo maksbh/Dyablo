@@ -973,27 +973,51 @@ public:
   }
 
   KOKKOS_INLINE_FUNCTION
-  real_t& at_ivar( const CellIndex& iCell, uint32_t ivar ) const
+  real_t* at( const CellIndex& iCell ) const
   {
-    DYABLO_ASSERT_KOKKOS_DEBUG(ivar < shape.nbFields, "at_ivar : out of range");
     DYABLO_ASSERT_KOKKOS_DEBUG(shape.bx == iCell.bx(), "bx mismatch icell vs array");
     DYABLO_ASSERT_KOKKOS_DEBUG(shape.by == iCell.by(), "by mismatch icell vs array");
     DYABLO_ASSERT_KOKKOS_DEBUG(shape.bz == iCell.bz(), "bz mismatch icell vs array");
 
-    uint32_t i = iCell.iCell();
+    int ivar = 0;
+    auto i = iCell.iCell();
     if constexpr( has_ghosts )
     {
       if( iCell.iOct().isGhost )
-        return Ughost(i, ivar, iCell.iOct().iOct);
+        return &Ughost(i, ivar, iCell.iOct().iOct);
     }
     DYABLO_ASSERT_KOKKOS_DEBUG( !iCell.iOct().isGhost, "Accessing ghost in non-ghosted array" );
-    return U(i, ivar, iCell.iOct().iOct%shape.nbOcts);
+    return &U(i, ivar, iCell.iOct().iOct%shape.nbOcts);
   }
 
   KOKKOS_INLINE_FUNCTION
-  real_t& at( const CellIndex& iCell, int ivar ) const
+  int get_offset_ivar( int ivar ) const
   {
-    return at_ivar(iCell, ivar);
+    return U.extent(0) * ivar;
+  }
+
+  template< typename ... VarIndex_s >
+  KOKKOS_INLINE_FUNCTION
+  decltype(auto) at_ivar( const CellIndex& iCell, int ivar0, VarIndex_s... ivars ) const
+  {
+    real_t* origin = this->at(iCell);
+
+    auto value = [&](int ivar) -> real_t&
+    {
+      return origin[get_offset_ivar(ivar)];
+    };
+
+    if constexpr ( sizeof...(VarIndex_s) == 0 )
+        return (value(ivar0));  // Parenthesis are important here to keep real_t& reference
+    else
+        return std::tie( value(ivar0), value(ivars)... );
+  }
+
+  template< typename ... VarIndex_s >
+  KOKKOS_INLINE_FUNCTION
+  decltype(auto) at( const CellIndex& iCell, VarIndex_s... ivars ) const
+  {
+    return (at_ivar(iCell, ivars...)); // Parenthesis are important here to keep real_t& reference
   }
 };
 

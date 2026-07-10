@@ -139,12 +139,20 @@ public:
   KOKKOS_INLINE_FUNCTION
   ConsState getConsState( const Array_t& U, const CellIndex& iCell ) const
   {
-    ConsState u;
-    u.rho   = U.at(iCell, ConsState::VarIndex::Irho );
-    u.e_tot = U.at(iCell, ConsState::VarIndex::Ie_tot );
-    u.rho_u = U.at(iCell, ConsState::VarIndex::Irho_vx );
-    u.rho_v = U.at(iCell, ConsState::VarIndex::Irho_vy );
-    u.rho_w = (ndim == 3 ? U.at(iCell, ConsState::VarIndex::Irho_vz ) : 0.0);
+    using V = ConsState::VarIndex;
+
+    ConsState u{};
+    if( ndim == 3 )
+    {
+      std::tie(u.rho, u.e_tot, u.rho_u, u.rho_v, u.rho_w) 
+        = U.at( iCell, V::Irho, V::Ie_tot, V::Irho_vx, V::Irho_vy, V::Irho_vz );
+    }
+    else
+    {
+      std::tie(u.rho, u.e_tot, u.rho_u, u.rho_v) 
+        = U.at( iCell, V::Irho, V::Ie_tot, V::Irho_vx, V::Irho_vy);
+    }
+
     return u;
   }
 
@@ -152,36 +160,64 @@ public:
   KOKKOS_INLINE_FUNCTION
   void setConsState( const Array_t& U, const CellIndex& iCell, const ConsState& u ) const
   {
-    U.at(iCell, ConsState::VarIndex::Irho) = u.rho;
-    U.at(iCell, ConsState::VarIndex::Ie_tot) = u.e_tot;
-    U.at(iCell, ConsState::VarIndex::Irho_vx) = u.rho_u;
-    U.at(iCell, ConsState::VarIndex::Irho_vy) = u.rho_v;
-    if (ndim == 3)
-      U.at(iCell, ConsState::VarIndex::Irho_vz) = u.rho_w;
+    using V = ConsState::VarIndex;
+
+    if( ndim == 3 )
+    {
+      U.at( iCell, V::Irho, V::Ie_tot, V::Irho_vx, V::Irho_vy, V::Irho_vz )
+        = std::tie(u.rho, u.e_tot, u.rho_u, u.rho_v, u.rho_w);
+    }
+    else
+    {
+      U.at( iCell, V::Irho, V::Ie_tot, V::Irho_vx, V::Irho_vy)
+        = std::tie(u.rho, u.e_tot, u.rho_u, u.rho_v);
+    }
   }
 
   template < typename Array_t >
   KOKKOS_INLINE_FUNCTION
   void atomic_addConsState( const Array_t& U, const CellIndex& iCell, const ConsState& u ) const
   {
-    Kokkos::atomic_add(&U.at(iCell, ConsState::VarIndex::Irho), u.rho);
-    Kokkos::atomic_add(&U.at(iCell, ConsState::VarIndex::Ie_tot), u.e_tot);
-    Kokkos::atomic_add(&U.at(iCell, ConsState::VarIndex::Irho_vx), u.rho_u);
-    Kokkos::atomic_add(&U.at(iCell, ConsState::VarIndex::Irho_vy), u.rho_v);
-    if (ndim == 3)
-      Kokkos::atomic_add(&U.at(iCell, ConsState::VarIndex::Irho_vz), u.rho_w);
+    using V = ConsState::VarIndex;
+
+    if( ndim == 3 )
+    {
+      auto [rho, e_tot, rho_u, rho_v, rho_w] 
+        = U.at( iCell, V::Irho, V::Ie_tot, V::Irho_vx, V::Irho_vy, V::Irho_vz );
+      Kokkos::atomic_add( &rho, u.rho );
+      Kokkos::atomic_add( &e_tot, u.e_tot );
+      Kokkos::atomic_add( &rho_u, u.rho_u );
+      Kokkos::atomic_add( &rho_v, u.rho_v );
+      Kokkos::atomic_add( &rho_w, u.rho_w );
+    }
+    else
+    {
+      auto [rho, e_tot, rho_u, rho_v] 
+        = U.at( iCell, V::Irho, V::Ie_tot, V::Irho_vx, V::Irho_vy );
+      Kokkos::atomic_add( &rho, u.rho );
+      Kokkos::atomic_add( &e_tot, u.e_tot );
+      Kokkos::atomic_add( &rho_u, u.rho_u );
+      Kokkos::atomic_add( &rho_v, u.rho_v );
+    }
   }
 
   template < typename Array_t >
   KOKKOS_INLINE_FUNCTION
   PrimState getPrimState( const Array_t& Q, const CellIndex& iCell ) const
   {
-    PrimState q;
-    q.rho = Q.at(iCell, PrimState::VarIndex::Irho );
-    q.p   = Q.at(iCell, PrimState::VarIndex::Ip );
-    q.u   = Q.at(iCell, PrimState::VarIndex::Iu );
-    q.v   = Q.at(iCell, PrimState::VarIndex::Iv );
-    q.w   = (ndim == 3 ? Q.at(iCell, PrimState::VarIndex::Iw ) : 0.0);
+    using V = PrimState::VarIndex;
+    
+    PrimState q{};
+    if( ndim == 3 )
+    {
+      std::tie( q.rho, q.p, q.u, q.v, q.w )
+        = Q.at( iCell, V::Irho, V::Ip, V::Iu, V::Iv, V::Iw );
+    }
+    else 
+    {
+      std::tie( q.rho, q.p, q.u, q.v)
+        = Q.at( iCell, V::Irho, V::Ip, V::Iu, V::Iv);
+    }
     return q;
   }
 
@@ -189,12 +225,18 @@ public:
   KOKKOS_INLINE_FUNCTION
   void setPrimState( const Array_t& Q, const CellIndex& iCell, const PrimState& q ) const
   {
-    Q.at(iCell, PrimState::VarIndex::Irho) = q.rho;
-    Q.at(iCell, PrimState::VarIndex::Ip) = q.p;
-    Q.at(iCell, PrimState::VarIndex::Iu) = q.u;
-    Q.at(iCell, PrimState::VarIndex::Iv) = q.v;
-    if (ndim == 3)
-      Q.at(iCell, PrimState::VarIndex::Iw) = q.w;
+    using V = PrimState::VarIndex;
+
+    if( ndim == 3 )
+    {
+      Q.at( iCell, V::Irho, V::Ip, V::Iu, V::Iv, V::Iw )
+        = std::tie( q.rho, q.p, q.u, q.v, q.w );
+    }
+    else 
+    {
+      Q.at( iCell, V::Irho, V::Ip, V::Iu, V::Iv )
+        = std::tie( q.rho, q.p, q.u, q.v );
+    }
   }
 
   KOKKOS_INLINE_FUNCTION
