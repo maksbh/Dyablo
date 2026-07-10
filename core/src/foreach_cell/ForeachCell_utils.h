@@ -74,7 +74,11 @@ int foreach_sibling( int ndim, const CellIndex& iCell, const SearchMode_t& searc
   for( int32_t dj=0; dj<2; dj++ )
   for( int32_t di=0; di<2; di++ )
   {
-      CellIndex iCell_ghost = iCell.getNeighbor( di, dj, dk, search_mode );
+      CellIndex iCell_ghost;
+      if constexpr ( enable_different_block )
+        iCell_ghost = iCell.getNeighbor( di, dj, dk, search_mode );
+      else
+        iCell_ghost = iCell.getNeighbor<CellIndex::LOCAL_TO_BLOCK>( di, dj, dk, search_mode );
       apply_sibling(iCell_ghost);
   }
   return 2*2*dk_count;
