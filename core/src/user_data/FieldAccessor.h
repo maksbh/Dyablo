@@ -33,7 +33,7 @@ public:
     KOKKOS_INLINE_FUNCTION
     int nbFields() const
     {
-        return ivar_to_arrayindex.size();
+        return _nbFields;
     }
 
     UserData_FieldAccessor_impl(const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info);
@@ -79,45 +79,45 @@ public:
     }
 
 private:
-    Kokkos::View<int*> var_to_arrayindex; // Index conversion for at()
-    Kokkos::View<int*> ivar_to_arrayindex; // Index conversion for at_ivar()
-    Kokkos::View<int*>::host_mirror_type ivar_to_arrayindex_host;
+    int _nbFields;
 
+    Kokkos::Array<int, MAX_FIELD_COUNT> var_to_arrayindex; // Index conversion for at()
+    Kokkos::Array<int, MAX_FIELD_COUNT> ivar_to_arrayindex; // Index conversion for at_ivar()
+    
     KOKKOS_INLINE_FUNCTION
     int get_index_from_varindex(VarIndex var) const
     {
-        return var_to_arrayindex(var);
+        return var_to_arrayindex[var];
     }
 
-    Kokkos::View<int*> var_to_arrayindex_intermediates; // Index conversion for at()
-    Kokkos::View<int*> ivar_to_arrayindex_intermediates; // Index conversion for at_ivar()
-    Kokkos::View<int*>::host_mirror_type ivar_to_arrayindex_host_intermediates;
+    Kokkos::Array<int, MAX_FIELD_COUNT> var_to_arrayindex_intermediates; // Index conversion for at()
+    Kokkos::Array<int, MAX_FIELD_COUNT> ivar_to_arrayindex_intermediates; // Index conversion for at_ivar()
 
     KOKKOS_INLINE_FUNCTION
     int get_index_from_varindex_intermediates(VarIndex var) const
     {
-        return var_to_arrayindex_intermediates(var);
+        return var_to_arrayindex_intermediates[var];
     }
 protected:
     KOKKOS_INLINE_FUNCTION
     int get_index_from_ivar_device(int ivar) const
     {
-        return ivar_to_arrayindex(ivar);
+        return ivar_to_arrayindex[ivar];
     }
     int get_index_from_ivar_host(int ivar) const
     {
-        return ivar_to_arrayindex_host(ivar);
+        return ivar_to_arrayindex[ivar];
     }
     FieldView_t fields;
 
     KOKKOS_INLINE_FUNCTION
     int get_index_from_ivar_device_intermediates(int ivar) const
     {
-        return ivar_to_arrayindex_intermediates(ivar);
+        return ivar_to_arrayindex_intermediates[ivar];
     }
     int get_index_from_ivar_host_intermediates(int ivar) const
     {
-        return ivar_to_arrayindex_host_intermediates(ivar);
+        return ivar_to_arrayindex_intermediates[ivar];
     }
     FieldView_t fields_intermediates;
 };

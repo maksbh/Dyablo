@@ -430,18 +430,16 @@ UserData_FieldAccessor_impl<has_intermediates>::UserData_FieldAccessor_impl(cons
         return s.str();
     };
 
-    int max_varindex = 0;
-    for( const FieldInfo& info : fields_info )
+    this->_nbFields = fields_info.size();
+    for( [[maybe_unused]] const FieldInfo& info : fields_info )
     {
-        max_varindex = std::max( max_varindex, info.id );
+      DYABLO_ASSERT_HOST_DEBUG( info.id >= MAX_FIELD_COUNT, "VarIndex must be included in [0,MAX_FIELD_COUNT[. "
+                                                            "VarIndex is " << info.id <<  )
     }
 
-    this->var_to_arrayindex = Kokkos::View<int*>( "varindex_to_viewindex", max_varindex+1 );
-    this->ivar_to_arrayindex = Kokkos::View<int*>( "ivar_to_viewindex", fields_info.size() );
-    auto var_to_arrayindex_host = Kokkos::create_mirror_view( this->var_to_arrayindex );
-    this->ivar_to_arrayindex_host = Kokkos::create_mirror_view( this->ivar_to_arrayindex );
-    for(size_t i=0; i<var_to_arrayindex_host.size(); i++)
-        var_to_arrayindex_host(i) = -1;
+    this->ivar_to_arrayindex = {};
+    for(size_t i=0; i<var_to_arrayindex.size(); i++)
+        var_to_arrayindex[i] = -1;
 
     int i=0; 
     for( const FieldInfo& info : fields_info )
@@ -449,21 +447,16 @@ UserData_FieldAccessor_impl<has_intermediates>::UserData_FieldAccessor_impl(cons
         DYABLO_ASSERT_HOST_RELEASE( user_data.has_field(info.name), 
                                     unknown_field_error(info.name) );
         int index = user_data.field_index.at(info.name).index;
-        var_to_arrayindex_host(info.id) = index;
-        this->ivar_to_arrayindex_host(i) = index;
+        var_to_arrayindex[info.id] = index;
+        this->ivar_to_arrayindex[i] = index;
         i++;
     }
-    Kokkos::deep_copy( this->var_to_arrayindex, var_to_arrayindex_host );
-    Kokkos::deep_copy( this->ivar_to_arrayindex, this->ivar_to_arrayindex_host );
 
     if( has_intermediates )
     {
-      this->var_to_arrayindex_intermediates = Kokkos::View<int*>( "varindex_to_viewindex_intermediates", max_varindex+1 );
-      this->ivar_to_arrayindex_intermediates = Kokkos::View<int*>( "ivar_to_viewindex_intermediates", fields_info.size() );
-      auto var_to_arrayindex_host_intermediates = Kokkos::create_mirror_view( this->var_to_arrayindex_intermediates );
-      this->ivar_to_arrayindex_host_intermediates = Kokkos::create_mirror_view( this->ivar_to_arrayindex_intermediates );
-      for(size_t i=0; i<var_to_arrayindex_host_intermediates.size(); i++)
-          var_to_arrayindex_host_intermediates(i) = -1;
+      this->ivar_to_arrayindex_intermediates = {};
+      for(size_t i=0; i<var_to_arrayindex_intermediates.size(); i++)
+        var_to_arrayindex_intermediates[i] = -1;
 
       int i=0; 
       for( const FieldInfo& info : fields_info )
@@ -471,12 +464,10 @@ UserData_FieldAccessor_impl<has_intermediates>::UserData_FieldAccessor_impl(cons
           DYABLO_ASSERT_HOST_RELEASE( user_data.has_intermediate_field(info.name), 
                                       unknown_field_error(info.name) );
           int index = user_data.field_index_intermediate.at(info.name).index;
-          var_to_arrayindex_host_intermediates(info.id) = index;
-          this->ivar_to_arrayindex_host_intermediates(i) = index;
+          var_to_arrayindex_intermediates[info.id] = index;
+          this->ivar_to_arrayindex_intermediates[i] = index;
           i++;
       }
-      Kokkos::deep_copy( this->var_to_arrayindex_intermediates, var_to_arrayindex_host_intermediates );
-      Kokkos::deep_copy( this->ivar_to_arrayindex_intermediates, this->ivar_to_arrayindex_host_intermediates );
     
       this->fields_intermediates = user_data.fields_intermediate;
     }
