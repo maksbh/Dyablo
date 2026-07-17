@@ -14,13 +14,24 @@ struct UserData_FieldAccessor_FieldInfo
   VarIndex id; /// id to use to access with at()
 };
 
-template< bool has_intermediates >
+void FieldAccessor_init(const UserData_Fields_Pdata& user_data, const std::vector<UserData_FieldAccessor_FieldInfo>& fields_info,
+                        int max_field_count, bool has_intermediates,
+                        int& _nbFields,
+                        int* var_to_arrayindex,
+                        int* ivar_to_arrayindex,
+                        int* var_to_arrayindex_intermediates,
+                        int* ivar_to_arrayindex_intermediates,
+                        UserData::FieldView_t& fields,
+                        UserData::FieldView_t& fields_intermediates
+                      );
+
+template< bool has_intermediates, int _MAX_FIELD_COUNT >
 class UserData_FieldAccessor_impl
 {
 friend GhostCommunicator_full_blocks;
 friend UserData_Fields_Pdata;
 public:
-    static constexpr int MAX_FIELD_COUNT = 20;
+    static constexpr int MAX_FIELD_COUNT = _MAX_FIELD_COUNT;
     using FieldInfo = UserData_FieldAccessor_FieldInfo;
     using FieldView_t = UserData::FieldView_t;
 
@@ -36,7 +47,17 @@ public:
         return _nbFields;
     }
 
-    UserData_FieldAccessor_impl(const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info);
+    UserData_FieldAccessor_impl(const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info)
+    {
+        UserData_Impl::FieldAccessor_init(
+            user_data, fields_info,
+            MAX_FIELD_COUNT, has_intermediates,
+            this->_nbFields,
+            this->var_to_arrayindex.data(), this->ivar_to_arrayindex.data(),
+            this->var_to_arrayindex_intermediates.data(), this->ivar_to_arrayindex_intermediates.data(),
+            this->fields, this->fields_intermediates
+        );
+    }
 
     KOKKOS_INLINE_FUNCTION
     real_t& at( const ForeachCell::CellIndex& iCell, const VarIndex& varindex ) const
@@ -120,16 +141,6 @@ protected:
         return ivar_to_arrayindex_intermediates[ivar];
     }
     FieldView_t fields_intermediates;
-};
-
-class UserData_FieldAccessor : public UserData_FieldAccessor_impl<false>{
-public:
-    using UserData_FieldAccessor_impl::UserData_FieldAccessor_impl;
-};
-
-class UserData_FieldAccessor_fulltree : public UserData_FieldAccessor_impl<true>{
-public:
-    using UserData_FieldAccessor_impl::UserData_FieldAccessor_impl;
 };
 
 } //namespace UserData_Impl

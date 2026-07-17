@@ -395,16 +395,6 @@ void UserData::extend_fields()
   this->fields.pdata->extend_fields();
 }
 
-UserData::FieldAccessor UserData::getAccessor( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
-{
-  return this->fields.pdata->getAccessor(fields_info);
-}
-
-UserData::FieldAccessor_fulltree UserData::getAccessor_fulltree( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
-{
-  return this->fields.pdata->getAccessor_fulltree(fields_info);
-}
-
 [[deprecated]] UserData::FieldAccessor_fulltree UserData::getAccessor_intermediates( const std::vector<UserData::FieldAccessor_FieldInfo>& fields_info ) const
 {
   return getAccessor_fulltree(fields_info);
@@ -412,9 +402,18 @@ UserData::FieldAccessor_fulltree UserData::getAccessor_fulltree( const std::vect
 
 namespace UserData_Impl {
 
-template<bool has_intermediates>
-UserData_FieldAccessor_impl<has_intermediates>::UserData_FieldAccessor_impl(const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info)
-: fields(user_data.fields)
+using FieldInfo = UserData_FieldAccessor_FieldInfo;
+
+void FieldAccessor_init(const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info,
+                        int max_field_count, bool has_intermediates,
+                        int& _nbFields,
+                        int* var_to_arrayindex,
+                        int* ivar_to_arrayindex,
+                        int* var_to_arrayindex_intermediates,
+                        int* ivar_to_arrayindex_intermediates,
+                        FieldView_t& fields,
+                        FieldView_t& fields_intermediates
+                      )
 {
     DYABLO_ASSERT_HOST_RELEASE( fields_info.size() > 0, "fields_info cannot be empty" );
 
@@ -430,16 +429,20 @@ UserData_FieldAccessor_impl<has_intermediates>::UserData_FieldAccessor_impl(cons
         return s.str();
     };
 
-    this->_nbFields = fields_info.size();
+    _nbFields = fields_info.size();
+
+    DYABLO_ASSERT_HOST_RELEASE( _nbFields < max_field_count, "Too many fields for FieldAccessor, use getAccessor<_MAX_FIELD_COUNT>() to increase number of fields." );
     for( [[maybe_unused]] const FieldInfo& info : fields_info )
     {
-      DYABLO_ASSERT_HOST_DEBUG( info.id >= MAX_FIELD_COUNT, "VarIndex must be included in [0,MAX_FIELD_COUNT[. "
-                                                            "VarIndex is " << info.id  );
+      DYABLO_ASSERT_HOST_RELEASE( info.id >= 0 && info.id < max_field_count, "VarIndex must be included in [0,MAX_FIELD_COUNT[. "
+                                                                             "VarIndex is " << info.id << ", MAX_FIELD_COUNT is " << max_field_count  );
     }
 
-    this->ivar_to_arrayindex = {};
-    for(size_t i=0; i<var_to_arrayindex.size(); i++)
-        var_to_arrayindex[i] = -1;
+    for(size_t i=0; i<max_field_count; i++)
+    {
+      ivar_to_arrayindex[i] = 0;
+      var_to_arrayindex[i] = -1;
+    }
 
     int i=0; 
     for( const FieldInfo& info : fields_info )
@@ -448,15 +451,19 @@ UserData_FieldAccessor_impl<has_intermediates>::UserData_FieldAccessor_impl(cons
                                     unknown_field_error(info.name) );
         int index = user_data.field_index.at(info.name).index;
         var_to_arrayindex[info.id] = index;
-        this->ivar_to_arrayindex[i] = index;
+        ivar_to_arrayindex[i] = index;
         i++;
     }
 
+    fields = user_data.fields;
+
     if( has_intermediates )
     {
-      this->ivar_to_arrayindex_intermediates = {};
-      for(size_t i=0; i<var_to_arrayindex_intermediates.size(); i++)
+      for(size_t i=0; i<max_field_count; i++)
+      {
+        ivar_to_arrayindex_intermediates[i] = 0;
         var_to_arrayindex_intermediates[i] = -1;
+      }
 
       int i=0; 
       for( const FieldInfo& info : fields_info )
@@ -465,16 +472,13 @@ UserData_FieldAccessor_impl<has_intermediates>::UserData_FieldAccessor_impl(cons
                                       unknown_field_error(info.name) );
           int index = user_data.field_index_intermediate.at(info.name).index;
           var_to_arrayindex_intermediates[info.id] = index;
-          this->ivar_to_arrayindex_intermediates[i] = index;
+          ivar_to_arrayindex_intermediates[i] = index;
           i++;
       }
     
-      this->fields_intermediates = user_data.fields_intermediate;
+      fields_intermediates = user_data.fields_intermediate;
     }
 }
-
-template class UserData_FieldAccessor_impl<true>;
-template class UserData_FieldAccessor_impl<false>;
 
 } // namespace UserData_Impl
 } // namespace dyablo
