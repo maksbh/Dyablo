@@ -434,7 +434,7 @@ UserData_FieldAccessor_impl<has_intermediates>::UserData_FieldAccessor_impl(cons
     for( [[maybe_unused]] const FieldInfo& info : fields_info )
     {
       DYABLO_ASSERT_HOST_DEBUG( info.id >= MAX_FIELD_COUNT, "VarIndex must be included in [0,MAX_FIELD_COUNT[. "
-                                                            "VarIndex is " << info.id <<  )
+                                                            "VarIndex is " << info.id  );
     }
 
     this->ivar_to_arrayindex = {};
