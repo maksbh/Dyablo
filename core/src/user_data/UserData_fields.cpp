@@ -404,15 +404,25 @@ namespace UserData_Impl {
 
 using FieldInfo = UserData_FieldAccessor_FieldInfo;
 
-void FieldAccessor_init(const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info,
+void FieldAccessor_init( const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info,
+                        int max_field_count, bool has_intermediates,
+                        FieldView_t& fields,
+                        FieldView_t& fields_intermediates
+                      )
+{
+  fields = user_data.fields;
+  if( has_intermediates )
+  {
+    fields_intermediates = user_data.fields_intermediate;
+  }
+}
+
+
+void FieldAccessor_FieldManager_init_static( const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info,
                         int max_field_count, bool has_intermediates,
                         int& _nbFields,
                         int* var_to_arrayindex,
-                        int* ivar_to_arrayindex,
-                        int* var_to_arrayindex_intermediates,
-                        int* ivar_to_arrayindex_intermediates,
-                        FieldView_t& fields,
-                        FieldView_t& fields_intermediates
+                        int* ivar_to_arrayindex
                       )
 {
     DYABLO_ASSERT_HOST_RELEASE( fields_info.size() > 0, "fields_info cannot be empty" );
@@ -431,7 +441,7 @@ void FieldAccessor_init(const UserData_Fields_Pdata& user_data, const std::vecto
 
     _nbFields = fields_info.size();
 
-    DYABLO_ASSERT_HOST_RELEASE( _nbFields < max_field_count, "Too many fields for FieldAccessor, use getAccessor<_MAX_FIELD_COUNT>() to increase number of fields." );
+    DYABLO_ASSERT_HOST_RELEASE( _nbFields <= max_field_count, "Too many fields for FieldAccessor, use getAccessor<_MAX_FIELD_COUNT>() to increase number of fields." );
     for( [[maybe_unused]] const FieldInfo& info : fields_info )
     {
       DYABLO_ASSERT_HOST_RELEASE( info.id >= 0 && info.id < max_field_count, "VarIndex must be included in [0,MAX_FIELD_COUNT[. "
@@ -447,38 +457,33 @@ void FieldAccessor_init(const UserData_Fields_Pdata& user_data, const std::vecto
     int i=0; 
     for( const FieldInfo& info : fields_info )
     {
-        DYABLO_ASSERT_HOST_RELEASE( user_data.has_field(info.name), 
+        DYABLO_ASSERT_HOST_RELEASE( has_intermediates ? user_data.has_intermediate_field(info.name) : user_data.has_field(info.name), 
                                     unknown_field_error(info.name) );
-        int index = user_data.field_index.at(info.name).index;
+        int index = has_intermediates ? 
+                        user_data.field_index_intermediate.at(info.name).index 
+                      : user_data.field_index.at(info.name).index;
         var_to_arrayindex[info.id] = index;
         ivar_to_arrayindex[i] = index;
         i++;
     }
-
-    fields = user_data.fields;
-
-    if( has_intermediates )
-    {
-      for(size_t i=0; i<max_field_count; i++)
-      {
-        ivar_to_arrayindex_intermediates[i] = 0;
-        var_to_arrayindex_intermediates[i] = -1;
-      }
-
-      int i=0; 
-      for( const FieldInfo& info : fields_info )
-      {
-          DYABLO_ASSERT_HOST_RELEASE( user_data.has_intermediate_field(info.name), 
-                                      unknown_field_error(info.name) );
-          int index = user_data.field_index_intermediate.at(info.name).index;
-          var_to_arrayindex_intermediates[info.id] = index;
-          ivar_to_arrayindex_intermediates[i] = index;
-          i++;
-      }
-    
-      fields_intermediates = user_data.fields_intermediate;
-    }
 }
+
+FieldAccessor_FieldManager<-1>::FieldAccessor_FieldManager( const UserData_Fields_Pdata& user_data, const std::vector<FieldInfo>& fields_info, bool has_intermediates )
+  : var_to_arrayindex("var_to_arrayindex", fields_info.size()),
+    ivar_to_arrayindex_device("ivar_to_arrayindex", fields_info.size()),
+    ivar_to_arrayindex_host( Kokkos::create_mirror_view(ivar_to_arrayindex_device) )
+{
+  auto var_to_arrayindex_host = Kokkos::create_mirror_view(var_to_arrayindex);
+
+  int dummy;
+  FieldAccessor_FieldManager_init_static( user_data, fields_info,
+    fields_info.size(), has_intermediates,
+    dummy, ivar_to_arrayindex_host.data(), var_to_arrayindex_host.data() );
+
+  Kokkos::deep_copy( var_to_arrayindex, var_to_arrayindex_host );
+  Kokkos::deep_copy( ivar_to_arrayindex_device, ivar_to_arrayindex_host );
+}
+
 
 } // namespace UserData_Impl
 } // namespace dyablo
