@@ -65,7 +65,7 @@ void private_init(const LightOctree_storage<>& storage, LightOctree_hashmap::oct
     // > independently of the capacity of the map.
     } while ( oct_map.failed_insert() != 0 );
 
-    DYABLO_ASSERT_KOKKOS_DEBUG( oct_map.size() == numOctants_tot, "oct_map is missing octants" );
+    DYABLO_ASSERT_HOST_RELEASE( oct_map.size() == numOctants_tot, "oct_map is missing octants" );
 }
 
 } // namespace
