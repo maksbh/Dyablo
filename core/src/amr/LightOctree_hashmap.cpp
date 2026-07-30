@@ -30,25 +30,42 @@ void private_init(const LightOctree_storage<>& storage, LightOctree_hashmap::oct
                             + storage.getNumGhosts()
                             + storage.getNumIntermediates()
                             + storage.getNumIntermediateGhosts();
-    // Put octants into hashmap on device
-    Kokkos::parallel_for( "LightOctree_hashmap::hash",
-                        numOctants_tot,
-                        KOKKOS_LAMBDA(uint32_t ioct_local)
-    {   
-        LightOctree_hashmap::OctantIndex iOct = storage.iOctLocal_to_OctantIndex( ioct_local );
 
-        auto logical_pos = storage.get_logical_coords( iOct );
-        LightOctree_hashmap::level_t level = storage.getLevel( iOct );
-        LightOctree_hashmap::key_t logical_coords;
-        logical_coords.level = level;
-        logical_coords.i = logical_pos[IX];
-        logical_coords.j = logical_pos[IY];
-        logical_coords.k = logical_pos[IZ];
-        
-        [[maybe_unused]] LightOctree_hashmap::oct_map_t::insert_result inserted = oct_map.insert( logical_coords, iOct );
-        DYABLO_ASSERT_KOKKOS_DEBUG(!inserted.existing(), "oct_map::insert() failed : already exists!");
-        DYABLO_ASSERT_KOKKOS_DEBUG(inserted.success(), "oct_map::insert() failed");
-    });
+    uint32_t map_capacity = numOctants_tot;
+
+    do
+    {
+        map_capacity *= 1.5;
+        oct_map = LightOctree_hashmap::oct_map_t(map_capacity);
+
+        // Put octants into hashmap on device
+        Kokkos::parallel_for( "LightOctree_hashmap::hash",
+                            numOctants_tot,
+                            KOKKOS_LAMBDA(uint32_t ioct_local)
+        { 
+            LightOctree_hashmap::OctantIndex iOct = storage.iOctLocal_to_OctantIndex( ioct_local );
+
+            auto logical_pos = storage.get_logical_coords( iOct );
+            LightOctree_hashmap::level_t level = storage.getLevel( iOct );
+            LightOctree_hashmap::key_t logical_coords;
+            logical_coords.level = level;
+            logical_coords.i = logical_pos[IX];
+            logical_coords.j = logical_pos[IY];
+            logical_coords.k = logical_pos[IZ];
+            
+            [[maybe_unused]] LightOctree_hashmap::oct_map_t::insert_result inserted = oct_map.insert( logical_coords, iOct );
+            DYABLO_ASSERT_KOKKOS_DEBUG(!inserted.existing(), "oct_map::insert() failed : already exists!");
+        });
+    
+    // Insert can fail and the algorithm (may) need to be restarted with increased capacity
+    // (This seems to be very unlikely)
+    // https://kokkos.org/kokkos-core-wiki/API/containers/Unordered-Map.html
+    // > Maximum number of insert attempts: An insert can fail if no free space is found 
+    // > in less than a certain number of (internal) attempts to insert. This can happen 
+    // > independently of the capacity of the map.
+    } while ( oct_map.failed_insert() != 0 );
+
+    DYABLO_ASSERT_HOST_RELEASE( oct_map.size() == numOctants_tot, "oct_map is missing octants" );
 }
 
 } // namespace
@@ -57,7 +74,6 @@ LightOctree_hashmap::LightOctree_hashmap( Storage_t&& storage,
                       uint8_t level_min, uint8_t level_max,
                       Kokkos::Array<bool,3> periodic )
 : storage( std::move(storage) ),
-  oct_map(storage.getNumOctants()+storage.getNumGhosts()+storage.getNumIntermediates()+storage.getNumIntermediateGhosts()),
   min_level(level_min), max_level(level_max),
   is_periodic(periodic)
 {
@@ -66,7 +82,6 @@ LightOctree_hashmap::LightOctree_hashmap( Storage_t&& storage,
 
 LightOctree_hashmap::LightOctree_hashmap( const AMRmesh* pmesh, uint8_t level_min, uint8_t level_max )
 : storage( pmesh->getStorage().template deep_copy<Storage_t::MemorySpace>() ),
-  oct_map(pmesh->getNumOctants()+pmesh->getNumGhosts()+storage.getNumIntermediates()+storage.getNumIntermediateGhosts()),
   min_level(level_min), max_level(level_max),
   is_periodic( {pmesh->getPeriodic(IX), pmesh->getPeriodic(IY), pmesh->getPeriodic(IZ)} ),
   morton_intervals( "morton_intervals", pmesh->getMpiComm().MPI_Comm_size()+1 )
