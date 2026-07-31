@@ -72,11 +72,11 @@ public:
       uint32_t iOct = group_begin + index/nbCellsPerBlock;
       index = index%nbCellsPerBlock;
 
-      uint32_t k = index/(bx*by);
-      uint32_t j = (index - k*bx*by)/bx;
-      uint32_t i = index - j*bx - k*bx*by;
+      uint32_t k = (index/bx)/by;
+      uint32_t j = (index/bx)%by;
+      uint32_t i = index%bx;
 
-      CellIndex iCell = {{iOct,false}, i, j, k, bx, by, bz};
+      CellIndex iCell = {{iOct,false}, index, i, j, k, bx, by, bz};
       f( iCell );
     });
 
