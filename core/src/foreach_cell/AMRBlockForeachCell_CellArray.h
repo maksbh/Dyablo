@@ -119,7 +119,6 @@ public:
   enum Status {
     UNSET,
     LOCAL_TO_BLOCK, // neighbor is inside local block
-    LOCAL_TO_REMOTE, // neighbor is inside local block but origin index wasn't local
     SAME_SIZE, // Outside of local block, same size
     SMALLER, // Outside of local block, smaller
     BIGGER, // Outside of local block, bigger
@@ -352,9 +351,7 @@ public:
     {
       // Index is inside block
       // non-local cells keep their non-local status, but not their level difference
-      CellIndex::Status cell_status = this->is_local() ?
-                                        CellIndex::LOCAL_TO_BLOCK
-                                      : CellIndex::LOCAL_TO_REMOTE;
+      CellIndex::Status cell_status = CellIndex::LOCAL_TO_BLOCK;
       return cell_status;
     }
     else
@@ -530,7 +527,7 @@ public:
         uint32_t k = this->k() + offset_z;
         return CellIndex{iOct,i+bx,j+by,k+bz,bx,by,bz, CellIndex::BOUNDARY};
       }
-      else if( status_is(LOCAL_TO_BLOCK) || status_is(LOCAL_TO_REMOTE) )
+      else if( status_is(LOCAL_TO_BLOCK) )
       {
         uint32_t iCell = this->iCell() + offset_x + bx*offset_y + bx*by*offset_z;
         uint32_t i = this->i() + offset_x;
@@ -811,9 +808,7 @@ struct CellArray_shape
     {
       // Index is inside block
       // non-local cells keep their non-local status, but not their level difference
-      CellIndex::Status cell_status =  in.is_local()?
-                                        CellIndex::LOCAL_TO_BLOCK
-                                      : CellIndex::LOCAL_TO_REMOTE;
+      CellIndex::Status cell_status = CellIndex::LOCAL_TO_BLOCK;
       return cell_status;
     }  
     else
@@ -843,7 +838,7 @@ struct CellArray_shape
     
     if( in.bx() == this->bx && in.by() == this->by && in.bz() == this->bz )
     {
-      DYABLO_ASSERT_KOKKOS_DEBUG( status == CellIndex::Status::UNSET || status == CellIndex::Status::LOCAL_TO_BLOCK || status == CellIndex::Status::LOCAL_TO_REMOTE,
+      DYABLO_ASSERT_KOKKOS_DEBUG( status == CellIndex::Status::UNSET || status == CellIndex::Status::LOCAL_TO_BLOCK,
                      "convert_index : status mismatch");
       return in;
     }
@@ -887,7 +882,7 @@ struct CellArray_shape
 
     if( status_is(CellIndex::Status::INVALID) )
       return CELLINDEX_INVALID;
-    if( status_is(CellIndex::Status::LOCAL_TO_BLOCK) || status_is(CellIndex::Status::LOCAL_TO_REMOTE) )
+    if( status_is(CellIndex::Status::LOCAL_TO_BLOCK) )
     {
       // Index is inside block
       return CellIndex{in.iOct(), (uint32_t)i, (uint32_t)j, (uint32_t)k, (uint32_t)bx, (uint32_t)by, (uint32_t)bz, status};
