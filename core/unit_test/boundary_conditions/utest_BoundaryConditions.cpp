@@ -137,7 +137,8 @@ public:
     uint32_t nbCellsPerOct = bx*by*bz;
     { 
       // Initialize U
-      auto U_host = Kokkos::create_mirror_view(U.U);
+      auto U_device = U.subview_U();
+      auto U_host = Kokkos::create_mirror_view(U_device);
       for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
       { 
         for( uint32_t c=0; c<nbCellsPerOct; c++ )
@@ -149,7 +150,7 @@ public:
           U_host(c, IW, iOct) = c;
         }
       }
-      Kokkos::deep_copy( U.U, U_host );
+      Kokkos::deep_copy( U_device, U_host );
     }
   }
 

@@ -15,8 +15,8 @@ void GhostCommunicator_full_blocks::exchange_ghosts( const UserData::FieldAccess
   for(int i=0; i<U.nbFields(); i++)
   {
     int iVar = U.get_index_from_ivar_host(i);
-    auto U_subview      = Kokkos::subview( fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-    auto Ughost_subview = Kokkos::subview( fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto U_subview      = Kokkos::subview( fields.subview_U(),      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( fields.subview_Ughost(), Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
 
     ViewCommunicator::exchange_ghosts<2>(U_subview, Ughost_subview);
   }
@@ -29,8 +29,8 @@ void GhostCommunicator_full_blocks::exchange_ghosts( const UserData::FieldAccess
   for(int i=0; i<U.nbFields(); i++)
   {
     int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
-    auto U_subview      = Kokkos::subview( fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-    auto Ughost_subview = Kokkos::subview( fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto U_subview      = Kokkos::subview( fields.subview_U(),      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( fields.subview_Ughost(), Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
 
     ViewCommunicator::exchange_ghosts<2>(U_subview, Ughost_subview);
   }
@@ -38,7 +38,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts( const UserData::FieldAccess
 
 void GhostCommunicator_full_blocks::exchange_ghosts( ForeachCell::CellArray_global_ghosted& U ) const
 {
-  ViewCommunicator::exchange_ghosts<2>(U.U, U.Ughost);
+  ViewCommunicator::exchange_ghosts<2>(U.subview_U(), U.subview_Ughost());
 }
 
 /**
@@ -236,14 +236,14 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
   DYABLO_ASSERT_HOST_DEBUG( !this->intermediates, "Trying to echange intermediate ghosts but FieldAccessor don't have intermediates" );
   auto &fields = U.fields;
 
-  int nbCells = fields.U.extent(0);
+  int nbCells = fields.getShape().bx * fields.getShape().by * fields.getShape().bz;
   int nbFields = U.nbFields();
 
   Kokkos::View<real_t***, Kokkos::LayoutLeft> Ughost_subset( "Ughost_subset", nbCells, nbFields, subset.nbGhosts() );
   for(int i=0; i<U.nbFields(); i++)
   {
     int iVar = U.get_index_from_ivar_host(i);
-    auto U_subview      = Kokkos::subview( fields.U,    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto U_subview      = Kokkos::subview( fields.subview_U(), Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
     auto Ughost_subview = Kokkos::subview( Ughost_subset, Kokkos::ALL(), std::make_pair(i, i+1),       Kokkos::ALL() );
     
     subset.partial_comm->exchange_ghosts<2>( U_subview, Ughost_subview );
@@ -261,7 +261,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
     uint32_t ivar_dest = U.get_index_from_ivar_device(ivar_src);
     uint32_t iblock = i%nbCells;
 
-    fields.Ughost( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
+    fields.subview_Ughost()( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
   });      
 }
 
@@ -269,7 +269,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
 {
   auto &fields = this->intermediates?U.fields_intermediates:U.fields;
 
-  int nbCells = fields.U.extent(0);
+  int nbCells = fields.getShape().bx * fields.getShape().by * fields.getShape().bz;
   int nbFields = U.nbFields();
   const bool isIntermediate = this->intermediates;
 
@@ -277,7 +277,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
   for(int i=0; i<U.nbFields(); i++)
   {
     int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
-    auto U_subview      = Kokkos::subview( fields.U,    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto U_subview      = Kokkos::subview( fields.subview_U(),    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
     auto Ughost_subview = Kokkos::subview( Ughost_subset, Kokkos::ALL(), std::make_pair(i, i+1),       Kokkos::ALL() );
     
     subset.partial_comm->exchange_ghosts<2>( U_subview, Ughost_subview );
@@ -295,7 +295,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
     uint32_t ivar_dest = isIntermediate? U.get_index_from_ivar_device_intermediates(ivar_src) : U.get_index_from_ivar_device(ivar_src);
     uint32_t iblock = i%nbCells;
 
-    fields.Ughost( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
+    fields.subview_Ughost()( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
   });
 }
 
@@ -307,8 +307,8 @@ void GhostCommunicator_full_blocks::reduce_ghosts( UserData::FieldAccessor_fullt
   for(int i=0; i<U.nbFields(); i++)
   {
     int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
-    auto U_subview      = Kokkos::subview( fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-    auto Ughost_subview = Kokkos::subview( fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto U_subview      = Kokkos::subview( fields.subview_U(),      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( fields.subview_Ughost(), Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
 
     ViewCommunicator::reduce_ghosts<2>(U_subview, Ughost_subview);
   }
@@ -319,8 +319,8 @@ void GhostCommunicator_full_blocks::reduce_ghosts( UserData::FieldAccessor& U ) 
   for(int i=0; i<U.nbFields(); i++)
   {
     int iVar = U.get_index_from_ivar_host(i);
-    auto U_subview      = Kokkos::subview( U.fields.U,      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
-    auto Ughost_subview = Kokkos::subview( U.fields.Ughost, Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto U_subview      = Kokkos::subview( U.fields.subview_U(),      Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto Ughost_subview = Kokkos::subview( U.fields.subview_Ughost(), Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
 
     ViewCommunicator::reduce_ghosts<2>(U_subview, Ughost_subview);
   }
@@ -328,14 +328,14 @@ void GhostCommunicator_full_blocks::reduce_ghosts( UserData::FieldAccessor& U ) 
 
 void GhostCommunicator_full_blocks::reduce_ghosts( ForeachCell::CellArray_global_ghosted& U ) const
 {
-  ViewCommunicator::reduce_ghosts<2>(U.U, U.Ughost);
+  ViewCommunicator::reduce_ghosts<2>(U.subview_U(), U.subview_Ughost());
 }  
 
 void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccessor_fulltree& U, const OctSubset& subset ) const
 {
   auto &fields = this->intermediates?U.fields_intermediates:U.fields;
 
-  int nbCells = fields.U.extent(0);
+  int nbCells = fields.getShape().bx * fields.getShape().by * fields.getShape().bz;
   int nbFields = U.nbFields();
   const bool isIntermediate = this->intermediates;
 
@@ -352,13 +352,13 @@ void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccesso
     uint32_t ivar_dest = isIntermediate? U.get_index_from_ivar_device_intermediates(ivar_src) : U.get_index_from_ivar_device(ivar_src);
     uint32_t iblock = i%nbCells;
 
-    Ughost_subset( iblock, ivar_src, iOct_src ) = fields.Ughost( iblock, ivar_dest, iOct_dest );
+    Ughost_subset( iblock, ivar_src, iOct_src ) = fields.subview_Ughost()( iblock, ivar_dest, iOct_dest );
   });
 
   for(int i=0; i<U.nbFields(); i++)
   {
     int iVar = this->intermediates?U.get_index_from_ivar_host_intermediates(i):U.get_index_from_ivar_host(i);
-    auto U_subview      = Kokkos::subview( fields.U,    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto U_subview      = Kokkos::subview( fields.subview_U(),    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
     auto Ughost_subview = Kokkos::subview( Ughost_subset, Kokkos::ALL(), std::make_pair(i, i+1),       Kokkos::ALL() );
     
     subset.partial_comm->reduce_ghosts<2>( U_subview, Ughost_subview );
@@ -369,7 +369,7 @@ void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccesso
 {
   auto &fields = U.fields;
 
-  int nbCells = fields.U.extent(0);
+  int nbCells = fields.getShape().bx * fields.getShape().by * fields.getShape().bz;
   int nbFields = U.nbFields();
 
   Kokkos::View<real_t***, Kokkos::LayoutLeft> Ughost_subset( "Ughost_subset", nbCells, nbFields, subset.nbGhosts() );
@@ -385,13 +385,13 @@ void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccesso
     uint32_t ivar_dest = U.get_index_from_ivar_device(ivar_src);
     uint32_t iblock = i%nbCells;
 
-    Ughost_subset( iblock, ivar_src, iOct_src ) = fields.Ughost( iblock, ivar_dest, iOct_dest );
+    Ughost_subset( iblock, ivar_src, iOct_src ) = fields.subview_Ughost()( iblock, ivar_dest, iOct_dest );
   });
 
   for(int i=0; i<U.nbFields(); i++)
   {
     int iVar = U.get_index_from_ivar_host(i);
-    auto U_subview      = Kokkos::subview( fields.U,    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
+    auto U_subview      = Kokkos::subview( fields.subview_U(),    Kokkos::ALL(), std::make_pair(iVar, iVar+1), Kokkos::ALL() );
     auto Ughost_subview = Kokkos::subview( Ughost_subset, Kokkos::ALL(), std::make_pair(i, i+1),       Kokkos::ALL() );
     
     subset.partial_comm->reduce_ghosts<2>( U_subview, Ughost_subview );

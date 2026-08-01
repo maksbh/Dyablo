@@ -912,10 +912,10 @@ public:
   using View_t = Kokkos::View<real_t***, Kokkos::LayoutLeft>;
   static constexpr bool has_ghosts = has_ghosts_;
 
-  View_t U, Ughost, Uintermediate;    
+  View_t _U;    
   Shape_t shape;
 
-protected: 
+protected:
   KOKKOS_INLINE_FUNCTION
   CellArray_base( const Shape_t& s)
     : shape(s)
@@ -940,11 +940,17 @@ public:
     DYABLO_ASSERT_HOST_RELEASE( has_ghosts || shape.nbGhosts==0, "CellArray_base : ghosts disabled but nbGhosts>0"  );
     
     uint32_t nbCellsPerOct = shape.bx*shape.by*shape.bz;
-    U = View_t(label, nbCellsPerOct, s.nbFields, s.nbOcts);
-    if constexpr( has_ghosts )
-    { 
-      Ughost = View_t(label, nbCellsPerOct, s.nbFields, s.nbGhosts);
-    }
+    _U = View_t(label, nbCellsPerOct, s.nbFields, s.nbOcts+s.nbGhosts);
+  }
+
+  auto subview_U() const
+  {
+    return Kokkos::subview( _U, Kokkos::ALL(), Kokkos::ALL(), std::make_pair((uint32_t)0, shape.nbOcts) );
+  }
+
+  auto subview_Ughost() const
+  {
+    return Kokkos::subview( _U, Kokkos::ALL(), Kokkos::ALL(), std::make_pair(shape.nbOcts, shape.nbOcts+shape.nbGhosts) );
   }
   
   KOKKOS_INLINE_FUNCTION
@@ -978,22 +984,20 @@ public:
     DYABLO_ASSERT_KOKKOS_DEBUG(shape.bx == iCell.bx(), "bx mismatch icell vs array");
     DYABLO_ASSERT_KOKKOS_DEBUG(shape.by == iCell.by(), "by mismatch icell vs array");
     DYABLO_ASSERT_KOKKOS_DEBUG(shape.bz == iCell.bz(), "bz mismatch icell vs array");
+    DYABLO_ASSERT_KOKKOS_DEBUG(has_ghosts || !iCell.iOct().isGhost, "Accessing ghost in non-ghosted array" );
 
     int ivar = 0;
     auto i = iCell.iCell();
-    if constexpr( has_ghosts )
-    {
-      if( iCell.iOct().isGhost )
-        return &Ughost(i, ivar, iCell.iOct().iOct);
-    }
-    DYABLO_ASSERT_KOKKOS_DEBUG( !iCell.iOct().isGhost, "Accessing ghost in non-ghosted array" );
-    return &U(i, ivar, iCell.iOct().iOct%shape.nbOcts);
+    auto iOct = iCell.iOct().isGhost ? 
+                  iCell.iOct().iOct + shape.nbOcts
+                : iCell.iOct().iOct % shape.nbOcts;
+    return &_U(i, ivar, iOct);
   }
 
   KOKKOS_INLINE_FUNCTION
   int get_offset_ivar( int ivar ) const
   {
-    return U.extent(0) * ivar;
+    return _U.extent(0) * ivar;
   }
 
   template< typename ... VarIndex_s >

@@ -48,7 +48,7 @@ public:
 
     static void initialise_new_aux(FieldView_t& fields, const int index)
     {
-        const auto& U = fields.U;
+        const auto& U = fields._U;
         const uint32_t extent_0 = U.extent(0);
         const uint32_t extent_2 = U.extent(2);
 
@@ -58,17 +58,6 @@ public:
             const uint32_t iCell = i%extent_0;
             const uint32_t iOct  = i/extent_0;
             U(iCell, index, iOct) = 0;
-        });
-        
-        const auto& Ughost = fields.Ughost;
-        const uint32_t extent_0_ghost = Ughost.extent(0);
-        const uint32_t extent_2_ghost = Ughost.extent(2);
-        Kokkos::parallel_for( "zero_new_field_ghost", Kokkos::RangePolicy<>(0, extent_0_ghost*extent_2_ghost),
-            KOKKOS_LAMBDA( const uint32_t i )
-        {
-            const uint32_t iCell = i%extent_0_ghost;
-            const uint32_t iOct  = i/extent_0_ghost;
-            Ughost(iCell, index, iOct) = 0;
         });
     }
 
@@ -88,12 +77,8 @@ public:
         if( allocated_field_count != 0 )
         {
             Kokkos::deep_copy( 
-                Kokkos::subview(fields_new.U, Kokkos::ALL(), std::pair(0,allocated_field_count), Kokkos::ALL() ),
-                fields.U
-            );
-            Kokkos::deep_copy( 
-                Kokkos::subview(fields_new.Ughost, Kokkos::ALL(), std::pair(0,allocated_field_count), Kokkos::ALL() ),
-                fields.Ughost
+                Kokkos::subview(fields_new._U, Kokkos::ALL(), std::pair(0,allocated_field_count), Kokkos::ALL() ),
+                fields._U
             );
         }
         fields = fields_new;
@@ -109,8 +94,7 @@ public:
     {
         if( field_index.size() != 0 )
         {
-            DYABLO_ASSERT_HOST_RELEASE( fields.U.extent(2) == nbOcts, "UserData_fields internal error : mismatch between allocated size and octant count" );
-            DYABLO_ASSERT_HOST_RELEASE( fields.Ughost.extent(2) == nbGhosts, "UserData_fields internal error : mismatch between allocated size and ghost octant count" );
+            DYABLO_ASSERT_HOST_RELEASE( fields._U.extent(2) == nbOcts+nbGhosts, "UserData_fields internal error : mismatch between allocated size and octant count" );
         }
         
         int needed_field_count = field_index.size() + names.size();
@@ -195,23 +179,25 @@ public:
             res.insert( p.first );
         }
         return res;
-    }   
-
+    } 
+    
     // Get View associated with field name
-    const FieldView_t getField(const std::string& name) const
+    const ForeachCell::CellArray_global getFieldCopy(const std::string& name) const
     {
         if( !this->has_field(name)  )
-            throw std::runtime_error(std::string("UserData_fields::getField() - field doesn't exist : ") + name);
+            throw std::runtime_error(std::string("UserData_fields::getFieldCopy() - field doesn't exist : ") + name);
         
         int index = field_index.at(name).index;
 
-        auto field = foreach_cell.allocate_ghosted_array( std::string("field_")+name, 1 );
+        ForeachCell::CellArray_global::Shape_t shape{this->getShape().bx, this->getShape().by, this->getShape().bz, 1, this->getShape().nbOcts};
+        ForeachCell::CellArray_global res( name+"_copy", shape);
+
         Kokkos::deep_copy( 
-            field.U,
-            Kokkos::subview(fields.U, Kokkos::ALL(), std::pair(index, index+1) , Kokkos::ALL() )
+            res.subview_U(),
+            Kokkos::subview(fields.subview_U(), Kokkos::ALL(), std::pair(index, index+1) , Kokkos::ALL() )
         );
 
-        return field;
+        return res;
     }
 
     /// Change field name from src to dest. If dest already exist it is replaced
@@ -251,11 +237,11 @@ public:
       {  
         UserData::FieldAccessor fields_old = this->backup_and_realloc();
         int nb_fields = this->nbFields();
-        auto old_fields_View = Kokkos::subview( fields_old.fields.U, 
+        auto old_fields_View = Kokkos::subview( fields_old.fields.subview_U(), 
                                                 Kokkos::ALL(),
                                                 std::make_pair(0, nb_fields),
                                                 Kokkos::ALL()  );
-        auto new_fields_View = Kokkos::subview(this->fields.U, 
+        auto new_fields_View = Kokkos::subview(this->fields.subview_U(), 
                                                 Kokkos::ALL(),
                                                 std::make_pair(0, nb_fields),
                                                 Kokkos::ALL()  );
@@ -355,9 +341,9 @@ std::set<std::string> UserData::getEnabledFields() const
   return this->fields.pdata->getEnabledFields();
 }
 
-const FieldView_t UserData::getField(const std::string& name) const
+const ForeachCell::CellArray_global UserData::getFieldCopy(const std::string& name) const
 {
-  return this->fields.pdata->getField(name);
+  return this->fields.pdata->getFieldCopy(name);
 }
 
 void UserData::move_field( const std::string& dest, const std::string& src )

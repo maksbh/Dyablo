@@ -56,7 +56,7 @@ public:
       for( std::string field_name : U.getEnabledFields() )
       {
         // TODO save collective_write hint to avoid allreduce for sizes each time
-        hdf5_file.collective_write( std::string("fields/")+field_name, U.getField(field_name).U );
+        hdf5_file.collective_write( std::string("fields/")+field_name, U.getFieldCopy(field_name)._U );
       }
 
       for( const std::string& particle_array : U.getEnabledParticleArrays() )

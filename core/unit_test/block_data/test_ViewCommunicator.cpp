@@ -357,7 +357,7 @@ void run_test_reduce()
   });
 
   dyablo::ViewCommunicator ghost_communicator = ViewCommunicator::from_mesh( *amr_mesh );
-  ghost_communicator.reduce_ghosts<2>( U.U, U.Ughost );
+  ghost_communicator.reduce_ghosts<2>( U.subview_U(), U.subview_Ughost() );
 
   int nerrors = 0;
   foreach_cell.reduce_cell( "check_values", U,

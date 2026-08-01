@@ -66,7 +66,7 @@ public:
    * @brief Get View associated with field name
    * Note : this creates a copy, you can't update fields that way
    ***/
-  const FieldView_t getField(const std::string& name) const;
+  const ForeachCell::CellArray_global getFieldCopy(const std::string& name) const;
 
   /***
    * @brief Change name of a field from `src` to `dest`
