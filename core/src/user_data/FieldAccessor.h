@@ -193,9 +193,16 @@ public:
         DYABLO_ASSERT_KOKKOS_DEBUG(nbFields() > 0, "Cannot getShape() of an empty UserData_fields" );
         auto iter_space = fields.getShape();
         auto iter_space_inter = fields_intermediates.getShape();
-        iter_space.nbIntermediateOcts = iter_space_inter.nbOcts;
-        iter_space.nbIntermediateGhosts = iter_space_inter.nbGhosts;
-        return iter_space;
+        return FieldView_t::Shape_t{
+            .bx = iter_space.bx,
+            .by = iter_space.by,
+            .bz = iter_space.bz,
+            .nbFields = (uint32_t)nbFields(),
+            .nbOcts = iter_space.nbOcts,
+            .nbGhosts = iter_space.nbGhosts,
+            .nbIntermediateOcts = iter_space_inter.nbOcts,
+            .nbIntermediateGhosts = iter_space_inter.nbGhosts,
+        };
     }
 
 private:    
