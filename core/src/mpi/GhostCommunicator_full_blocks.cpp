@@ -249,6 +249,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
     subset.partial_comm->exchange_ghosts<2>( U_subview, Ughost_subview );
   }
 
+  auto subview_Ughost = fields.subview_Ughost();
   auto& subset_iOcts = subset.subset_iOcts;
 
   Kokkos::parallel_for( "exchange_ghosts_subset::unpack_ghosts", nbCells*nbFields*subset.nbGhosts(),
@@ -261,7 +262,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
     uint32_t ivar_dest = U.get_index_from_ivar_device(ivar_src);
     uint32_t iblock = i%nbCells;
 
-    fields.subview_Ughost()( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
+    subview_Ughost( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
   });      
 }
 
@@ -283,6 +284,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
     subset.partial_comm->exchange_ghosts<2>( U_subview, Ughost_subview );
   }
 
+  auto subview_Ughost = fields.subview_Ughost();
   auto& subset_iOcts = subset.subset_iOcts;
 
   Kokkos::parallel_for( "exchange_ghosts_subset::unpack_ghosts", nbCells*nbFields*subset.nbGhosts(),
@@ -295,7 +297,7 @@ void GhostCommunicator_full_blocks::exchange_ghosts_subset( const UserData::Fiel
     uint32_t ivar_dest = isIntermediate? U.get_index_from_ivar_device_intermediates(ivar_src) : U.get_index_from_ivar_device(ivar_src);
     uint32_t iblock = i%nbCells;
 
-    fields.subview_Ughost()( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
+    subview_Ughost( iblock, ivar_dest, iOct_dest ) = Ughost_subset( iblock, ivar_src, iOct_src );
   });
 }
 
@@ -340,6 +342,7 @@ void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccesso
   const bool isIntermediate = this->intermediates;
 
   Kokkos::View<real_t***, Kokkos::LayoutLeft> Ughost_subset( "Ughost_subset", nbCells, nbFields, subset.nbGhosts() );
+  auto subview_Ughost = fields.subview_Ughost();
 
   auto& subset_iOcts = subset.subset_iOcts;
   Kokkos::parallel_for( "exchange_ghosts_subset::pack_ghosts", nbCells*nbFields*subset.nbGhosts(),
@@ -352,7 +355,7 @@ void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccesso
     uint32_t ivar_dest = isIntermediate? U.get_index_from_ivar_device_intermediates(ivar_src) : U.get_index_from_ivar_device(ivar_src);
     uint32_t iblock = i%nbCells;
 
-    Ughost_subset( iblock, ivar_src, iOct_src ) = fields.subview_Ughost()( iblock, ivar_dest, iOct_dest );
+    Ughost_subset( iblock, ivar_src, iOct_src ) = subview_Ughost( iblock, ivar_dest, iOct_dest );
   });
 
   for(int i=0; i<U.nbFields(); i++)
@@ -373,6 +376,7 @@ void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccesso
   int nbFields = U.nbFields();
 
   Kokkos::View<real_t***, Kokkos::LayoutLeft> Ughost_subset( "Ughost_subset", nbCells, nbFields, subset.nbGhosts() );
+  auto subview_Ughost = fields.subview_Ughost();
 
   auto& subset_iOcts = subset.subset_iOcts;
   Kokkos::parallel_for( "exchange_ghosts_subset::pack_ghosts", nbCells*nbFields*subset.nbGhosts(),
@@ -385,7 +389,7 @@ void GhostCommunicator_full_blocks::reduce_ghosts_subset( UserData::FieldAccesso
     uint32_t ivar_dest = U.get_index_from_ivar_device(ivar_src);
     uint32_t iblock = i%nbCells;
 
-    Ughost_subset( iblock, ivar_src, iOct_src ) = fields.subview_Ughost()( iblock, ivar_dest, iOct_dest );
+    Ughost_subset( iblock, ivar_src, iOct_src ) = subview_Ughost( iblock, ivar_dest, iOct_dest );
   });
 
   for(int i=0; i<U.nbFields(); i++)
