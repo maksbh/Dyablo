@@ -632,7 +632,8 @@ public:
               (int32_t)(suboctant_z - iOct_n_suboctant_z)
             };
 
-            LightOctree::OctantIndex suboctant = lmesh.findNeighbor( iOct_n, sibling_offset );   
+            constexpr bool ghosts_enabled = true;
+            LightOctree::OctantIndex suboctant = lmesh.findNeighbor<ghosts_enabled>( iOct_n, sibling_offset );   
 
             return CellIndex{
               suboctant, 
