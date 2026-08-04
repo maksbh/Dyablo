@@ -24,6 +24,7 @@ public:
     };
 
     static constexpr OctantIndex NEIGHBOR_NOT_FOUND = {(uint32_t)(-1)};
+    KOKKOS_INLINE_FUNCTION
     static bool neighbor_not_found( OctantIndex& i ) 
     {return i.iOct == NEIGHBOR_NOT_FOUND.iOct;}
 
