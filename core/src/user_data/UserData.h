@@ -9,8 +9,8 @@ namespace dyablo {
 
 namespace UserData_Impl{
   struct UserData_Fields_Pdata;
-  class UserData_FieldAccessor;
-  class UserData_FieldAccessor_fulltree;
+  template< bool has_intermediates, int _MAX_FIELD_COUNT >
+  class UserData_FieldAccessor_impl;
   struct UserData_FieldAccessor_FieldInfo;
 
   struct UserData_Particles_Pdata;
@@ -96,10 +96,14 @@ public:
 
   using FieldAccessor_FieldInfo = UserData_Impl::UserData_FieldAccessor_FieldInfo;
 
-  using FieldAccessor = UserData_Impl::UserData_FieldAccessor; /// FieldAccessor with only leaves
+  template< int _MAX_FIELD_COUNT > 
+  using FieldAccessor_impl = UserData_Impl::UserData_FieldAccessor_impl<false, _MAX_FIELD_COUNT>;
+  using FieldAccessor = FieldAccessor_impl<20>; /// FieldAccessor with only leaves
   using FieldAccessor_leaves = FieldAccessor; /// FieldAccessor with only leaves
 
-  using FieldAccessor_fulltree = UserData_Impl::UserData_FieldAccessor_fulltree; /// FieldAccessor with leaves and intermediates  
+  template< int _MAX_FIELD_COUNT >
+  using FieldAccessor_fulltree_impl = UserData_Impl::UserData_FieldAccessor_impl<true, _MAX_FIELD_COUNT>;
+  using FieldAccessor_fulltree = FieldAccessor_fulltree_impl<20>; /// FieldAccessor with leaves and intermediates  
   using FieldAccessor_intermediates [[deprecated]] = FieldAccessor_fulltree; /// Replaced by FieldAccessor_fulltree
 
   /***
@@ -107,12 +111,20 @@ public:
    * NOTE : Accessors may be invalidated by some methods from UserData (e.g. deleting or moving a field, reallocating, ...)
    * Do not keep invalidated accessors since live accessors may prevent Kokkos::View deallocation and create memory leaks
    ***/
-  FieldAccessor getAccessor( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const;
+  template< int MAX_FIELD_COUNT = 20 >
+  FieldAccessor_impl<MAX_FIELD_COUNT> getAccessor( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const
+  {
+    return FieldAccessor_impl<MAX_FIELD_COUNT>( *(this->fields.pdata), fields_info );
+  }
 
   /***
    * @brief create a FieldAccessor to access fields listed in `fields_info` and allow access to intermediate cells
    ***/
-  FieldAccessor_fulltree getAccessor_fulltree( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const;
+  template< int MAX_FIELD_COUNT = 20 >
+  FieldAccessor_fulltree_impl<MAX_FIELD_COUNT> getAccessor_fulltree( const std::vector<FieldAccessor_FieldInfo>& fields_info ) const
+  {
+    return FieldAccessor_fulltree_impl<MAX_FIELD_COUNT>( *(this->fields.pdata), fields_info );
+  }
 
   /***
    * @copydoc getAccessor_fulltree
