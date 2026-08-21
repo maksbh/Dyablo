@@ -20,7 +20,7 @@ static void set_markers(AMRmesh& pmesh, const Kokkos::View<int*>& oct_marker)
   Kokkos::parallel_for( "MarkOctantsHydroFunctor::adjust_markers", nbOcts,
     KOKKOS_LAMBDA( uint32_t iOct )
   {
-    uint8_t level = lmesh.getLevel({iOct,false});
+    int level = lmesh.getLevel({iOct,false});
 
     int criterion = oct_marker(iOct);
 

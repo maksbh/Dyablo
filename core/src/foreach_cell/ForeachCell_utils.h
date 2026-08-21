@@ -28,17 +28,17 @@ int foreach_smaller_neighbor( int ndim, const CellIndex& iCell, const CellIndex:
 {
   DYABLO_ASSERT_KOKKOS_DEBUG( iCell.level_diff() == -1, "iCell must be smaller neighbor for foreach_smaller_neighbor" );
   [[maybe_unused]]constexpr bool enable_different_block = std::is_same_v<SearchMode_t, ForeachCell::SearchMode_neighbor> ;
-  DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && iCell.bz%2 == 0 ),
+  DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx()%2 == 0 && iCell.by()%2 == 0 && (ndim==2 || iCell.bz()%2 == 0) ),
     "enable_different_block must be activated for cell-based or odd block size" );
 
   int di_count = (offset[IX]==0)?2:1;
   int dj_count = (offset[IY]==0)?2:1;
   int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
-  for( int8_t dk=0; dk<dk_count; dk++ )
-  for( int8_t dj=0; dj<dj_count; dj++ )
-  for( int8_t di=0; di<di_count; di++ )
+  for( int32_t dk=0; dk<dk_count; dk++ )
+  for( int32_t dj=0; dj<dj_count; dj++ )
+  for( int32_t di=0; di<di_count; di++ )
   {
-      CellIndex iCell_ghost = iCell.getNeighbor( {di,dj,dk}, search_mode );
+      CellIndex iCell_ghost = iCell.getNeighbor( di, dj, dk, search_mode );
       apply_neighbor(iCell_ghost);
   }
   return di_count*dj_count*dk_count;
@@ -67,14 +67,18 @@ int foreach_sibling( int ndim, const CellIndex& iCell, const SearchMode_t& searc
 {
   // enable_different_block must be activated for cell-based or odd block size
   [[maybe_unused]] constexpr bool enable_different_block = std::is_same_v<SearchMode_t, ForeachCell::SearchMode_neighbor> ;
-  DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx%2 == 0 && iCell.by%2 == 0 && iCell.bz%2 == 0 ),
+  DYABLO_ASSERT_KOKKOS_DEBUG( enable_different_block || ( iCell.bx()%2 == 0 && iCell.by()%2 == 0 && (ndim==2 || iCell.bz()%2 == 0) ),
     "enable_different_block must be activated for cell-based or odd block size" );
   int dk_count = ndim==3?2:1;
-  for( int8_t dk=0; dk<dk_count; dk++ )
-  for( int8_t dj=0; dj<2; dj++ )
-  for( int8_t di=0; di<2; di++ )
+  for( int32_t dk=0; dk<dk_count; dk++ )
+  for( int32_t dj=0; dj<2; dj++ )
+  for( int32_t di=0; di<2; di++ )
   {
-      CellIndex iCell_ghost = iCell.getNeighbor( {di,dj,dk}, search_mode );
+      CellIndex iCell_ghost;
+      if constexpr ( enable_different_block )
+        iCell_ghost = iCell.getNeighbor( di, dj, dk, search_mode );
+      else
+        iCell_ghost = iCell.getNeighbor<CellIndex::LOCAL_TO_BLOCK>( di, dj, dk, search_mode );
       apply_sibling(iCell_ghost);
   }
   return 2*2*dk_count;

@@ -105,24 +105,20 @@ void check_position(MapDataTestParams &test_params) {
 
   EXPECT_EQ( U.nbFields(), 4 );
 
-  EXPECT_EQ( U.getField("px").getShape().nbOcts, nbOcts );
-  EXPECT_EQ( U.getField("py").getShape().nbOcts, nbOcts );
-  EXPECT_EQ( U.getField("pz").getShape().nbOcts, nbOcts );
-
   uint32_t nbCellsPerOct = bx*by*bz;
-  uint32_t expected_size = nbOcts*nbCellsPerOct;
-  EXPECT_EQ( U.getField("px").U.size(), expected_size );
-  EXPECT_EQ( U.getField("py").U.size(), expected_size );
-  EXPECT_EQ( U.getField("pz").U.size(), expected_size );
 
-  auto Uhost_px = Kokkos::create_mirror_view(U.getField("px").U);
-  auto Uhost_py = Kokkos::create_mirror_view(U.getField("py").U);
-  auto Uhost_pz = Kokkos::create_mirror_view(U.getField("pz").U);
-  auto Uhost_size_initial = Kokkos::create_mirror_view(U.getField("size_initial").U);
-  Kokkos::deep_copy(Uhost_px, U.getField("px").U);
-  Kokkos::deep_copy(Uhost_py, U.getField("py").U);
-  Kokkos::deep_copy(Uhost_pz, U.getField("pz").U);
-  Kokkos::deep_copy(Uhost_size_initial, U.getField("size_initial").U);
+  auto Udevice_px = U.getFieldCopy("px").subview_U();
+  auto Udevice_py = U.getFieldCopy("py").subview_U();
+  auto Udevice_pz = U.getFieldCopy("pz").subview_U();
+  auto Udevice_size_initial = U.getFieldCopy("size_initial").subview_U();
+  auto Uhost_px = Kokkos::create_mirror_view(Udevice_px);
+  auto Uhost_py = Kokkos::create_mirror_view(Udevice_py);
+  auto Uhost_pz = Kokkos::create_mirror_view(Udevice_pz);
+  auto Uhost_size_initial = Kokkos::create_mirror_view(Udevice_size_initial);
+  Kokkos::deep_copy(Uhost_px, Udevice_px);
+  Kokkos::deep_copy(Uhost_py, Udevice_py);
+  Kokkos::deep_copy(Uhost_pz, Udevice_pz);
+  Kokkos::deep_copy(Uhost_size_initial, Udevice_size_initial);
 
   const auto lmesh_host = amr_mesh->getStorage();
   for( uint32_t iOct=0; iOct<nbOcts; iOct++ )
@@ -173,22 +169,17 @@ void check_linear(MapDataTestParams &test_params) {
 
   EXPECT_EQ( U.nbFields(), 3 );
 
-  EXPECT_EQ( U.getField("px").getShape().nbOcts, nbOcts );
-  EXPECT_EQ( U.getField("py").getShape().nbOcts, nbOcts );
-  EXPECT_EQ( U.getField("pz").getShape().nbOcts, nbOcts );
-
   uint32_t nbCellsPerOct = bx*by*bz;
-  uint32_t expected_size = nbOcts*nbCellsPerOct;
-  EXPECT_EQ( U.getField("px").U.size(), expected_size );
-  EXPECT_EQ( U.getField("py").U.size(), expected_size );
-  EXPECT_EQ( U.getField("pz").U.size(), expected_size );
 
-  auto Uhost_px = Kokkos::create_mirror_view(U.getField("px").U);
-  auto Uhost_py = Kokkos::create_mirror_view(U.getField("py").U);
-  auto Uhost_pz = Kokkos::create_mirror_view(U.getField("pz").U);
-  Kokkos::deep_copy(Uhost_px, U.getField("px").U);
-  Kokkos::deep_copy(Uhost_py, U.getField("py").U);
-  Kokkos::deep_copy(Uhost_pz, U.getField("pz").U);
+  auto Udevice_px = U.getFieldCopy("px").subview_U();
+  auto Udevice_py = U.getFieldCopy("py").subview_U();
+  auto Udevice_pz = U.getFieldCopy("pz").subview_U();
+  auto Uhost_px = Kokkos::create_mirror_view(Udevice_px);
+  auto Uhost_py = Kokkos::create_mirror_view(Udevice_py);
+  auto Uhost_pz = Kokkos::create_mirror_view(Udevice_pz);
+  Kokkos::deep_copy(Uhost_px, Udevice_px);
+  Kokkos::deep_copy(Uhost_py, Udevice_py);
+  Kokkos::deep_copy(Uhost_pz, Udevice_pz);
 
   const auto& lmesh_host = amr_mesh->getStorage();
   for( uint32_t iOct=0; iOct<nbOcts; iOct++ )

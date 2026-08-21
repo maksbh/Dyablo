@@ -113,7 +113,7 @@ level_max=5
 
   std::cout << "Perform load balancing..." << std::endl;
   {
-    uint8_t levels = 4;
+    int levels = 4;
 
     amr_mesh->loadBalance_userdata(levels, U);
   }
@@ -126,21 +126,20 @@ level_max=5
 
     EXPECT_EQ( U.nbFields(), nbfields );
 
-    EXPECT_EQ( U.getField("px").getShape().nbOcts, nbOcts );
-    EXPECT_EQ( U.getField("py").getShape().nbOcts, nbOcts );
-    EXPECT_EQ( U.getField("pz").getShape().nbOcts, nbOcts );
+    EXPECT_EQ( U.getFieldCopy("px").getShape().nbOcts, nbOcts );
+    EXPECT_EQ( U.getFieldCopy("py").getShape().nbOcts, nbOcts );
+    EXPECT_EQ( U.getFieldCopy("pz").getShape().nbOcts, nbOcts );
 
-    uint32_t expected_size = nbOcts*bx*by*bz;
-    EXPECT_EQ( U.getField("px").U.size(), expected_size );
-    EXPECT_EQ( U.getField("py").U.size(), expected_size );
-    EXPECT_EQ( U.getField("pz").U.size(), expected_size );
 
-    auto Uhost_px = Kokkos::create_mirror_view(U.getField("px").U);
-    auto Uhost_py = Kokkos::create_mirror_view(U.getField("py").U);
-    auto Uhost_pz = Kokkos::create_mirror_view(U.getField("pz").U);
-    Kokkos::deep_copy(Uhost_px, U.getField("px").U);
-    Kokkos::deep_copy(Uhost_py, U.getField("py").U);
-    Kokkos::deep_copy(Uhost_pz, U.getField("pz").U);
+    auto Udevice_px = U.getFieldCopy("px").subview_U();
+    auto Udevice_py = U.getFieldCopy("py").subview_U();
+    auto Udevice_pz = U.getFieldCopy("pz").subview_U();
+    auto Uhost_px = Kokkos::create_mirror_view(Udevice_px);
+    auto Uhost_py = Kokkos::create_mirror_view(Udevice_py);
+    auto Uhost_pz = Kokkos::create_mirror_view(Udevice_pz);
+    Kokkos::deep_copy(Uhost_px, Udevice_px);
+    Kokkos::deep_copy(Uhost_py, Udevice_py);
+    Kokkos::deep_copy(Uhost_pz, Udevice_pz);
 
     const auto lmesh_host = amr_mesh->getStorage();
     for( uint32_t iOct=0; iOct<nbOcts; iOct++ )

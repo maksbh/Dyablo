@@ -235,7 +235,7 @@ public:
         std::cout << "Restart mesh : " << input_lmesh.getNumOctants() << " octs." << std::endl;
 
         // Refine until level_max using analytical markers
-        for (uint8_t level=level_min; level<level_max; ++level)
+        for (uint32_t level=level_min; level<level_max; ++level)
         {
             const LightOctree& lmesh = pmesh.getLightOctree();
             uint32_t nbOcts = lmesh.getNumOctants();
@@ -286,11 +286,14 @@ public:
       for( std::string field : fields )
       {
         U.new_fields({field});
-        ForeachCell::CellArray_global_ghosted field_view = foreach_cell.allocate_ghosted_array( field, 1 );
-        restart_file.read_view( std::string("fields/") + field, field_view.U);
-
         enum VarIndex_single { Ifield };
         UserData::FieldAccessor Ufield = U.getAccessor({{field, Ifield}});
+
+        auto shape = Ufield.getShape();
+        shape.nbGhosts = 0;
+        ForeachCell::CellArray_global field_view(field + "_read", shape);
+        
+        restart_file.read_view( std::string("fields/") + field, field_view._U);        
 
         foreach_cell.foreach_cell( "restart_copy_field", U.getShape(),
           KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell )

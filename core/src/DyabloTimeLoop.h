@@ -837,10 +837,6 @@ public:
         timers.get("AMR: remap userdata").start();
         mapUserData->remap(U);
         
-        //TODO
-        //std::cout << "Resize U after remap : " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), U2.U.extent(2)) * (2/1e6) 
-        //    << " -> " << DataArrayBlock::required_allocation_size(U2.U.extent(0), U2.U.extent(1), m_amr_mesh->getNumOctants()) * (2/1e6) << " MBytes" << std::endl;
-
         timers.get("AMR: remap userdata").stop();
 
         U.distributeAllParticles();

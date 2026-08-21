@@ -85,10 +85,10 @@ void MapUserData_base::remap( UserData& user_data )
       if( level_new < level_old )
       {
         // If last sibling is not ghost, everything is local
-        int8_t dz_max = (ndim == 2)? 0:1;
-        for( int8_t dz=0; dz<=dz_max; dz++ )
-        for( int8_t dy=0; dy<=1; dy++ )
-        for( int8_t dx=0; dx<=1; dx++ )
+        int32_t dz_max = (ndim == 2)? 0:1;
+        for( int32_t dz=0; dz<=dz_max; dz++ )
+        for( int32_t dy=0; dy<=1; dy++ )
+        for( int32_t dx=0; dx<=1; dx++ )
         {
           DYABLO_ASSERT_KOKKOS_DEBUG( !lmesh_old.isBoundary(iOct_old, {dx,dy,dz}), "Sibling should be inside domain" )
 

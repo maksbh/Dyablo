@@ -1,6 +1,7 @@
 #pragma once
 
 #include "user_data/UserData.h"
+#include <tuple>
 
 namespace dyablo {
 
@@ -158,34 +159,50 @@ public:
         );
     }
 
+    template< typename ... VarIndex_s >
     KOKKOS_INLINE_FUNCTION
-    real_t& at( const ForeachCell::CellIndex& iCell, const VarIndex& varindex ) const
+    decltype(auto) at( const ForeachCell::CellIndex& iCell, VarIndex varindex_0, VarIndex_s... varindex_s) const
     {
-        if constexpr ( has_intermediates )
+        bool is_intermediate = has_intermediates && iCell.iOct().isIntermediate;
+
+        real_t* origin = this->at( iCell );
+        auto value = [&]( VarIndex varindex ) -> real_t&
         {
-            
-            if( iCell.iOct.isIntermediate )
-            {
-                ForeachCell::CellIndex iCell_intermediate = iCell;
-                iCell_intermediate.iOct.isIntermediate=false;
-                return fields_intermediates.at_ivar( iCell_intermediate, get_index_from_varindex_intermediates(varindex) );
-            }
-        }
-        DYABLO_ASSERT_KOKKOS_DEBUG( !iCell.iOct.isIntermediate, "Accessing intermediates in array without intermediates" );
-        return fields.at_ivar( iCell, get_index_from_varindex(varindex) );
+            auto offset = is_intermediate ?
+                  fields_intermediates.get_offset_ivar( get_index_from_varindex_intermediates(varindex) )
+                : fields.get_offset_ivar( get_index_from_varindex(varindex) ) ;
+
+            return origin[offset];
+        };
+
+        if constexpr ( sizeof...(VarIndex_s) == 0 )
+            return (value(varindex_0)); // Parenthesis are important here to keep real_t& reference
+        else
+            return std::tie( value(varindex_0), value(varindex_s)... );
     }
 
+    template< typename ... Int_t >
     KOKKOS_INLINE_FUNCTION
-    real_t& at_ivar( const ForeachCell::CellIndex& iCell, int ivar ) const
+    decltype(auto) at_ivar( const ForeachCell::CellIndex& iCell, int ivar0, Int_t... ivars) const
     {
-        if constexpr ( has_intermediates )
+        bool is_intermediate = has_intermediates && iCell.iOct().isIntermediate;
+
+        real_t* origin = this->at( iCell );
+        auto value = [&]( int ivar ) -> real_t&
         {
-            if( iCell.iOct.isIntermediate )
-                return fields_intermediates.at_ivar( iCell, get_index_from_ivar_device_intermediates(ivar) );
-        }
-        DYABLO_ASSERT_KOKKOS_DEBUG( !iCell.iOct.isIntermediate, "Accessing intermediates in array without intermediates" );
-        return fields.at_ivar( iCell, get_index_from_ivar_device(ivar) );
+            auto offset = is_intermediate ?
+                  fields_intermediates.get_offset_ivar( get_index_from_ivar_device_intermediates(ivar) )
+                : fields.get_offset_ivar( get_index_from_ivar_device(ivar) ) ;
+
+            return origin[offset];
+        };
+
+        if constexpr ( sizeof...(Int_t) == 0 )
+            return (value(ivar0));  // Parenthesis are important here to keep real_t& reference
+        else
+            return std::tie( value(ivar0), value(ivars)... );
     }
+    
 
     KOKKOS_INLINE_FUNCTION
     FieldView_t::Shape_t getShape() const
@@ -242,6 +259,25 @@ protected:
         return fm_intermediates.get_index_from_ivar_host(ivar);
     }
     FieldView_t fields_intermediates;
+
+    KOKKOS_INLINE_FUNCTION
+    real_t* at( const ForeachCell::CellIndex& iCell ) const
+    {
+        if constexpr ( has_intermediates )
+        {
+            if( iCell.iOct().isIntermediate )
+            {
+                // Remove isIntermediate flag from iCell
+                auto iOct_intermediate = iCell.iOct();
+                iOct_intermediate.isIntermediate=false;
+                ForeachCell::CellIndex iCell_intermediate = iCell;
+                iCell_intermediate.set_iOct(iOct_intermediate);
+                return fields_intermediates.at( iCell_intermediate );
+            }
+        }
+        DYABLO_ASSERT_KOKKOS_DEBUG( !iCell.iOct().isIntermediate, "Accessing intermediates in array without intermediates" );
+        return fields.at( iCell );
+    }
 };
 
 } //namespace UserData_Impl

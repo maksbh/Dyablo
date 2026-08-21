@@ -53,8 +53,8 @@ public:
     ForeachCell& foreach_cell = data.foreach_cell;
     AMRmesh& pmesh     = foreach_cell.get_amr_mesh();
 
-    int level_min = data.level_min;
-    int level_max = data.level_max;
+    uint32_t level_min = data.level_min;
+    uint32_t level_max = data.level_max;
 
     auto& analytical_formula = this->analytical_formula;
 
@@ -95,7 +95,7 @@ public:
       RefineCondition& refine_condition = *(this->refine_condition);
       ScalarSimulationData scalar_data; // Empty scalardata
       // Refine until level_max using a RefineConditions plugin
-      for (uint8_t level=level_min; level<level_max; ++level)
+      for (uint32_t level=level_min; level<level_max; ++level)
       {
           // Init fields for RefineConditions
           fill_U();

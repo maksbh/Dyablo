@@ -257,9 +257,9 @@ public:
           int di_count = (offset[IX]==0)?2:1;
           int dj_count = (offset[IY]==0)?2:1;
           int dk_count = (ndim==3 && offset[IZ]==0)?2:1;
-          for( int8_t dk=0; dk<dk_count; dk++ )
-          for( int8_t dj=0; dj<dj_count; dj++ )
-          for( int8_t di=0; di<di_count; di++ )
+          for( int32_t dk=0; dk<dk_count; dk++ )
+          for( int32_t dj=0; dj<dj_count; dj++ )
+          for( int32_t di=0; di<di_count; di++ )
           {            
             CellIndex iCell_n = iCell_n0.getNeighbor({di,dj,dk}, search_neighbor);
 
@@ -320,10 +320,10 @@ public:
     Timers& timers;
 };
 
-class HyperbolicPolicy_Hydro_Hancock_impl : public HyperbolicPolicy_Hydro_impl
+class HyperbolicPolicy_Hydro_Hancock_impl : public HyperbolicPolicy_Hydro_impl_default
 {
 public : 
-  using HyperbolicPolicy_Hydro_impl::HyperbolicPolicy_Hydro_impl;
+  using HyperbolicPolicy_Hydro_impl_default::HyperbolicPolicy_Hydro_impl_default;
 
   KOKKOS_INLINE_FUNCTION
   PrimState compute_half_step(PrimState q,

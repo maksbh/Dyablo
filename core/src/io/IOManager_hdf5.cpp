@@ -235,7 +235,7 @@ void IOManager_hdf5::save_snapshot_aux( const UserData& U_, ScalarSimulationData
   int iter = scalar_data.get<int>( "iter" );
   real_t time = scalar_data.get<real_t>( "time" );
 
-  //static_assert( std::is_same_v<decltype(U_.U), DataArrayBlock>, "Only compatible with DataArrayBlock" );
+  //static_assert( std::is_same_v<decltype(U_._U), DataArrayBlock>, "Only compatible with DataArrayBlock" );
 
   int ndim = foreach_cell.getDim();
   int nbNodesPerCell = (ndim-1)*4;
@@ -363,7 +363,7 @@ R"xml(
     // Write hdf5 file 
     auto linearize_iCell = KOKKOS_LAMBDA(const ForeachCell::CellIndex& iCell)
     {
-      return iCell.i + iCell.bx * (iCell.j + iCell.by * ( iCell.k + iCell.bz * (uint64_t)iCell.iOct.iOct )); 
+      return iCell.iCell() + iCell.bx()*iCell.by()*iCell.bz()*(uint64_t)iCell.iOct().iOct; 
     };
 
     HDF5ViewWriter hdf5_writer( output_dir + "/" + base_filename + ".h5" );

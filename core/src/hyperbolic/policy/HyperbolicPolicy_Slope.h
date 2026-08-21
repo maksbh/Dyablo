@@ -53,8 +53,8 @@ public:
   KOKKOS_INLINE_FUNCTION
   PrimState compute_slope( PrimState qL, PrimState qC, PrimState qR, real_t dL, real_t dR) const
   {
-    auto dqp = (qR - qC) / dR;
-    auto dqm = (qC - qL) / dL;
+    auto dqp = (qR - qC) * (1/dR);
+    auto dqm = (qC - qL) * (1/dL);
 
     PrimState slope{};
     state_foreach_var([](real_t& res, real_t dvp, real_t dvm) {
@@ -91,8 +91,8 @@ public:
   KOKKOS_INLINE_FUNCTION
   PrimState compute_slope( PrimState qL, PrimState qC, PrimState qR, real_t dL, real_t dR) const
   {
-    auto dqp = (qR - qC) / dR;
-    auto dqm = (qC - qL) / dL;
+    auto dqp = (qR - qC) * (1/dR);
+    auto dqm = (qC - qL) * (1/dL);
 
     PrimState slope{};
     state_foreach_var([](real_t& res, real_t dvp, real_t dvm) {

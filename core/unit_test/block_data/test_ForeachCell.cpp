@@ -197,16 +197,19 @@ void run_test()
   });
 
   std::cout << "Check U2..." << std::endl;
-  auto Uhost = Kokkos::create_mirror_view(U.U);
-  Kokkos::deep_copy( Uhost, U.U );
-  auto U2host = Kokkos::create_mirror_view(U2.U);
-  Kokkos::deep_copy( Uhost, U.U );
+  auto Udevice = U.subview_U();
+  auto U2device = U.subview_U();
+  auto Uhost = Kokkos::create_mirror_view(Udevice);
+  auto U2host = Kokkos::create_mirror_view(U2device);
+  Kokkos::deep_copy( Uhost, Udevice );
+  Kokkos::deep_copy( U2host, U2device );
+  
   for( uint32_t iOct=0; iOct < amr_mesh->getNumOctants(); iOct++ )
     for( uint32_t i=0; i<bx*by*bz; i++ )
     {
-      EXPECT_DOUBLE_EQ( U2host(i, iOct, 0 ), U2host(i, iOct, 0 ) );
-      EXPECT_DOUBLE_EQ( U2host(i, iOct, 1 ), U2host(i, iOct, 1 ) );
-      EXPECT_DOUBLE_EQ( U2host(i, iOct, 2 ), U2host(i, iOct, 2 ) );
+      EXPECT_DOUBLE_EQ( Uhost(i, iOct, 0 ), U2host(i, iOct, 0 ) );
+      EXPECT_DOUBLE_EQ( Uhost(i, iOct, 1 ), U2host(i, iOct, 1 ) );
+      EXPECT_DOUBLE_EQ( Uhost(i, iOct, 2 ), U2host(i, iOct, 2 ) );
     }
 
 } // run_test

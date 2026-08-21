@@ -96,8 +96,8 @@ public:
     // For each side and each direction
     for( int side : {0,1} )
     {
-      int8_t R = side;
-      int8_t L = side-1;
+      int32_t R = side;
+      int32_t L = side-1;
 
       // viscous_flux for direction IX
       {

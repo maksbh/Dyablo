@@ -24,10 +24,10 @@ public:
     LightOctree_hashmap(const LightOctree_hashmap& lmesh) = default;
 
     LightOctree_hashmap( Storage_t&& storage, 
-                         uint8_t level_min, uint8_t level_max,
+                         level_t level_min, level_t level_max,
                          Kokkos::Array<bool,3> periodic );
 
-    LightOctree_hashmap( const AMRmesh* pmesh, uint8_t level_min, uint8_t level_max );
+    LightOctree_hashmap( const AMRmesh* pmesh, level_t level_min, level_t level_max );
 
     KOKKOS_INLINE_FUNCTION
     int getNdim() const
@@ -66,7 +66,7 @@ public:
     {return storage.getSize(level);}
     
     KOKKOS_INLINE_FUNCTION
-    uint8_t getLevel(const OctantIndex& iOct)  const
+    level_t getLevel(const OctantIndex& iOct)  const
     {return storage.getLevel(iOct);}
     
     KOKKOS_INLINE_FUNCTION
@@ -85,50 +85,66 @@ public:
     }
 
     //! @copydoc LightOctree_base::findNeighbor()
-    template<bool accepts_ghosts = true>
+    template< bool accepts_ghosts = false, bool assert_on_failure = true >
     KOKKOS_INLINE_FUNCTION
     OctantIndex findNeighbor(const OctantIndex& iOct, const offset_t& offset) const
     {
-        return findNeighbor_aux<false, accepts_ghosts>(iOct, offset[IX], offset[IY], offset[IZ]);
+        return findNeighbor_aux<false, accepts_ghosts, assert_on_failure>(iOct, offset[IX], offset[IY], offset[IZ]);
     }
 
     //! @copydoc LightOctree_base::findNeighbor_intermediate()
-    template<bool accepts_ghosts = true>
+    template< bool accepts_ghosts = false, bool assert_on_failure = true >
     KOKKOS_INLINE_FUNCTION 
     OctantIndex findNeighbor_intermediate( const OctantIndex& iOct, const offset_t& offset )  const
     {
-        return findNeighbor_aux<true, accepts_ghosts>(iOct, offset[IX], offset[IY], offset[IZ]);
+        return findNeighbor_aux<true, accepts_ghosts, assert_on_failure>(iOct, offset[IX], offset[IY], offset[IZ]);
     }
 
     //! @copydoc LightOctree_base::findNeighbor()
-    template<bool accepts_ghosts = true>
+    template< bool accepts_ghosts = false, bool assert_on_failure = true >
     KOKKOS_INLINE_FUNCTION
-    OctantIndex findNeighbor(const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z) const
+    OctantIndex findNeighbor(const OctantIndex& iOct, int32_t offset_x, int32_t offset_y, int32_t offset_z) const
     {
-        return findNeighbor_aux<false, accepts_ghosts>(iOct, offset_x, offset_y, offset_z);
+        return findNeighbor_aux<false, accepts_ghosts, assert_on_failure>(iOct, offset_x, offset_y, offset_z);
     }
 
     //! @copydoc LightOctree_base::findNeighbor_intermediate()
-    template<bool accepts_ghosts = true>
+    template< bool accepts_ghosts = false, bool assert_on_failure = true >
     KOKKOS_INLINE_FUNCTION 
-    OctantIndex findNeighbor_intermediate( const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z)  const
+    OctantIndex findNeighbor_intermediate( const OctantIndex& iOct, int32_t offset_x, int32_t offset_y, int32_t offset_z)  const
     {
-        return findNeighbor_aux<true, accepts_ghosts>(iOct, offset_x, offset_y, offset_z);
+        return findNeighbor_aux<true, accepts_ghosts, assert_on_failure>(iOct, offset_x, offset_y, offset_z);
     }
 
-    template< bool search_intermediate, bool accepts_ghosts >
+    template< bool search_intermediate, bool accepts_ghosts, bool assert_on_failure >
     KOKKOS_INLINE_FUNCTION
-    OctantIndex findNeighbor_aux(const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z) const
+    OctantIndex findNeighbor_aux(const OctantIndex& iOct, int32_t offset_x, int32_t offset_y, int32_t offset_z) const
     {
+
+#define findNeighbor_aux_ASSERT_OR_FAIL( cond, message )    \
+{                                                           \
+    if constexpr ( assert_on_failure )                      \
+    {                                                       \
+        DYABLO_ASSERT_KOKKOS_DEBUG( cond, message );        \
+    }                                                       \
+    else                                                    \
+    {                                                       \
+        if( !(cond) )                                         \
+        {                                                   \
+            return LightOctree_base::NEIGHBOR_NOT_FOUND;    \
+        }                                                   \
+    }                                                       \
+}                                                           \
+
         if( offset_x == 0 && offset_y == 0 && offset_z == 0 )
             return iOct;
 
         if constexpr ( !accepts_ghosts )
         {
-           DYABLO_ASSERT_KOKKOS_DEBUG(!iOct.isGhost, "LightOctree_hashmap::findNeighbor_aux : iOct is a ghost but ghosts are disabled");
+           findNeighbor_aux_ASSERT_OR_FAIL(!iOct.isGhost, "LightOctree_hashmap::findNeighbor_aux : iOct is a ghost but ghosts are disabled");
         }
 
-        DYABLO_ASSERT_KOKKOS_DEBUG( !this->isBoundary(iOct, offset_x, offset_y, offset_z), "findNeighbor doesn't support boundaries." );
+        findNeighbor_aux_ASSERT_OR_FAIL( !this->isBoundary(iOct, offset_x, offset_y, offset_z), "findNeighbor doesn't support boundaries." );
 
         // Get logical coordinates of neighbor        
         level_t level = getLevel(iOct);
@@ -161,8 +177,8 @@ public:
                 };
                 // Search octant at coarser level
                 auto it = oct_map.find(logical_coords_bigger);
-                DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor : not found");
-                DYABLO_ASSERT_KOKKOS_DEBUG(!oct_map.value_at(it).isIntermediate, "Bigger neighbour must be a leaf ");
+                findNeighbor_aux_ASSERT_OR_FAIL(oct_map.valid_at(it), "Could not find neighbor : not found");
+                findNeighbor_aux_ASSERT_OR_FAIL(!oct_map.value_at(it).isIntermediate, "Bigger neighbour must be a leaf ");
                 return oct_map.value_at(it);
             }
         }
@@ -196,7 +212,7 @@ public:
                 else
                 {
                     // Neighbor(s) is(are) at finer level
-                    DYABLO_ASSERT_KOKKOS_DEBUG(level+1 <= max_level, "Could not find neighbor : already at level_max");
+                    findNeighbor_aux_ASSERT_OR_FAIL(level+1 <= max_level, "Could not find neighbor : already at level_max");
                     
                     // Compute logical coord of first neighbor
                     key_t logical_coords_smaller_origin{
@@ -207,13 +223,15 @@ public:
                     };
                     
                     auto it = oct_map.find(logical_coords_smaller_origin);
-                    DYABLO_ASSERT_KOKKOS_DEBUG(oct_map.valid_at(it), "Could not find neighbor : not found");
-                    DYABLO_ASSERT_KOKKOS_DEBUG(!oct_map.value_at(it).isIntermediate, "Could not find neighbor : is intermediate");
+                    findNeighbor_aux_ASSERT_OR_FAIL(oct_map.valid_at(it), "Could not find neighbor : not found");
+                    findNeighbor_aux_ASSERT_OR_FAIL(!oct_map.value_at(it).isIntermediate, "Could not find neighbor : is intermediate");
                     res = oct_map.value_at(it);
                 }            
             }
             return res;
         }
+#undef findNeighbor_aux_ASSERT_OR_FAIL
+    
     }
 
     //! @copydoc LightOctree_base::findNeighbors()
@@ -240,15 +258,15 @@ public:
             logical_coords_smaller_origin.i = lc[IX];
             logical_coords_smaller_origin.j = lc[IY];
             logical_coords_smaller_origin.k = lc[IZ];
-            int ndim = getNdim();  
-            int sz_max = (ndim==2) ? 0 : (offset[IZ]==0); // No offset in z in 2D
-            int sy_max = (offset[IY]==0);
-            int sx_max = (offset[IX]==0); // Constrained to plane adjacent to neighbor if offset in this direction
+            uint32_t ndim = getNdim();  
+            uint32_t sz_max = (ndim==2) ? 0 : (offset[IZ]==0); // No offset in z in 2D
+            uint32_t sy_max = (offset[IY]==0);
+            uint32_t sx_max = (offset[IX]==0); // Constrained to plane adjacent to neighbor if offset in this direction
             
             NeighborList res{0};
-            for( int sz=0; sz<=sz_max; sz++ )
-            for( int sy=0; sy<=sy_max; sy++ )
-            for( int sx=0; sx<=sx_max; sx++ )
+            for( uint32_t sz=0; sz<=sz_max; sz++ )
+            for( uint32_t sy=0; sy<=sy_max; sy++ )
+            for( uint32_t sx=0; sx<=sx_max; sx++ )
             {
                 res.m_size++;
                 key_t logical_coords_smaller = logical_coords_smaller_origin;
@@ -267,7 +285,7 @@ public:
 
     /// @copydoc LightOctree_base::isBoundary()
     KOKKOS_INLINE_FUNCTION
-    bool isBoundary(const OctantIndex& iOct, int16_t offset_x, int16_t offset_y, int16_t offset_z) const {       
+    bool isBoundary(const OctantIndex& iOct, int32_t offset_x, int32_t offset_y, int32_t offset_z) const {       
         if(     (offset_x == 0 || this->is_periodic[IX]) 
             &&  (offset_y == 0 || this->is_periodic[IY]) 
             &&  (offset_z == 0 || this->is_periodic[IZ]) )

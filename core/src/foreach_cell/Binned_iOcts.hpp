@@ -64,7 +64,7 @@ Binned_iOcts bin_iOcts( int bin_max, int nbOcts, const F& gen_bin)
 }
 
 /// Get a subview from all iOcts in a given bin 
-Kokkos::View<uint32_t*> get_bin( const Binned_iOcts& iOcts, int bin );
+Kokkos::View<uint32_t*> get_bin( const Binned_iOcts& iOcts, uint32_t bin );
 
 /**
  * Class to generate per-level octant lists

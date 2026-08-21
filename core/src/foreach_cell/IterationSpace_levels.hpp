@@ -40,10 +40,10 @@ public:
   uint32_t iOct_count() const { return full_array.iOct_count(); }
 
   KOKKOS_INLINE_FUNCTION
-  ForeachCell::CellIndex getCellIndex(uint32_t iOct_in, uint32_t i, uint32_t j, uint32_t k) const
+  ForeachCell::CellIndex getCellIndex(uint32_t iOct_in, uint32_t iCell_ijk, uint32_t i, uint32_t j, uint32_t k) const
   {
-    ForeachCell::CellIndex iCell = full_array.getCellIndex(iOct_in, i, j, k);
-    LightOctree::OctantIndex iOct_raw = iCell.iOct;
+    ForeachCell::CellIndex iCell = full_array.getCellIndex(iOct_in, iCell_ijk, i, j, k);
+    LightOctree::OctantIndex iOct_raw = iCell.iOct();
 
     uint32_t iOct_filtered = 0;
     if(      !iOct_raw.isGhost && !iOct_raw.isIntermediate )
@@ -54,7 +54,12 @@ public:
         iOct_filtered = iOcts_intermediates(iOct_raw.iOct);
     else//if( iOct_raw.isGhost &&  iOct_raw.isIntermediate )
         iOct_filtered = iOcts_intermediate_ghosts(iOct_raw.iOct);
-    iCell.iOct.iOct = iOct_filtered;
+  
+        
+    LightOctree::OctantIndex iOct_filtered_struct = iOct_raw;
+    iOct_filtered_struct.iOct = iOct_filtered;
+
+    iCell.set_iOct( iOct_filtered_struct );
 
     return iCell;
   }

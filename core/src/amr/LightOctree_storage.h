@@ -90,7 +90,7 @@ public:
 
   //! @copydoc LightOctree_base::getNdim()
   KOKKOS_INLINE_FUNCTION 
-  uint8_t getNdim() const
+  uint32_t getNdim() const
   {
       return ndim;
   }

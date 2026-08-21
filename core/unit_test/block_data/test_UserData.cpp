@@ -116,14 +116,14 @@ void test_fields()
 
   // Verify that pxyz has been overwritten
   {
-    auto px = U.getField("px");
-    auto py = U.getField("py");
-    auto pz = U.getField("pz");
+    auto px = U.getFieldCopy("px");
+    auto py = U.getFieldCopy("py");
+    auto pz = U.getFieldCopy("pz");
 
     auto cells = foreach_cell.getCellMetaData();
 
     int error_count = 0;
-    foreach_cell.reduce_cell( "Check p overwrite", px,
+    foreach_cell.reduce_cell( "Check p overwrite", px.getShape(),
       KOKKOS_LAMBDA( const ForeachCell::CellIndex& iCell, int& error_count )
     {
       auto c = cells.getCellCenter(iCell);

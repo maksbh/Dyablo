@@ -223,7 +223,7 @@ enum VarIndex_CG_tmp
 */
 void GravitySolver_cg::update_gravity_field( UserData& U, ScalarSimulationData& scalar_data )
 {
-  uint8_t ndim = pdata->foreach_cell.getDim();
+  uint32_t ndim = pdata->foreach_cell.getDim();
   ForeachCell& foreach_cell = pdata->foreach_cell;
   real_t xmin = pdata->xmin, ymin = pdata->ymin, zmin = pdata->zmin;
   real_t xmax = pdata->xmax, ymax = pdata->ymax, zmax = pdata->zmax;

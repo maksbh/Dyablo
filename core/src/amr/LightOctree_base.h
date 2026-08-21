@@ -22,22 +22,29 @@ public:
         bool isGhost; //! Is this a MPI ghost octant?
         bool isIntermediate; //! Is this an intermediate octant ( not a leaf )
     };
+
+    static constexpr OctantIndex NEIGHBOR_NOT_FOUND = {(uint32_t)(-1)};
+    KOKKOS_INLINE_FUNCTION
+    static bool neighbor_not_found( OctantIndex& i ) 
+    {return i.iOct == NEIGHBOR_NOT_FOUND.iOct;}
+
     /// Physical cell position
     using pos_t = Kokkos::Array<real_t,3>;
     /// Relative position of a neighbor octant relative to local octant
-    using offset_t = Kokkos::Array<int8_t,3>;
+    using offset_t = Kokkos::Array<int32_t,3>;
+    using level_t = uint32_t;
     /// Container for 0-4 neighbor(s)
     struct NeighborList
     {
-        uint8_t m_size;
+        uint32_t m_size;
         Kokkos::Array<OctantIndex,4> m_neighbors;
         /// Number of neighbors in container (0-4)
-        KOKKOS_INLINE_FUNCTION uint8_t size() const
+        KOKKOS_INLINE_FUNCTION uint32_t size() const
         {
             return m_size;
         }
         /// Get i-th neighbor index in container
-        KOKKOS_INLINE_FUNCTION const OctantIndex& operator[](uint8_t i) const
+        KOKKOS_INLINE_FUNCTION const OctantIndex& operator[](uint32_t i) const
         {
             return m_neighbors[i];
         }
@@ -55,7 +62,7 @@ public:
     pos_t getSize(uint32_t level)  const;
     pos_t getSize(const OctantIndex& iOct)  const;
     /// Get amr level of octant
-    uint8_t getLevel(const OctantIndex& iOct)  const;
+    level_t getLevel(const OctantIndex& iOct)  const;
     /**
      * Get neighbors of `iOct` at relative position `offset`
      * 
@@ -99,7 +106,14 @@ public:
     /**
      * Same as findNeighbors but only returns first octant in list (with smallest morton)  
      * Note : works only if findNeighbors returns at least one octant (check for boundaries before)
+     * @tparam accepts_ghosts : by default iOct must not point to a ghost octant. 
+     *          If you override this, make sure that the neighbor that you are trying to fetch 
+     *          is present in local rank ( the neighbor of a ghost might be missing )
+     * @tparam assert_on_failure : when false return NEIGHBOR_NOT_FOUND on error instead of assert. 
+     *          (But don't use this to test if neighbor is present, there might be false positives!)
+     *          when true, trying to fetch a non-existing neighbor is undefined behavior
      */
+    template< bool accepts_ghosts = false, bool assert_on_failure = true >
     NeighborList findNeighbor( const OctantIndex& iOct, const offset_t& offset ) const;
 
     /**
@@ -111,10 +125,18 @@ public:
      *               in 2D, third dimension is always 0
      *               ex : {-1,0,0} is left neighbor; {-1,-1,0} is lower-left edge(3D)/corner(2D) 
      * 
+     * @tparam accepts_ghosts : by default iOct must not point to a ghost octant. 
+     *          If you override this, make sure that the neighbor that you are trying to fetch 
+     *          is present in local rank ( the neighbor of a ghost might be missing )
+     * @tparam assert_on_failure : when false return NEIGHBOR_NOT_FOUND on error instead of assert. 
+     *          (But don't use this to test if neighbor is present, there might be false positives!)
+     *          when true, trying to fetch a non-existing neighbor is undefined behavior
+     * 
      * @returns an Octant index pointing to the resuested same-size neighbor
      * Since intermediate octants are included only one same-size octant matches
-     * If same-size octant doesn't exist (neighbor leaf is bigger), the invalid octant is returned
+     * If same-size octant doesn't exist (neighbor leaf is bigger), the bigger leaf is returned
      **/
+    template< bool accepts_ghosts = false, bool assert_on_failure = true >
     OctantIndex findNeighbor_intermediate( const OctantIndex& iOct, const offset_t& offset )  const;
 
     /**

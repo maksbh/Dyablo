@@ -19,7 +19,7 @@ using markers_t = Kokkos::View<int*, Storage_t::MemorySpace>;
 struct AMRmesh::PData
 {
   int ndim;
-  uint8_t level_min, level_max;
+  level_t level_min, level_max;
   Kokkos::Array<bool,3> periodic;
   
   Storage_t storage; 
@@ -95,9 +95,9 @@ AMRmesh::GhostMap_t discover_ghosts(
   using CellMask = AMRmesh::GhostMap_t::CellMask;
   using Face = AMRmesh::GhostMap_t::Face;
 
-  int mpi_rank = mpi_comm.MPI_Comm_rank();
-  int mpi_size = mpi_comm.MPI_Comm_size();
-  int ndim = storage_device.getNdim();
+  uint32_t mpi_rank = mpi_comm.MPI_Comm_rank();
+  uint32_t mpi_size = mpi_comm.MPI_Comm_size();
+  uint32_t ndim = storage_device.getNdim();
 
   // Copy morton_intervals to device
   DYABLO_ASSERT_HOST_DEBUG( morton_intervals_.size() == mpi_size+1, "morton_intervals_ should be of size mpi_size+1" );
@@ -136,13 +136,13 @@ AMRmesh::GhostMap_t discover_ghosts(
       auto find_rank = [mpi_size, &morton_intervals_device]( morton_t morton )
       { 
         // upper_bound : first verifying value > morton
-        int rank;
+        uint32_t rank;
         {
-          int begin = 0;
-          int end = mpi_size;
+          uint32_t begin = 0;
+          uint32_t end = mpi_size;
           while( begin < end )
           {
-            int pivot = begin + (end-begin)/2;
+            uint32_t pivot = begin + (end-begin)/2;
             morton_t morton_pivot = morton_intervals_device(pivot);
             if( morton_pivot <= morton )
               begin = pivot+1;
@@ -239,9 +239,9 @@ AMRmesh::GhostMap_t discover_ghosts(
               (pos[IZ] << 1),
             };
 
-            for( int16_t sz=0; sz<=1; sz++ )
-            for( int16_t sy=0; sy<=1; sy++ )
-            for( int16_t sx=0; sx<=1; sx++ )
+            for( logical_coord_t sz=0; sz<=1; sz++ )
+            for( logical_coord_t sy=0; sy<=1; sy++ )
+            for( logical_coord_t sx=0; sx<=1; sx++ )
             {
               Kokkos::Array<logical_coord_t, 3> pos_child{
                 pos_child_origin[IX] + sx,
@@ -301,12 +301,12 @@ AMRmesh::GhostMap_t discover_ghosts(
             };
 
             // Iterate over neighbor suboctants
-            int sx_max = (dx==0); // constrained to the same plane as origin if offset in this direction
-            int sy_max = (dy==0);
-            int sz_max = (ndim==2) ? 0 : (dz==0);
-            for( int16_t sz=0; sz<=sz_max; sz++ )
-            for( int16_t sy=0; sy<=sy_max; sy++ )
-            for( int16_t sx=0; sx<=sx_max; sx++ )
+            uint32_t sx_max = (dx==0); // constrained to the same plane as origin if offset in this direction
+            uint32_t sy_max = (dy==0);
+            uint32_t sz_max = (ndim==2) ? 0 : (dz==0);
+            for( logical_coord_t sz=0; sz<=sz_max; sz++ )
+            for( logical_coord_t sy=0; sy<=sy_max; sy++ )
+            for( logical_coord_t sx=0; sx<=sx_max; sx++ )
             {
               Kokkos::Array<logical_coord_t, 3> pos_n_smaller{
                 pos_n_smaller_origin[IX] + sx,
@@ -687,11 +687,11 @@ void private_init(AMRmesh::PData& pdata, const Kokkos::Array<logical_coord_t,3>&
 
 } // namespace
 
-AMRmesh::AMRmesh( int dim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const MpiComm& mpi_comm)
+AMRmesh::AMRmesh( int dim, const std::array<bool,3>& periodic, level_t level_min, level_t level_max, const MpiComm& mpi_comm)
 : AMRmesh( dim, periodic, level_min, level_max, {(1U << level_min), (1U << level_min), (dim==3)?(1U << level_min):1 }, mpi_comm )
 {}
 
-AMRmesh::AMRmesh( int dim, const std::array<bool,3>& periodic, uint8_t level_min, uint8_t level_max, const std::array<uint32_t,3>& coarse_grid_size, const MpiComm& mpi_comm)
+AMRmesh::AMRmesh( int dim, const std::array<bool,3>& periodic, level_t level_min, level_t level_max, const std::array<uint32_t,3>& coarse_grid_size, const MpiComm& mpi_comm)
 : pdata( std::make_unique<PData>
   (PData{
     .ndim = dim,
@@ -785,12 +785,12 @@ AMRmesh::Parameters AMRmesh::parse_parameters(ConfigMap& configMap)
   return res;
 }
 
-uint8_t AMRmesh::getDim() const
+uint32_t AMRmesh::getDim() const
 {
   return pdata->storage.getNdim();
 }
 
-bool AMRmesh::getPeriodic(uint8_t i) const
+bool AMRmesh::getPeriodic(uint32_t i) const
 {
   return pdata->periodic[i];
 }
@@ -877,7 +877,7 @@ uint32_t AMRmesh::getNumIntermediateGhosts() const
 }
 
 
-AMRmesh::GhostMap_t AMRmesh::loadBalance(uint8_t level)
+AMRmesh::GhostMap_t AMRmesh::loadBalance(level_t level)
 {
   Storage_t& storage = pdata->storage;
   
@@ -1127,7 +1127,7 @@ void AMRmesh::adapt()
         for(int x=0; x<2; x++)
         if( x!=0 || y!=0 || z!=0 )
         {
-          LightOctree::offset_t offset = {(int8_t)(sx*x),(int8_t)(sy*y),(int8_t)(sz*z)};
+          LightOctree::offset_t offset = {sx*x, sy*y, sz*z};
           DYABLO_ASSERT_KOKKOS_DEBUG(!lmesh.isBoundary({iOct, false}, offset), "Siblings can't be outside domain");
 
           OctantIndex iOct_n = lmesh.findNeighbor({iOct, false},offset);
@@ -1145,9 +1145,9 @@ void AMRmesh::adapt()
 
       // Check neighborhood for 2:1 violations
       int nz_max = ndim == 2? 0:1;
-      for( int8_t nz=-nz_max; nz<=nz_max; nz++ )
-      for( int8_t ny=-1; ny<=1; ny++ )
-      for( int8_t nx=-1; nx<=1; nx++ )
+      for( int32_t nz=-nz_max; nz<=nz_max; nz++ )
+      for( int32_t ny=-1; ny<=1; ny++ )
+      for( int32_t nx=-1; nx<=1; nx++ )
       if( nx!=0 || ny!=0 || nz!=0 )
       {
         if( !lmesh.isBoundary(iOct_c, {nx,ny,nz}) )

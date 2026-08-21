@@ -91,7 +91,7 @@ public:
   {
     CellArray_patch res = array_ref;
     const auto& s = array_ref.shape;
-    res.U = CellArray_patch::View_t(this->pdata.team_member.team_scratch(SCRATCH_LEVEL), s.bx*s.by*s.bz, s.nbFields, 1);
+    res._U = CellArray_patch::View_t(this->pdata.team_member.team_scratch(SCRATCH_LEVEL), s.bx*s.by*s.bz, s.nbFields, 1);
     return res;
   }
 };

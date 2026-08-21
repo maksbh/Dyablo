@@ -52,7 +52,7 @@ public:
   {
     AnalyticalFormula_t& analytical_formula = this->analytical_formula;
     ForeachCell& foreach_cell = this->foreach_cell;
-    uint8_t ndim = foreach_cell.getDim();
+    uint32_t ndim = foreach_cell.getDim();
 
     timers.get("GravitySolver_analytical").start();
 

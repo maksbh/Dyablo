@@ -113,14 +113,19 @@ public:
         CELL_LAMBDA( const CellIndex& iCell_Qpatch )
       {
         ForeachCell::SearchMode_neighbor search_neighbor_origin( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::ORIGIN );
-        CellIndex iCell_Uin = Uin.getShape().convert_index(iCell_Qpatch, search_neighbor_origin);
-        int level_diff = iCell_Uin.level_diff();
+        auto shape = Uin.getShape();
+        CellIndex::Status iCell_Uin_status = shape.convert_index_status(iCell_Qpatch, search_neighbor_origin);
+        int level_diff = CellIndex::level_diff(iCell_Uin_status);
         ConsState u = {};
-        if (iCell_Uin.is_boundary())
+        if (CellIndex::is_boundary(iCell_Uin_status))
+        {
+          CellIndex iCell_Uin = shape.convert_index<CellIndex::BOUNDARY>( iCell_Qpatch, search_neighbor_origin, CellIndex::BOUNDARY );
           u = policy.getBoundaryValue(Uin, iCell_Uin, cellmetadata);
-        else if (level_diff < 0) {
+        }
+        else if (level_diff < 0) { 
+          CellIndex iCell_Uin = shape.convert_index<CellIndex::SMALLER>( iCell_Qpatch, search_neighbor_origin, CellIndex::SMALLER );
           int subcell_count = 
-          foreach_sibling(ndim, iCell_Uin, search_neighbor_origin,
+          foreach_sibling(ndim, iCell_Uin, ForeachCell::SearchMode_local(ForeachCell::SearchMode_local::ASSERT),
             [&](const CellIndex& iCell_neigh) {
               ConsState uloc = policy.getConsState(Uin, iCell_neigh);
               u += uloc;
@@ -128,7 +133,10 @@ public:
           u /= subcell_count;
         }
         else
+        {
+          CellIndex iCell_Uin = shape.convert_index<CellIndex::LOCAL_TO_BLOCK, CellIndex::SAME_SIZE, CellIndex::BIGGER>( iCell_Qpatch, search_neighbor_origin, iCell_Uin_status );
           u = policy.getConsState(Uin, iCell_Uin);
+        }
         
         const PrimState q = policy.consToPrim( u );
         policy.setPrimState( Qpatch, iCell_Qpatch, q );
@@ -138,41 +146,42 @@ public:
         KOKKOS_LAMBDA( const CellIndex& iCell_Uout )
       {
         ForeachCell::SearchMode_neighbor search_neighbor( cellmetadata.getLightOctree(), ForeachCell::SearchMode_neighbor::CLOSEST );
+        ForeachCell::SearchMode_local search_local( ForeachCell::SearchMode_local::INVALID );
 
         // Return Slope at position iCell
-        auto get_slope = [&](const CellIndex &iCell_Uin, const CellIndex &iCell_Qpatch, ComponentIndex3D dir) 
+        auto get_slope = [&](int level_diff_L, int level_diff_R, const CellIndex &iCell_Qpatch, ComponentIndex3D dir) 
         {
           if(!slope_enabled)
             return PrimState{};
 
           const PrimState qC = policy.getPrimState(Qpatch, iCell_Qpatch );
-          offset_t off_m{}; off_m[dir] = -1;
-          const PrimState qL = policy.getPrimState(Qpatch, iCell_Qpatch + off_m); 
-          offset_t off_p{}; off_p[dir] =  1;
-          const PrimState qR = policy.getPrimState(Qpatch, iCell_Qpatch + off_p); 
+          const PrimState qL = policy.getPrimState(Qpatch, iCell_Qpatch.getNeighbor( -(dir==IX), -(dir==IY), -(dir==IZ), search_local, CellIndex::LOCAL_TO_BLOCK )); 
+          const PrimState qR = policy.getPrimState(Qpatch, iCell_Qpatch.getNeighbor(  (dir==IX),  (dir==IY),  (dir==IZ), search_local, CellIndex::LOCAL_TO_BLOCK ));
         
-          //!\ Neighbor cells in Qpatch are averaged cells -> size iCell_L != size iCell_Qpatch_L
-          CellIndex iCell_L = iCell_Uin.getNeighbor(off_m, search_neighbor);
-          CellIndex iCell_R = iCell_Uin.getNeighbor(off_p, search_neighbor);   
-
           // Getting the length right and left
           // Smaller -> use averaged same-size cell -> 1*dx
           // Bigger -> same-size cell in Qpatch has vame value as actual bigger cell -> dx/2 + dx             
-          constexpr real_t sizes[] = {1.0, 1.0, 1.5}; 
-          const real_t dL = sizes[iCell_L.level_diff()+1];
-          const real_t dR = sizes[iCell_R.level_diff()+1];  
+          const real_t dL = level_diff_L > 0 ? 1.5 : 1;
+          const real_t dR = level_diff_R > 0 ? 1.5 : 1;
 
           // Computing minmod slope for the direction
           PrimState slope = policy.compute_slope( qL, qC, qR, dL, dR);
           return slope;
         }; // get_slope
 
+        CellIndex iCell_Qpatch = Qpatch.getShape().convert_index(iCell_Uout, search_local, CellIndex::Status::LOCAL_TO_BLOCK);
+        PrimState qC0 = policy.getPrimState( Qpatch, iCell_Qpatch );
+        auto size_C0 = cellmetadata.getCellSize(iCell_Uout);
 
         auto process_dir = [&](const CellIndex &iCell_Uin, const CellIndex &iCell_Qpatch, ComponentIndex3D dir) {
-          // Getting centered value and slope
-          PrimState qC0 = policy.getPrimState( Qpatch, iCell_Qpatch );
-          PrimState slope_C = get_slope(iCell_Uin, iCell_Qpatch, dir);
-          real_t size_C = cellmetadata.getCellSize(iCell_Uin)[dir];
+          // Getting centered value and slope 
+          auto iCell_Uin_m_status = iCell_Uin.getNeighborStatus(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor);
+          auto iCell_Uin_p_status = iCell_Uin.getNeighborStatus( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor);   
+          int Ldiff = CellIndex::level_diff(iCell_Uin_m_status);
+          int Rdiff = CellIndex::level_diff(iCell_Uin_p_status);
+
+          PrimState slope_C = get_slope(Ldiff, Rdiff, iCell_Qpatch, dir);
+          real_t size_C = size_C0[dir];
 
           real_t dim_fac = (ndim == 2 ? 0.5 : 0.25);
   
@@ -181,22 +190,32 @@ public:
           {
             PrimState qC = qC0 - 0.5 * slope_C;
 
-            offset_t off_m{}; 
-            off_m[dir] = -1;
-            const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor(off_m, search_neighbor);
-            if( iCell_Uin_m.is_boundary() )
+            if( CellIndex::is_boundary(iCell_Uin_m_status) )
             {
+              const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor<CellIndex::BOUNDARY>(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor, CellIndex::BOUNDARY );
               fluxL = policy.getBoundaryFlux(Uin, iCell_Uin_m, qC, cellmetadata);
             }
             else
             {  
-              int Ldiff = iCell_Uin_m.level_diff();
               if (Ldiff >= 0) 
               {
-                CellIndex iCell_Qpatch_m = iCell_Qpatch + off_m;
+                CellIndex iCell_Qpatch_m = iCell_Qpatch.getNeighbor<CellIndex::LOCAL_TO_BLOCK>( -(dir==IX), -(dir==IY), -(dir==IZ), search_local, CellIndex::LOCAL_TO_BLOCK ); 
                 PrimState qL0 = policy.getPrimState( Qpatch, iCell_Qpatch_m );
-                PrimState slope_L = get_slope(iCell_Uin_m, iCell_Qpatch_m, dir);
-                real_t size_L = cellmetadata.getCellSize(iCell_Uin_m)[dir];
+
+                //R neighbor is center cell, smaller if iCell_Uin_m was bigger
+                int level_diff_m_R = -Ldiff;
+                int level_diff_m_L; 
+                if( CellIndex::is_local(iCell_Uin_m_status) )
+                { //L neighbor can be non-local, compute level_diff with 2*offset
+                  auto iCell_Uin_mm_status = iCell_Uin.getNeighborStatus(-2*(dir==IX), -2*(dir==IY), -2*(dir==IZ), search_neighbor);
+                  level_diff_m_L = CellIndex::level_diff(iCell_Uin_mm_status);                
+                }
+                else
+                { //iCell_Uin_m is in a different block
+                  // We assume (bx>=2), LL neighbor is in same block as L
+                  level_diff_m_L = 0;
+                }                
+                PrimState slope_L = get_slope(level_diff_m_L, level_diff_m_R, iCell_Qpatch_m, dir);
 
                 // Reconstructing
                 PrimState qL = qL0 + 0.5 * slope_L;
@@ -207,7 +226,9 @@ public:
                 // Adding flux to the neighbor if it is bigger
                 if (Ldiff == 1) 
                 {
-                  ConsState du_n = fluxL * - dim_fac * dt / size_L;
+                  real_t size_L = 2 * size_C;
+                  ConsState du_n = fluxL * (- dim_fac * dt / size_L);
+                  const CellIndex iCell_Uin_m = iCell_Uin.getNeighbor<CellIndex::BIGGER>(-(dir==IX), -(dir==IY), -(dir==IZ), search_neighbor, CellIndex::BIGGER);
                   policy.atomic_addConsState(Uout, iCell_Uin_m, du_n);
                 }
               } // If smaller we skip
@@ -219,22 +240,32 @@ public:
           {      
             PrimState qC = qC0 + 0.5 * slope_C;
 
-            offset_t off_p{}; 
-            off_p[dir] = 1;
-            const CellIndex iCell_Uin_p = iCell_Uin.getNeighbor(off_p, search_neighbor);
-            if( iCell_Uin_p.is_boundary() )
+            if( CellIndex::is_boundary(iCell_Uin_p_status) )
             {
+              const CellIndex iCell_Uin_p = iCell_Uin.getNeighbor<CellIndex::BOUNDARY>( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor, CellIndex::BOUNDARY);
               fluxR = policy.getBoundaryFlux(Uin, iCell_Uin_p, qC, cellmetadata);
             }
             else
             {
-              int Rdiff = iCell_Uin_p.level_diff();
               if (Rdiff >= 0) 
               {
-                CellIndex iCell_Qpatch_p = iCell_Qpatch + off_p;
+                CellIndex iCell_Qpatch_p = iCell_Qpatch.getNeighbor<CellIndex::LOCAL_TO_BLOCK>(  (dir==IX),  (dir==IY),  (dir==IZ), search_local, CellIndex::LOCAL_TO_BLOCK ); 
                 PrimState qR0 = policy.getPrimState( Qpatch, iCell_Qpatch_p );
-                PrimState slope_R = get_slope(iCell_Uin_p, iCell_Qpatch_p, dir);
-                real_t size_R = cellmetadata.getCellSize(iCell_Uin_p)[dir];
+                
+                //L neighbor is center cell, smaller if iCell_Uin_p was bigger
+                int level_diff_p_L = -Rdiff;
+                int level_diff_p_R;
+                if( CellIndex::is_local(iCell_Uin_p_status) )
+                { //L neighbor can be non-local, compute level_diff with 2*offset
+                  auto iCell_Uin_pp_status = iCell_Uin.getNeighborStatus(2*(dir==IX), 2*(dir==IY), 2*(dir==IZ), search_neighbor);
+                  level_diff_p_R = CellIndex::level_diff(iCell_Uin_pp_status);                
+                }
+                else
+                { //iCell_Uin_m is in a different block
+                  // We assume (bx>=2), LL neighbor is in same block as L
+                  level_diff_p_R = 0;
+                }  
+                PrimState slope_R = get_slope(level_diff_p_L, level_diff_p_R, iCell_Qpatch_p, dir);
 
                 // Reconstructing
                 PrimState qR = qR0 - 0.5 * slope_R;
@@ -245,19 +276,19 @@ public:
                 // Adding flux to the neighbor if it is bigger
                 if (Rdiff == 1)
                 {
-                  ConsState du_n = fluxR * dim_fac * dt / size_R;
+                  real_t size_R = 2 * size_C;
+                  ConsState du_n = fluxR * (dim_fac * dt / size_R);
+                  CellIndex iCell_Uin_p = iCell_Uin.getNeighbor<CellIndex::BIGGER>( (dir==IX),  (dir==IY),  (dir==IZ), search_neighbor, CellIndex::BIGGER);
                   policy.atomic_addConsState(Uout, iCell_Uin_p, du_n);
-                }          
+                }
               }
             }
           } 
 
-          ConsState du = (fluxL-fluxR) * dt / size_C;
+          ConsState du = (fluxL-fluxR) * (dt / size_C);
           return du;
         };
 
-
-        CellIndex iCell_Qpatch = Qpatch.getShape().convert_index(iCell_Uout, search_local);
 
         ConsState du{};
         du += process_dir(iCell_Uout, iCell_Qpatch, IX);

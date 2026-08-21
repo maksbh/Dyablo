@@ -48,7 +48,8 @@ int foreach_neighbor_octant( const LightOctree& lmesh,
     for( int sx=0; sx<=sx_max; sx++ )
     {
       count++;
-      LightOctree::OctantIndex iOct_smaller_n = lmesh.findNeighbor( iOct_neighbor, {(int8_t)sx, (int8_t)sy, (int8_t)sz} );
+      constexpr bool ghosts_enabled = true;
+      LightOctree::OctantIndex iOct_smaller_n = lmesh.findNeighbor<ghosts_enabled>( iOct_neighbor, {sx, sy, sz} );
       DYABLO_ASSERT_KOKKOS_DEBUG( lmesh.getLevel(iOct_smaller_n) == lmesh.getLevel(iOct_neighbor), "All neighbors should be at same level" );
       f( iOct_smaller_n );
     }
